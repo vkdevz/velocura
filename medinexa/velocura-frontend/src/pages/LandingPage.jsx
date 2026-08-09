@@ -159,8 +159,8 @@ export const LandingPage = () => {
 
       {/* 2. HERO SECTION */}
       <section className="py-[72px] px-6 md:px-[40px] text-center max-w-[780px] mx-auto">
-        <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-[20px] px-3.5 py-1 mb-[24px]">
-          <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 tracking-[0.3px]">
+        <div className="inline-flex items-center gap-1.5 bg-[rgba(79,110,247,0.08)] border border-[rgba(79,110,247,0.18)] rounded-[20px] px-3.5 py-1 mb-[24px]">
+          <span className="text-[11px] font-semibold text-[var(--brand)] tracking-[0.3px]">
             ✦ AI-powered · Verified specialists · Trusted by patients across India
           </span>
         </div>
@@ -431,7 +431,7 @@ export const LandingPage = () => {
             {/* Mini Doctor Card 1 */}
             <div className="p-2.5 rounded-[10px] bg-[var(--surface2)] border border-[var(--border)] space-y-1.5">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-bold text-xs flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-bold text-xs flex items-center justify-center">
                   SK
                 </div>
                 <div>
@@ -451,7 +451,7 @@ export const LandingPage = () => {
             {/* Mini Doctor Card 2 */}
             <div className="p-2.5 rounded-[10px] bg-[var(--surface2)] border border-[var(--border)] space-y-1.5">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-bold text-xs flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 text-white font-bold text-xs flex items-center justify-center">
                   RP
                 </div>
                 <div>

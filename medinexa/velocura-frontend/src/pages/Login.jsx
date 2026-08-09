@@ -170,7 +170,7 @@ const Login = () => {
       <div className="w-full max-w-md space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-teal-600 text-white font-bold shadow-lg shadow-teal-900/30">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-900/30">
             <Activity className="w-6 h-6 stroke-[2.5]" />
           </div>
           <h2 className="text-xl font-extrabold text-white tracking-tight">VeloCura Enterprise</h2>
@@ -259,7 +259,7 @@ const Login = () => {
                     setNewPassword('');
                     setShowResetModal(true);
                   }}
-                  className="text-xs text-slate-400 hover:text-emerald-400 font-medium cursor-pointer"
+                  className="text-xs text-slate-400 hover:text-cyan-400 font-medium cursor-pointer"
                 >
                   Forgot Password?
                 </button>
@@ -273,7 +273,7 @@ const Login = () => {
 
           <div className="pt-4 border-t border-slate-800 text-center text-xs text-slate-400">
             Don't have an account?{' '}
-            <Link to="/register" className="text-emerald-400 hover:underline font-semibold">
+            <Link to="/register" className="text-cyan-400 hover:underline font-semibold">
               Create an account
             </Link>
           </div>

@@ -4,16 +4,16 @@
    ============================================================================== */
 
 :root {
-  --bg: #F8FAFC;
+  --bg: #F7F9FF;
   --surface: #FFFFFF;
-  --surface2: #F1F5F9;
-  --brand: #0D9488;
-  --brand-hover: #0F766E;
+  --surface2: #F0F4FF;
+  --brand: #4F6EF7;
+  --brand-hover: #3d5ce6;
   --brand2: #06B6D4;
   --text1: #0D1117;
   --text2: #4A5568;
   --text3: #94A3B8;
-  --border: #E2E8F0;
+  --border: #E8EDF5;
   --border2: #CBD5E1;
   --success: #0D9488;
   --success-bg: rgba(13,148,136,0.08);
@@ -26,7 +26,7 @@
   --radius-md: 10px;
   --radius-lg: 12px;
   --radius-xl: 16px;
-  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(13,148,136,0.08);
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(79,110,247,0.06);
 
   /* Compatibility Mapping */
   --bg-app: var(--bg);
@@ -43,7 +43,7 @@
 
   --color-primary: var(--brand);
   --color-primary-hover: var(--brand-hover);
-  --color-primary-subtle: rgba(13, 148, 136, 0.08);
+  --color-primary-subtle: rgba(79, 110, 247, 0.08);
   --color-teal: #06B6D4;
   --color-teal-subtle: rgba(6, 182, 212, 0.08);
   --color-success: var(--success);
@@ -170,7 +170,7 @@
 
 /* Tag / Badge primitives */
 .tag-brand {
-  background: rgba(13, 148, 136, 0.08);
+  background: rgba(79, 110, 247, 0.08);
   color: var(--brand);
   border-radius: 20px;
   padding: 4px 10px;
