@@ -1,3 +1,12 @@
+import React from 'react';
+import { Routes, Route, Link } from 'react-router-dom';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import PatientDashboard from './pages/PatientDashboard';
+import DoctorDashboard from './pages/DoctorDashboard';
+import AdminDashboard from './pages/AdminDashboard';
+import ProtectedRoute from './components/ProtectedRoute';
+import { DesignSystemShowcase } from './pages/DesignSystemShowcase';
 import { LandingPage } from './pages/LandingPage';
 
 function App() {
