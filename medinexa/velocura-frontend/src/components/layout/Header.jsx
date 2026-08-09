@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   Menu,
   Search,
@@ -11,9 +11,12 @@ import {
   Settings,
   CheckCircle2,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
+import { ThemeContext } from '../../context/ThemeContext';
 
 export const Header = ({
   user,
@@ -25,6 +28,7 @@ export const Header = ({
   activeSectionTitle,
   logout
 }) => {
+  const { theme, toggleTheme } = useContext(ThemeContext);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(2);
@@ -117,6 +121,16 @@ export const Header = ({
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           <span>Clinical Network Online</span>
         </div>
+
+        {/* Theme Mode Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-2 rounded-lg hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--border-focus)]"
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        >
+          {theme === 'dark' ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-600" />}
+        </button>
 
         {/* Notification Entry Point */}
         <div className="relative">

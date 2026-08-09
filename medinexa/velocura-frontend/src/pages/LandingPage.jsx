@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { ThemeContext } from '../context/ThemeContext';
 import api from '../api';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -20,11 +21,14 @@ import {
   BadgeCheck,
   Star,
   Users,
-  Clock
+  Clock,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 export const LandingPage = () => {
   const { user } = useContext(AuthContext);
+  const { theme, toggleTheme } = useContext(ThemeContext);
   const navigate = useNavigate();
 
   // AI Triage Demo States
@@ -125,8 +129,17 @@ export const LandingPage = () => {
           <a href="#testimonials" className="hover:bg-[var(--surface2)] hover:text-[var(--text1)] px-2.5 py-1 rounded-[6px] transition-all">About</a>
         </nav>
 
-        {/* Right CTA */}
-        <div className="flex items-center gap-3">
+        {/* Right CTA & Theme Toggle */}
+        <div className="flex items-center gap-2 md:gap-3">
+          <button
+            onClick={toggleTheme}
+            className="w-8 h-8 rounded-[7px] border border-[var(--border)] bg-slate-900/10 dark:bg-white/[0.03] text-[var(--text2)] hover:text-[var(--text1)] flex items-center justify-center cursor-pointer transition-all"
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+          </button>
+
           {user ? (
             <Button variant="primary" size="sm" onClick={redirectDashboard} icon={ArrowRight} iconPosition="right">
               Workstation
