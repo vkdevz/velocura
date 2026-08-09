@@ -49,6 +49,14 @@ export const AppShell = ({
   const currentTitle = sectionTitles[activeSection] || getSectionTitle(role, activeSection);
   const breadcrumbs = getBreadcrumbsForSection(role, activeSection);
 
+  useEffect(() => {
+    if (role === 'DOCTOR' || role === 'ADMIN') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  }, [role]);
+
   return (
     <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] flex flex-col font-sans selection:bg-cyan-500/30 transition-colors">
       {/* Role-Aware Sidebar Component */}

@@ -1,124 +1,215 @@
 /* ==============================================================================
-   VELOCURA ENTERPRISE HEALTHCARE DESIGN SYSTEM TOKENS
-   Universal Theme System: Dark (Default), Light, System
+   VELOCURA DESIGN SYSTEM TOKENS
+   Light (Default), Dark Mode Overrides, Typography, and Semantic Primitives
    ============================================================================== */
 
-:root, [data-theme="dark"] {
-  /* Surface & Background Hierarchy - Dark Mode */
-  --bg-app: #030712;           /* slate-950 main canvas */
-  --bg-surface: #0f172a;       /* slate-900 clinical card surface */
-  --bg-elevated: #1e293b;      /* slate-800 modal/dropdown/panel surface */
-  --bg-subtle: rgba(15, 23, 42, 0.6);
+:root {
+  --bg: #F7F9FF;
+  --surface: #FFFFFF;
+  --surface2: #F0F4FF;
+  --brand: #4F6EF7;
+  --brand-hover: #3d5ce6;
+  --brand2: #06B6D4;
+  --text1: #0D1117;
+  --text2: #4A5568;
+  --text3: #94A3B8;
+  --border: #E8EDF5;
+  --border2: #CBD5E1;
+  --success: #0D9488;
+  --success-bg: rgba(13,148,136,0.08);
+  --warning: #D97706;
+  --warning-bg: rgba(217,119,6,0.08);
+  --danger: #DC2626;
+  --danger-bg: rgba(220,38,38,0.06);
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(79,110,247,0.06);
 
-  /* Borders & Dividers */
-  --border-subtle: #1e293b;    /* slate-800 */
-  --border-default: #334155;   /* slate-700 */
-  --border-focus: #06b6d4;     /* cyan-500 */
+  /* Compatibility Mapping */
+  --bg-app: var(--bg);
+  --bg-surface: var(--surface);
+  --bg-elevated: var(--surface2);
+  --bg-subtle: var(--surface2);
+  --border-subtle: var(--border);
+  --border-default: var(--border2);
+  --border-focus: var(--brand);
+  --text-primary: var(--text1);
+  --text-secondary: var(--text2);
+  --text-muted: var(--text3);
+  --text-inverse: #FFFFFF;
 
-  /* Text Hierarchy */
-  --text-primary: #f8fafc;     /* slate-50 */
-  --text-secondary: #94a3b8;   /* slate-400 */
-  --text-muted: #64748b;       /* slate-500 */
-  --text-inverse: #020617;
-
-  /* Clinical Brand & Status Semantics */
-  --color-primary: #06b6d4;    /* Cyan primary action */
-  --color-primary-hover: #0891b2;
-  --color-primary-subtle: rgba(6, 182, 212, 0.1);
-
-  --color-teal: #14b8a6;       /* Teal clinical accent */
-  --color-teal-subtle: rgba(20, 184, 166, 0.1);
-
-  --color-success: #10b981;    /* Emerald success/confirmed */
-  --color-success-subtle: rgba(16, 185, 129, 0.1);
-
-  --color-warning: #f59e0b;    /* Amber pending/warning */
-  --color-warning-subtle: rgba(245, 158, 11, 0.1);
-
-  --color-danger: #ef4444;     /* Red critical/emergency/cancelled */
-  --color-danger-subtle: rgba(239, 68, 68, 0.1);
-
-  --color-purple: #a855f7;     /* Admin/specialist purple */
-  --color-purple-subtle: rgba(168, 85, 247, 0.1);
+  --color-primary: var(--brand);
+  --color-primary-hover: var(--brand-hover);
+  --color-primary-subtle: rgba(79, 110, 247, 0.08);
+  --color-teal: #06B6D4;
+  --color-teal-subtle: rgba(6, 182, 212, 0.08);
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-bg);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-bg);
+  --color-purple: #A855F7;
+  --color-purple-subtle: rgba(168, 85, 247, 0.08);
 }
 
-[data-theme="light"] {
-  /* Surface & Background Hierarchy - Light Mode */
-  --bg-app: #f8fafc;           /* slate-50 clean canvas */
-  --bg-surface: #ffffff;       /* pure white clinical surface */
-  --bg-elevated: #f1f5f9;      /* slate-100 modal/dropdown/panel surface */
-  --bg-subtle: #f8fafc;
+[data-theme="dark"] {
+  --bg: #080C18;
+  --surface: #0D1424;
+  --surface2: #111827;
+  --text1: #F1F5F9;
+  --text2: #94A3B8;
+  --text3: #475569;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
 
-  /* Borders & Dividers */
-  --border-subtle: #e2e8f0;    /* slate-200 */
-  --border-default: #cbd5e1;   /* slate-300 */
-  --border-focus: #0891b2;     /* cyan-600 */
-
-  /* Text Hierarchy */
-  --text-primary: #0f172a;     /* slate-900 */
-  --text-secondary: #475569;   /* slate-600 */
-  --text-muted: #64748b;       /* slate-500 */
-  --text-inverse: #ffffff;
-
-  /* Clinical Brand & Status Semantics - Light Mode High Contrast */
-  --color-primary: #0891b2;    /* Cyan 600 */
-  --color-primary-hover: #0e7490;
-  --color-primary-subtle: rgba(8, 145, 178, 0.1);
-
-  --color-teal: #0d9488;       /* Teal 600 */
-  --color-teal-subtle: rgba(13, 148, 136, 0.1);
-
-  --color-success: #059669;    /* Emerald 600 */
-  --color-success-subtle: rgba(5, 150, 105, 0.1);
-
-  --color-warning: #d97706;    /* Amber 600 */
-  --color-warning-subtle: rgba(217, 119, 6, 0.1);
-
-  --color-danger: #dc2626;     /* Red 600 */
-  --color-danger-subtle: rgba(220, 38, 38, 0.1);
-
-  --color-purple: #9333ea;     /* Purple 600 */
-  --color-purple-subtle: rgba(147, 51, 234, 0.1);
+  /* Compatibility Mapping */
+  --bg-app: var(--bg);
+  --bg-surface: var(--surface);
+  --bg-elevated: var(--surface2);
+  --bg-subtle: var(--surface2);
+  --border-subtle: var(--border);
+  --border-default: var(--border2);
+  --text-primary: var(--text1);
+  --text-secondary: var(--text2);
+  --text-muted: var(--text3);
+  --text-inverse: #0D1117;
 }
 
-/* Enterprise Surface Utilities */
-.surface-card {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.75rem; /* 12px clean enterprise radius */
-  color: var(--text-primary);
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+/* Typography scale helper classes */
+.font-hero {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 54px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
 }
 
-.surface-elevated {
-  background-color: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  border-radius: 0.75rem;
-  color: var(--text-primary);
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+.font-section-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
-/* Accessible focus ring */
-.focus-ring {
-  outline: 2px solid transparent;
-  outline-offset: 2px;
-}
-.focus-ring:focus-visible {
-  outline-color: var(--border-focus);
+.font-card-heading {
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
 }
 
-/* Clean Custom Scrollbar */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.font-body-large {
+  font-family: 'Inter', sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.6;
 }
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: var(--bg-app);
+
+.font-body {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.6;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--border-default);
-  border-radius: 4px;
+
+.font-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+
+.font-caption {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text3);
+}
+
+.font-mono-data {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+/* Card primitives */
+.card-standard {
+  background-color: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+.card-hover {
+  background-color: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.card-hover:hover {
+  border-color: var(--brand);
+  transform: translateY(-2px);
+}
+
+.card-tinted {
+  background-color: var(--surface2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+
+/* Tag / Badge primitives */
+.tag-brand {
+  background: rgba(79, 110, 247, 0.08);
+  color: var(--brand);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tag-success {
+  background: var(--success-bg);
+  color: var(--success);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tag-warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tag-danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tag-cyan {
+  background: rgba(6, 182, 212, 0.08);
+  color: #06B6D4;
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
 }
