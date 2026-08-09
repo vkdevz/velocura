@@ -170,7 +170,7 @@ const Login = () => {
       <div className="w-full max-w-md space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-cyan-500 text-slate-950 font-bold shadow-sm">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-teal-600 text-white font-bold shadow-lg shadow-teal-900/30">
             <Activity className="w-6 h-6 stroke-[2.5]" />
           </div>
           <h2 className="text-xl font-extrabold text-white tracking-tight">VeloCura Enterprise</h2>
@@ -185,9 +185,9 @@ const Login = () => {
         )}
         {error && <Alert variant="error" onClose={() => setError('')}>{error}</Alert>}
 
-        {/* 1-Click Quick Fill Admin Helper */}
-        <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
-          <p className="text-[10px] uppercase font-mono font-bold text-slate-400">⚡ 1-Click Quick Fill Admin Sign-In</p>
+        {/* 1-Click Quick Fill Demo Helper */}
+        <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-xl space-y-2.5">
+          <p className="text-[10px] uppercase font-mono font-bold text-slate-400">⚡ 1-Click Demo Sign-In Helper</p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -198,18 +198,29 @@ const Login = () => {
               }}
               className="text-xs font-mono bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/20 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
             >
-              admin@velocura.com
+              👑 Admin Demo
             </button>
             <button
               type="button"
               onClick={() => {
-                setEmail('developers.vkgroup@gmail.com');
-                setPassword('VeloCuraAdmin_#2026_SecureKey');
+                setEmail('doctor@velocura.com');
+                setPassword('VeloCuraDoctor_#2026_SecureKey');
                 setError('');
               }}
-              className="text-xs font-mono bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+              className="text-xs font-mono bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 border border-teal-500/20 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
             >
-              developers.vkgroup@gmail.com
+              🩺 Doctor Demo
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('patient@velocura.com');
+                setPassword('VeloCuraPatient_#2026_SecureKey');
+                setError('');
+              }}
+              className="text-xs font-mono bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+            >
+              👤 Patient Demo
             </button>
           </div>
         </div>
@@ -248,7 +259,7 @@ const Login = () => {
                     setNewPassword('');
                     setShowResetModal(true);
                   }}
-                  className="text-xs text-slate-400 hover:text-cyan-400 font-medium cursor-pointer"
+                  className="text-xs text-slate-400 hover:text-emerald-400 font-medium cursor-pointer"
                 >
                   Forgot Password?
                 </button>
@@ -262,7 +273,7 @@ const Login = () => {
 
           <div className="pt-4 border-t border-slate-800 text-center text-xs text-slate-400">
             Don't have an account?{' '}
-            <Link to="/register" className="text-cyan-400 hover:underline font-semibold">
+            <Link to="/register" className="text-emerald-400 hover:underline font-semibold">
               Create an account
             </Link>
           </div>

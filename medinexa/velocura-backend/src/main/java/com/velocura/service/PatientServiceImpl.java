@@ -48,7 +48,7 @@ public class PatientServiceImpl implements PatientService {
     }
 
     private Patient fetchPatientByEmail(String email) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
         return patientRepository.findById(user.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient profile not found for user ID: " + user.getId()));
@@ -144,7 +144,7 @@ public class PatientServiceImpl implements PatientService {
     @Override
     @Transactional(readOnly = true)
     public PatientPassportDto getPatientPassport(String email) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
         Patient patient = patientRepository.findById(user.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient profile not found for user: " + user.getId()));
@@ -157,7 +157,7 @@ public class PatientServiceImpl implements PatientService {
     @Override
     @Transactional
     public PatientPassportDto updatePatientPassport(String email, PatientPassportDto request) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
         Patient patient = patientRepository.findById(user.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient profile not found for user: " + user.getId()));

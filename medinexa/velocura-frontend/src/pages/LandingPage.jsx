@@ -109,7 +109,7 @@ export const LandingPage = () => {
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text1)] flex flex-col font-sans">
       {/* 1. STICKY NAV */}
-      <header className="sticky top-0 z-50 glass-nav h-[56px] px-6 md:px-10 flex items-center justify-between">
+      <header className="sticky top-0 z-50 glass-nav h-[56px] px-4 md:px-10 flex items-center justify-between">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
           <div className="w-[30px] h-[30px] rounded-[8px] bg-[var(--brand)] flex items-center justify-center text-white shadow-sm">
             <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -121,7 +121,7 @@ export const LandingPage = () => {
           </span>
         </div>
 
-        {/* Navigation Links */}
+        {/* Navigation Links — Desktop */}
         <nav className="hidden md:flex items-center space-x-6 text-[13px] font-medium text-[var(--text2)]">
           <a href="#how-it-works" className="hover:bg-[var(--surface2)] hover:text-[var(--text1)] px-2.5 py-1 rounded-[6px] transition-all">How it works</a>
           <a href="#trust" className="hover:bg-[var(--surface2)] hover:text-[var(--text1)] px-2.5 py-1 rounded-[6px] transition-all">Find a doctor</a>
@@ -159,8 +159,8 @@ export const LandingPage = () => {
 
       {/* 2. HERO SECTION */}
       <section className="py-[72px] px-6 md:px-[40px] text-center max-w-[780px] mx-auto">
-        <div className="inline-flex items-center gap-1.5 bg-[rgba(79,110,247,0.08)] border border-[rgba(79,110,247,0.18)] rounded-[20px] px-3.5 py-1 mb-[24px]">
-          <span className="text-[11px] font-semibold text-[var(--brand)] tracking-[0.3px]">
+        <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-[20px] px-3.5 py-1 mb-[24px]">
+          <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 tracking-[0.3px]">
             ✦ AI-powered · Verified specialists · Trusted by patients across India
           </span>
         </div>
@@ -431,7 +431,7 @@ export const LandingPage = () => {
             {/* Mini Doctor Card 1 */}
             <div className="p-2.5 rounded-[10px] bg-[var(--surface2)] border border-[var(--border)] space-y-1.5">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-bold text-xs flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-bold text-xs flex items-center justify-center">
                   SK
                 </div>
                 <div>
@@ -451,7 +451,7 @@ export const LandingPage = () => {
             {/* Mini Doctor Card 2 */}
             <div className="p-2.5 rounded-[10px] bg-[var(--surface2)] border border-[var(--border)] space-y-1.5">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 text-white font-bold text-xs flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-bold text-xs flex items-center justify-center">
                   RP
                 </div>
                 <div>

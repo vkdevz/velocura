@@ -721,7 +721,7 @@ const PatientDashboard = () => {
                     Record New Vitals
                   </CardTitle>
                   <form onSubmit={handleAddVitals} className="space-y-3 mt-4">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <Input
                         label="Systolic (mmHg)"
                         type="number"
@@ -739,7 +739,7 @@ const PatientDashboard = () => {
                         required
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <Input
                         label="Heart Rate (BPM)"
                         type="number"

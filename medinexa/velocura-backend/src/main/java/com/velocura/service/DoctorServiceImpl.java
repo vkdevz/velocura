@@ -41,7 +41,7 @@ public class DoctorServiceImpl implements DoctorService {
     }
 
     private Doctor fetchDoctorByEmail(String email) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
         return doctorRepository.findById(user.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor profile not found for user ID: " + user.getId()));

@@ -222,7 +222,7 @@ export const DesignSystemShowcase = () => {
             <CardHeader>
               <CardTitle subtitle="Card with stats breakdown">Vitals Summary Container</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-3">
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="p-3 bg-slate-950 rounded border border-slate-800">
                 <p className="text-[10px] font-mono text-slate-500 uppercase">Blood Pressure</p>
                 <p className="text-sm font-bold text-slate-100 font-mono">120/80 mmHg</p>
