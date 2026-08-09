@@ -18,6 +18,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @Component
 public class DatabaseSeeder implements CommandLineRunner {
 
@@ -45,6 +47,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     }
 
     @Override
+    @Transactional
     public void run(String... args) throws Exception {
         try {
             String defaultPassword = (adminPassword != null && !adminPassword.trim().isEmpty()) ? adminPassword : "VeloCuraAdmin_#2026_SecureKey";
@@ -81,15 +84,14 @@ public class DatabaseSeeder implements CommandLineRunner {
             String docEmail = "doctor@velocura.com";
             Optional<User> docOpt = userRepository.findByEmailIgnoreCase(docEmail);
             if (docOpt.isEmpty()) {
-                User docUser = User.builder()
+                User docUser = userRepository.save(User.builder()
                         .email(docEmail)
                         .password(passwordEncoder.encode("VeloCuraDoctor_#2026_SecureKey"))
                         .firstName("Sarah")
                         .lastName("Jenkins")
                         .role(Role.DOCTOR)
                         .isActive(true)
-                        .build();
-                userRepository.save(docUser);
+                        .build());
 
                 Doctor doctor = Doctor.builder()
                         .user(docUser)
@@ -108,15 +110,14 @@ public class DatabaseSeeder implements CommandLineRunner {
             String patientEmail = "patient@velocura.com";
             Optional<User> patOpt = userRepository.findByEmailIgnoreCase(patientEmail);
             if (patOpt.isEmpty()) {
-                User patUser = User.builder()
+                User patUser = userRepository.save(User.builder()
                         .email(patientEmail)
                         .password(passwordEncoder.encode("VeloCuraPatient_#2026_SecureKey"))
                         .firstName("Alex")
                         .lastName("Sharma")
                         .role(Role.PATIENT)
                         .isActive(true)
-                        .build();
-                userRepository.save(patUser);
+                        .build());
 
                 Patient patient = Patient.builder()
                         .user(patUser)
