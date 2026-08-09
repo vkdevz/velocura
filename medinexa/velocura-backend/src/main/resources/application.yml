@@ -5,10 +5,12 @@ spring:
   application:
     name: velocura-backend
   datasource:
-    url: ${DB_URL:${DATABASE_URL:jdbc:h2:file:./velocura_db;DB_CLOSE_DELAY=-1}}
+    url: ${DB_URL:${DATABASE_URL:jdbc:h2:file:./velocura_db;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1}}
+    driver-class-name: ${DB_DRIVER:org.h2.Driver}
     username: ${DB_USERNAME:sa}
     password: ${DB_PASSWORD:}
   jpa:
+    database-platform: ${DB_DIALECT:org.hibernate.dialect.H2Dialect}
     open-in-view: false
     hibernate:
       ddl-auto: update
