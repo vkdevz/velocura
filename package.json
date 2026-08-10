@@ -1,0 +1,16 @@
+{
+  "name": "velocura-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "velocura-frontend"
+  ],
+  "scripts": {
+    "build": "npm --prefix velocura-frontend run build",
+    "install-frontend": "npm --prefix velocura-frontend install",
+    "dev": "npm --prefix velocura-frontend run dev"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

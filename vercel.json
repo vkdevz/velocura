@@ -1,7 +1,7 @@
 {
-  "buildCommand": "cd velocura-frontend && npm run build",
+  "buildCommand": "npm --prefix velocura-frontend run build",
   "outputDirectory": "velocura-frontend/dist",
-  "installCommand": "cd velocura-frontend && npm install",
+  "installCommand": "npm --prefix velocura-frontend install",
   "framework": "vite",
   "rewrites": [
     {
