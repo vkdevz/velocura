@@ -1,24 +1,31 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# Dependencies & Build Output
+node_modules/
+dist/
+dist-ssr/
+target/
+.m2/
 
-node_modules
-dist
-dist-ssr
+# Environment & Local Configuration
 *.local
+.env
+.env.*
 
-# Editor directories and files
+# Database & Logs
+*.log
+logs/
+*.mv.db
+*.trace.db
+*.lock.db
+query.sql
+
+# Editor & OS files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
