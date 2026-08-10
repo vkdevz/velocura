@@ -1,92 +1,72 @@
 import { useState, useContext, useEffect } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import api from '../api';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Alert } from '../components/ui/Alert';
-import { Modal } from '../components/ui/Modal';
-import { Activity, KeyRound, Mail, ShieldAlert, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 const Login = () => {
   const { login, user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-
-  // Form states
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [expiredMsg, setExpiredMsg] = useState(false);
 
-  // Password Reset Modal states
+  // Reset Password hooks
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetStep, setResetStep] = useState(1);
   const [resetEmail, setResetEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
-
-  // Resend OTP cooldown timer (30s)
+  const [resetLoading, setResetLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
     let timer;
     if (resendCooldown > 0) {
       timer = setInterval(() => {
-        setResendCooldown(prev => prev - 1);
+        setResendCooldown((prev) => prev - 1);
       }, 1000);
     }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
+    return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  const handleRequestResetOtp = async (e) => {
-    e.preventDefault();
-    if (!resetEmail) {
-      setResetError('Please enter your email address.');
-      return;
-    }
+  const handleResendResetOtp = async () => {
+    if (resendCooldown > 0 || !resetEmail) return;
     setResetError('');
     setResetSuccess('');
     setResetLoading(true);
-
     try {
       await api.post('/api/auth/reset-password/request', { email: resetEmail });
-      setResetSuccess('Verification code dispatched! Check your email outbox.');
-      setResetStep(2);
+      setResetSuccess(`Fresh reset code sent to ${resetEmail}!`);
       setResendCooldown(30);
     } catch (err) {
       console.error(err);
-      if (err.response && err.response.data && typeof err.response.data === 'string') {
-        setResetError(err.response.data);
-      } else {
-        setResetError('Failed to send verification code. Please check your email address.');
-      }
+      setResetError('Failed to resend code. Please check email address.');
     } finally {
       setResetLoading(false);
     }
   };
 
-  const handleResendResetOtp = async () => {
-    if (resendCooldown > 0) return;
+  const handleRequestReset = async (e) => {
+    e.preventDefault();
     setResetError('');
     setResetSuccess('');
     setResetLoading(true);
-
     try {
       await api.post('/api/auth/reset-password/request', { email: resetEmail });
-      setResetSuccess('Fresh 6-digit security code generated and sent.');
-      setResendCooldown(30);
+      setResetSuccess(`Verification OTP sent to ${resetEmail}. Check your inbox or terminal logs.`);
+      setResetStep(2);
     } catch (err) {
+      console.error(err);
       if (err.response && err.response.data && typeof err.response.data === 'string') {
         setResetError(err.response.data);
       } else {
-        setResetError('Failed to resend code.');
+        setResetError('No user account associated with that email address.');
       }
     } finally {
       setResetLoading(false);
@@ -104,12 +84,13 @@ const Login = () => {
         code: resetCode,
         newPassword
       });
-      setResetSuccess('Password updated successfully! Redirecting...');
+      setResetSuccess('Password has been successfully updated!');
       setTimeout(() => {
         setShowResetModal(false);
         setEmail(resetEmail);
       }, 1500);
     } catch (err) {
+      console.error(err);
       if (err.response && err.response.data && typeof err.response.data === 'string') {
         setResetError(err.response.data);
       } else {
@@ -121,9 +102,11 @@ const Login = () => {
   };
 
   useEffect(() => {
+    // If user is already authenticated, redirect them directly to dashboard
     if (user) {
       redirectUser(user.role);
     }
+
     if (searchParams.get('expired') === 'true') {
       setExpiredMsg(true);
     }
@@ -150,9 +133,11 @@ const Login = () => {
     try {
       const response = await api.post('/api/auth/login', { email, password });
       const { token, email: userEmail, role, firstName, lastName } = response.data;
+      
       login(token, userEmail, role, firstName, lastName);
       redirectUser(role);
     } catch (err) {
+      console.error(err);
       if (err.response && err.response.status === 401) {
         setError('Invalid email or password.');
       } else if (err.response && err.response.data && typeof err.response.data === 'string') {
@@ -166,88 +151,76 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
-        {/* Brand Header */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-900/30">
-            <Activity className="w-6 h-6 stroke-[2.5]" />
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center relative overflow-hidden px-4">
+      {/* Background decoration elements */}
+      <div className="absolute top-[-10%] left-[-15%] w-[400px] h-[400px] bg-cyan-500/10 rounded-full blur-[100px] animate-pulse-glow" />
+      <div className="absolute bottom-[-10%] right-[-15%] w-[400px] h-[400px] bg-teal-500/10 rounded-full blur-[100px] animate-pulse-glow" />
+
+      <div className="w-full max-w-md z-10">
+        {/* Brand header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-teal-500 items-center justify-center shadow-lg shadow-cyan-500/20 mb-4 hover:scale-105 transition-transform duration-300">
+            <svg className="w-7 h-7 text-slate-950 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+            </svg>
           </div>
-          <h2 className="text-xl font-extrabold text-white tracking-tight">VeloCura Enterprise</h2>
-          <p className="text-xs text-slate-400 font-mono">Sign in to access your clinical workstation</p>
+          <h2 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">Welcome Back</h2>
+          <p className="text-sm text-slate-400 mt-2 font-mono">Access your VeloCura medical portal</p>
         </div>
 
-        {/* System Alerts */}
-        {expiredMsg && (
-          <Alert variant="warning" title="Session Expired">
-            Your login session expired. Please sign in again.
-          </Alert>
-        )}
-        {error && <Alert variant="error" onClose={() => setError('')}>{error}</Alert>}
+        {/* Card */}
+        <div className="glass-card rounded-3xl p-8 shadow-2xl relative">
+          
+          {/* Notifications */}
+          {expiredMsg && (
+            <div className="mb-6 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs flex items-center gap-3">
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>Session expired. Please sign in again.</span>
+            </div>
+          )}
 
-        {/* 1-Click Quick Fill Demo Helper */}
-        <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-xl space-y-2.5">
-          <p className="text-[10px] uppercase font-mono font-bold text-slate-400">⚡ 1-Click Demo Sign-In Helper</p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setEmail('admin@velocura.com');
-                setPassword('VeloCuraAdmin_#2026_SecureKey');
-                setError('');
-              }}
-              className="text-xs font-mono bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/20 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
-            >
-              👑 Admin Demo
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEmail('doctor@velocura.com');
-                setPassword('VeloCuraDoctor_#2026_SecureKey');
-                setError('');
-              }}
-              className="text-xs font-mono bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 border border-teal-500/20 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
-            >
-              🩺 Doctor Demo
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEmail('patient@velocura.com');
-                setPassword('VeloCuraPatient_#2026_SecureKey');
-                setError('');
-              }}
-              className="text-xs font-mono bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
-            >
-              👤 Patient Demo
-            </button>
-          </div>
-        </div>
+          {error && (
+            <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-3">
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{error}</span>
+            </div>
+          )}
 
-        {/* Main Sign In Form */}
-        <div className="surface-card p-6 space-y-5">
-          <form onSubmit={handleLoginSubmit} className="space-y-4">
-            <Input
-              label="Email Address"
-              type="email"
-              placeholder="you@example.com"
-              icon={Mail}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+
+
+          <form onSubmit={handleLoginSubmit} className="space-y-6">
+            
+            {/* Email input */}
             <div>
-              <Input
-                label="Password"
+              <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Email Address</label>
+              <input
+                id="email"
+                type="email"
+                required
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+
+            {/* Password input */}
+            <div>
+              <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Password</label>
+              <input
+                id="password"
                 type="password"
+                required
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
                 placeholder="••••••••"
-                icon={KeyRound}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
               />
-              <div className="flex justify-end mt-1.5">
+              <div className="flex justify-end mt-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -259,92 +232,169 @@ const Login = () => {
                     setNewPassword('');
                     setShowResetModal(true);
                   }}
-                  className="text-xs text-slate-400 hover:text-cyan-400 font-medium cursor-pointer"
+                  className="text-xs text-slate-500 hover:text-cyan-400 font-semibold transition-colors duration-200 cursor-pointer"
                 >
                   Forgot Password?
                 </button>
               </div>
             </div>
 
-            <Button type="submit" variant="primary" size="md" isLoading={loading} className="w-full">
-              Sign In to Workstation
-            </Button>
+            {/* Submit button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-bold py-3.5 rounded-xl hover:shadow-lg hover:shadow-cyan-500/10 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:scale-100 disabled:shadow-none transition-all duration-200 flex items-center justify-center text-sm cursor-pointer"
+            >
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin mr-2.5" />
+                  <span>Logging in...</span>
+                </>
+              ) : (
+                <span>Sign In</span>
+              )}
+            </button>
           </form>
 
-          <div className="pt-4 border-t border-slate-800 text-center text-xs text-slate-400">
+          {/* Redirect to Register link */}
+          <div className="mt-8 text-center text-xs text-slate-500 border-t border-slate-900/60 pt-6">
             Don't have an account?{' '}
-            <Link to="/register" className="text-cyan-400 hover:underline font-semibold">
+            <Link to="/register" className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors duration-200">
               Create an account
             </Link>
           </div>
+
         </div>
 
-        <div className="text-center">
-          <Link to="/" className="text-xs text-slate-500 hover:text-slate-400 font-mono inline-flex items-center gap-1">
-            ← Return to public website
+        {/* Back Link */}
+        <div className="text-center mt-6">
+          <Link to="/" className="text-slate-500 hover:text-slate-400 text-xs transition-colors duration-200 inline-flex items-center gap-1">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to homepage
           </Link>
         </div>
+
       </div>
 
-      {/* Password Reset Modal */}
-      <Modal
-        isOpen={showResetModal}
-        onClose={() => setShowResetModal(false)}
-        title="Reset Account Password"
-        subtitle="Verify email ownership via 6-digit Security OTP"
-      >
-        {resetError && <Alert variant="error" className="mb-4">{resetError}</Alert>}
-        {resetSuccess && <Alert variant="success" className="mb-4">{resetSuccess}</Alert>}
+      {/* Password Reset Modal Overlay */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative">
+            
+            {/* Key SVG Decoration */}
+            <div className="mx-auto w-12 h-12 bg-cyan-500/10 border border-cyan-500/25 rounded-2xl flex items-center justify-center mb-6 text-cyan-400">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 7a2 2 0 012 2m-2 4a5 5 0 11-4-4l6-6h3v3v2h-2v2h-2V13z" />
+              </svg>
+            </div>
 
-        {resetStep === 1 ? (
-          <form onSubmit={handleRequestResetOtp} className="space-y-4">
-            <Input
-              label="Registered Email Address"
-              type="email"
-              placeholder="you@example.com"
-              icon={Mail}
-              value={resetEmail}
-              onChange={(e) => setResetEmail(e.target.value)}
-              required
-            />
-            <Button type="submit" variant="primary" size="sm" isLoading={resetLoading} className="w-full">
-              Send Security OTP Code
-            </Button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyReset} className="space-y-4">
-            <Input
-              label="6-Digit OTP Code"
-              placeholder="123456"
-              maxLength={6}
-              value={resetCode}
-              onChange={(e) => setResetCode(e.target.value)}
-              required
-            />
-            <Input
-              label="New Password"
-              type="password"
-              placeholder="••••••••"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-            />
-            <div className="flex items-center justify-between pt-1">
+            <h3 className="text-xl font-bold text-center text-white">Reset Account Password</h3>
+            <p className="text-xs text-slate-400 text-center mt-2 leading-relaxed">
+              Verify your identity via secure email OTP verification.
+            </p>
+
+            {resetError && (
+              <div className="mt-4 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{resetError}</span>
+              </div>
+            )}
+
+            {resetSuccess && (
+              <div className="mt-4 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{resetSuccess}</span>
+              </div>
+            )}
+
+            {resetStep === 1 ? (
+              <form onSubmit={handleRequestReset} className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 font-mono">Registered Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="you@example.com"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all duration-200"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="w-full bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-bold py-3.5 rounded-xl text-sm transition-all duration-200 cursor-pointer disabled:opacity-40"
+                >
+                  {resetLoading ? 'Sending OTP...' : 'Send Verification Code'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyReset} className="mt-6 space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 font-mono">6-Digit Verification Code</label>
+                    <button
+                      type="button"
+                      onClick={handleResendResetOtp}
+                      disabled={resendCooldown > 0 || resetLoading}
+                      className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold disabled:text-slate-600 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                    >
+                      {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'Resend OTP'}
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    maxLength="6"
+                    required
+                    placeholder="000000"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-center tracking-[0.2em] font-bold font-mono text-white focus:outline-none focus:border-cyan-500/50 transition-all duration-200"
+                    value={resetCode}
+                    onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 font-mono">New Secure Password</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all duration-200"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="w-full bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-bold py-3.5 rounded-xl text-sm transition-all duration-200 cursor-pointer disabled:opacity-40"
+                >
+                  {resetLoading ? 'Resetting...' : 'Verify & Set New Password'}
+                </button>
+              </form>
+            )}
+
+            <div className="text-center mt-6">
               <button
                 type="button"
-                onClick={handleResendResetOtp}
-                disabled={resendCooldown > 0 || resetLoading}
-                className="text-xs font-mono text-cyan-400 hover:underline disabled:opacity-50 cursor-pointer"
+                onClick={() => setShowResetModal(false)}
+                className="text-xs text-slate-500 hover:text-slate-400 font-semibold"
               >
-                {resendCooldown > 0 ? `Resend Code (${resendCooldown}s)` : 'Resend OTP'}
+                Close / Cancel
               </button>
             </div>
-            <Button type="submit" variant="primary" size="sm" isLoading={resetLoading} className="w-full">
-              Verify OTP & Save New Password
-            </Button>
-          </form>
-        )}
-      </Modal>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };

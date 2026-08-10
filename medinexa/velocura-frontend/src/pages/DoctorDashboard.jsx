@@ -1,150 +1,104 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import api from '../api';
-
-// Components & UI Elements
 import TelehealthRoom from '../components/TelehealthRoom';
-import { AppShell } from '../components/layout/AppShell';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Select } from '../components/ui/Select';
-import { Textarea } from '../components/ui/Textarea';
-import { Badge } from '../components/ui/Badge';
-import { StatusBadge } from '../components/ui/StatusBadge';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
-import { Modal } from '../components/ui/Modal';
-import { Drawer } from '../components/ui/Drawer';
-import { Alert } from '../components/ui/Alert';
-import { EmptyState } from '../components/ui/EmptyState';
-import { Skeleton, CardSkeleton } from '../components/ui/Skeleton';
-
-// Clinical Components
-import { PatientIdentityHeader } from '../components/clinical/PatientIdentityHeader';
-import { VoiceDictationButton } from '../components/clinical/VoiceDictationButton';
-import { PrescriptionReviewModal } from '../components/clinical/PrescriptionReviewModal';
-import { ClinicalTimeline } from '../components/clinical/ClinicalTimeline';
-
-// Icons
-import {
-  Calendar,
-  Stethoscope,
-  UserCheck,
-  Award,
-  Video,
-  PhoneOff,
-  CheckCircle2,
-  AlertTriangle,
-  Plus,
-  FileText,
-  Clock,
-  Shield,
-  Trash2,
-  X,
-  Search,
-  Users,
-  ArrowRight,
-  Activity,
-  Filter,
-  User,
-  ShieldCheck
-} from 'lucide-react';
+import ThemeToggle from '../components/ThemeToggle';
 
 const DoctorDashboard = () => {
-  const { user } = useContext(AuthContext);
-  const location = useLocation();
+  const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('overview');
 
-  // Active Tab state
-  const [activeTab, setActiveTab] = useState('schedule');
-
-  useEffect(() => {
-    const segments = location.pathname.split('/').filter(Boolean);
-    const sub = segments[1];
-    if (sub && sub !== 'dashboard' && ['schedule', 'patients', 'appointments', 'consultations', 'prescriptions', 'passport', 'profile'].includes(sub)) {
-      setActiveTab(sub);
-    } else if (sub === 'dashboard') {
-      setActiveTab('schedule');
-    }
-  }, [location.pathname]);
-
-  const handleTabChange = (tabId) => {
-    setActiveTab(tabId);
-    if (tabId === 'schedule') {
-      navigate('/doctor/dashboard');
-    } else {
-      navigate(`/doctor/${tabId}`);
-    }
-  };
-
-  // Core Data States
+  // Core Data states
   const [profile, setProfile] = useState(null);
   const [appointments, setAppointments] = useState([]);
+
+  // Loading & notification states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Search & Filtering States
-  const [patientSearch, setPatientSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
-
   // Profile Edit fields
-  const [specialty, setSpecialty] = useState('General Medicine');
-  const [licenseNumber, setLicenseNumber] = useState('');
-  const [bio, setBio] = useState('');
-  const [consultationFee, setConsultationFee] = useState(50.00);
+  const [specialization, setSpecialization] = useState('');
+  const [experienceYears, setExperienceYears] = useState('');
+  const [biography, setBiography] = useState('');
+  const [consultationFee, setConsultationFee] = useState('');
 
-  // Active Consultation Encounter States
-  const [selectedAppt, setSelectedAppt] = useState(null);
+  // Consultation Pad Modal State
+  const [consultationAppt, setConsultationAppt] = useState(null);
   const [diagnosis, setDiagnosis] = useState('');
-  const [medicationName, setMedicationName] = useState('');
+  const [symptoms, setSymptoms] = useState('');
+  const [treatment, setTreatment] = useState('');
+  const [medication, setMedication] = useState('');
   const [dosage, setDosage] = useState('');
-  const [frequency, setFrequency] = useState('');
-  const [duration, setDuration] = useState('7 Days');
   const [instructions, setInstructions] = useState('');
-  
-  // Safety Prescription Review Modal State
-  const [showReviewModal, setShowReviewModal] = useState(false);
-
-  // Patient Passport Drawer / Workspace States
-  const [passportPatient, setPassportPatient] = useState(null);
-  const [showPassportDrawer, setShowPassportDrawer] = useState(false);
-  const [passportLoading, setPassportLoading] = useState(false);
-
-  // Telehealth Video Session State
   const [activeVideoSession, setActiveVideoSession] = useState(null);
 
+  // Account Self-Deletion states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteCode, setDeleteCode] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteSuccess, setDeleteSuccess] = useState('');
+
+  // Patient Passport states inside doctor panel
+  const [patientAllergies, setPatientAllergies] = useState('');
+  const [patientTimeline, setPatientTimeline] = useState([]);
+  const [passportLoading, setPassportLoading] = useState(false);
+
+  const handleJoinVideoCall = (a) => {
+    const drName = `Dr. ${profile?.firstName || user?.firstName || ''} ${profile?.lastName || user?.lastName || ''}`;
+    setActiveVideoSession({
+      roomName: `velocura-room-${a.appointmentId}`,
+      userName: drName,
+      patientId: a.patientId
+    });
+    api.post(`/api/consultations/ring?appointmentId=${a.appointmentId}&roomName=velocura-room-${a.appointmentId}&doctorName=${drName}&patientId=${a.patientId}`)
+      .catch(err => console.error("Error sending ring notification:", err));
+  };
+
+  const handleStartConsultation = async (appt) => {
+    setConsultationAppt(appt);
+    setPatientAllergies('');
+    setPatientTimeline([]);
+    try {
+      setPassportLoading(true);
+      const res = await api.get(`/api/doctor/patient-passport/${appt.patientId}`);
+      setPatientAllergies(res.data.allergies || '');
+      setPatientTimeline(JSON.parse(res.data.medicalHistoryTimeline || '[]'));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPassportLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchDoctorData();
+    fetchDashboardData();
   }, []);
 
-  const fetchDoctorData = async () => {
+  const fetchDashboardData = async () => {
     setLoading(true);
     setError('');
     try {
+      // Load doctor profile
       const profRes = await api.get('/api/doctor/profile');
       setProfile(profRes.data);
-      if (profRes.data) {
-        setSpecialty(profRes.data.specialty || 'General Medicine');
-        setLicenseNumber(profRes.data.licenseNumber || '');
-        setBio(profRes.data.bio || '');
-        setConsultationFee(profRes.data.consultationFee || 50.00);
-      }
+      
+      // Initialize profile forms
+      setSpecialization(profRes.data.specialization || '');
+      setExperienceYears(profRes.data.experienceYears || '');
+      setBiography(profRes.data.biography || '');
+      setConsultationFee(profRes.data.consultationFee || '');
 
+      // Load appointments
       const apptRes = await api.get('/api/doctor/appointments');
-      const apptData = apptRes.data || [];
-      setAppointments(apptData);
+      setAppointments(apptRes.data);
 
-      // Default select the first active appt for quick consultation work if available
-      const activeAppts = apptData.filter(a => a.status === 'CONFIRMED' || a.status === 'PENDING');
-      if (activeAppts.length > 0 && !selectedAppt) {
-        setSelectedAppt(activeAppts[0]);
-      }
     } catch (err) {
       console.error(err);
-      setError('Failed to load doctor workstation records.');
+      setError('Failed to load doctor profile. Please make sure you are registered and verified.');
     } finally {
       setLoading(false);
     }
@@ -155,1039 +109,777 @@ const DoctorDashboard = () => {
     setError('');
     setSuccess('');
     setActionLoading(true);
+
     try {
       const res = await api.put('/api/doctor/profile/update', {
-        specialty,
-        licenseNumber,
-        bio,
-        consultationFee
+        specialization,
+        experienceYears: parseInt(experienceYears),
+        biography,
+        consultationFee: parseFloat(consultationFee)
       });
       setProfile(res.data);
-      setSuccess('Doctor credentials updated successfully.');
-      setTimeout(() => setSuccess(''), 3500);
+      setSuccess('Profile updated successfully!');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError('Failed to update doctor credentials.');
+      console.error(err);
+      if (err.response && err.response.data && err.response.data.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('Failed to update profile details.');
+      }
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleViewPatientPassport = async (patientId) => {
-    setPassportLoading(true);
-    setShowPassportDrawer(true);
+  const handleInitiateDelete = async () => {
+    if (!window.confirm('WARNING: Are you absolutely sure you want to permanently delete your VeloCura physician profile and account? This will dispatch a secure validation code to your email.')) {
+      return;
+    }
+    setDeleteError('');
+    setDeleteSuccess('');
+    setDeleteCode('');
+    setActionLoading(true);
     try {
-      const res = await api.get(`/api/doctor/patient-passport/${patientId}`);
-      setPassportPatient(res.data);
+      await api.post('/api/auth/profile/delete/request');
+      setDeleteSuccess('Verification code sent to your email. Check your inbox or console output.');
+      setShowDeleteModal(true);
     } catch (err) {
-      setError('Failed to retrieve patient passport record.');
+      console.error(err);
+      setError('Failed to initiate account deletion request.');
     } finally {
-      setPassportLoading(false);
+      setActionLoading(false);
     }
   };
 
-  const handleStartVideoCall = async (appt) => {
-    const room = `velocura-room-${appt.appointmentId || appt.id}`;
-    const drName = user?.firstName ? `Dr. ${user.firstName} ${user.lastName || ''}` : 'Doctor';
-
+  const handleConfirmDelete = async (e) => {
+    e.preventDefault();
+    setDeleteError('');
+    setDeleteSuccess('');
+    setActionLoading(true);
     try {
-      await api.post(`/api/consultations/ring?appointmentId=${appt.appointmentId || appt.id}&roomName=${room}&doctorName=${encodeURIComponent(drName)}&patientId=${appt.patientId}`);
-      setActiveVideoSession({
-        roomName: room,
-        patientId: appt.patientId
-      });
+      const res = await api.post('/api/auth/profile/delete/confirm', { code: deleteCode });
+      setDeleteSuccess(res.data.message || 'Account successfully deleted.');
+      setTimeout(() => {
+        setShowDeleteModal(false);
+        logout();
+        navigate('/login');
+      }, 1500);
     } catch (err) {
-      setError('Failed to initiate telehealth video ring.');
+      console.error(err);
+      if (err.response && err.response.data && typeof err.response.data.message === 'string') {
+        setDeleteError(err.response.data.message);
+      } else if (err.response && err.response.data && typeof err.response.data === 'string') {
+        setDeleteError(err.response.data);
+      } else {
+        setDeleteError('Invalid verification code. Please check and try again.');
+      }
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleCancelAppointment = async (apptId) => {
-    if (!window.confirm('Cancel this scheduled patient consultation?')) return;
+    if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
+    setError('');
+    setSuccess('');
+    setActionLoading(true);
     try {
-      setActionLoading(true);
       await api.put(`/api/doctor/appointments/cancel/${apptId}`);
-      setSuccess('Appointment cancelled.');
+      // Refresh list
       const apptRes = await api.get('/api/doctor/appointments');
-      setAppointments(apptRes.data || []);
+      setAppointments(apptRes.data);
+      setSuccess('Appointment cancelled successfully!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
+      console.error(err);
       setError('Failed to cancel appointment.');
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Triggers the safety prescription review modal before final submission
-  const handleOpenReviewModal = (e) => {
+  const handleConsultationSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedAppt) {
-      setError('Please select an active patient appointment.');
-      return;
-    }
-    if (!diagnosis.trim()) {
-      setError('Diagnosis notes are required to complete the visit.');
-      return;
-    }
     setError('');
-    setShowReviewModal(true);
-  };
+    setSuccess('');
 
-  // Final submission of clinical diagnosis and optional prescription
-  const handleFinalSubmitConsultation = async () => {
-    if (!selectedAppt) return;
+    if (!diagnosis || !medication || !dosage) {
+      setError('Diagnosis, medication, and dosage details are required.');
+      return;
+    }
+
     setActionLoading(true);
-    setError('');
-
     try {
-      // 1. Add Diagnosis/Medical Record
-      if (diagnosis.trim()) {
-        await api.post('/api/doctor/medical-history', {
-          patientId: selectedAppt.patientId,
-          diagnosis,
-          treatment: instructions || 'Follow prescribed care directives.'
-        });
-      }
+      const { appointmentId, patientId } = consultationAppt;
 
-      // 2. Issue Prescription if medication entered
-      if (medicationName.trim()) {
-        await api.post('/api/doctor/prescriptions', {
-          patientId: selectedAppt.patientId,
-          medicationName,
-          dosage,
-          frequency,
-          instructions
-        });
-      }
+      // 1. Submit Medical History Entry
+      await api.post('/api/doctor/medical-history', {
+        patientId,
+        diagnosis,
+        symptoms,
+        treatment
+      });
 
-      // 3. Mark appointment complete
-      await api.put(`/api/doctor/appointments/complete/${selectedAppt.appointmentId || selectedAppt.id}`);
-      setSuccess('Consultation completed and prescription issued.');
-      
-      setShowReviewModal(false);
+      // 2. Submit E-Prescription Entry
+      await api.post('/api/doctor/prescriptions', {
+        appointmentId,
+        patientId,
+        medication,
+        dosage,
+        instructions
+      });
+
+      // 3. Mark Appointment as Completed
+      await api.put(`/api/doctor/appointments/complete/${appointmentId}`);
+
+      // Clear consultation modal states
+      setConsultationAppt(null);
       setDiagnosis('');
-      setMedicationName('');
+      setSymptoms('');
+      setTreatment('');
+      setMedication('');
       setDosage('');
-      setFrequency('');
       setInstructions('');
-      setSelectedAppt(null);
 
+      // Refresh list
       const apptRes = await api.get('/api/doctor/appointments');
-      const freshAppts = apptRes.data || [];
-      setAppointments(freshAppts);
-      
+      setAppointments(apptRes.data);
+      setSuccess('Consultation completed and patient records updated successfully!');
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
-      setError('Failed to complete clinical consultation.');
+      console.error(err);
+      if (err.response && err.response.data && err.response.data.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('Failed to submit consultation. Ensure you have consultation permissions.');
+      }
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Section titles definition
-  const sectionTitles = {
-    schedule: 'Clinical Operational Workspace',
-    patients: 'Patient Directory & Clinical Workspaces',
-    appointments: 'Appointments & Consultations Schedule',
-    consultations: 'Active Clinical Consultation Encounter',
-    prescriptions: 'Prescriptions Log & Directives',
-    passport: 'Patient Medical Records Inspector',
-    profile: 'Doctor Professional Credentials & Status'
-  };
-
-  // Calculated Operational Statistics
-  const confirmedCount = appointments.filter(a => a.status === 'CONFIRMED').length;
-  const pendingCount = appointments.filter(a => a.status === 'PENDING').length;
-  const completedCount = appointments.filter(a => a.status === 'COMPLETED').length;
-
-  // Next immediate patient calculation
-  const nextPatientAppt = appointments.find(a => a.status === 'CONFIRMED' || a.status === 'PENDING');
-
-  // Filtered Appointments list
-  const filteredAppointments = appointments.filter(appt => {
-    const matchSearch =
-      !patientSearch ||
-      (appt.patientName && appt.patientName.toLowerCase().includes(patientSearch.toLowerCase())) ||
-      (appt.patientId && appt.patientId.toString().includes(patientSearch)) ||
-      (appt.reason && appt.reason.toLowerCase().includes(patientSearch.toLowerCase()));
-
-    const matchStatus = statusFilter === 'ALL' || appt.status === statusFilter;
-
-    return matchSearch && matchStatus;
-  });
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 rounded-full border-4 border-cyan-500/25 border-t-cyan-500 animate-spin" />
+        <p className="text-sm font-medium text-slate-400 font-mono">Loading doctor portal...</p>
+      </div>
+    );
+  }
 
   return (
-    <AppShell
-      activeSection={activeTab}
-      onSelectSection={handleTabChange}
-      sectionTitles={sectionTitles}
-    >
-      {/* Telehealth Video Room Frame */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative">
+      {/* Background decoration elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[120px] animate-pulse-glow" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-teal-500/5 rounded-full blur-[150px] animate-pulse-glow" />
+
+      {/* Main dashboard grid layout */}
+      <div className="flex-1 flex flex-col md:flex-row z-10">
+        
+        {/* SIDEBAR NAVIGATION PANEL */}
+        <aside className="w-full md:w-64 bg-slate-900/40 border-r border-slate-900 px-6 py-8 flex flex-col shrink-0">
+          <div className="flex items-center space-x-3 mb-8">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-500 flex items-center justify-center shadow-md shadow-teal-500/20">
+              <svg className="w-5 h-5 text-slate-950 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <div>
+              <span className="text-lg font-bold tracking-tight text-white font-sans">VeloCura</span>
+              <span className="block text-[9px] text-teal-400 font-bold uppercase tracking-widest mt-[-2px]">Doctor Workspace</span>
+            </div>
+          </div>
+
+          {/* Nav links */}
+          <nav className="flex-1 flex flex-col space-y-1">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                activeTab === 'overview'
+                  ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+              <span>Overview</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('queue')}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                activeTab === 'queue'
+                  ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              <span>Patient Queue</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                activeTab === 'profile'
+                  ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span>Setup Profile</span>
+            </button>
+          </nav>
+
+          {/* User profile brief & logout */}
+          <div className="border-t border-slate-900 pt-6 mt-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-bold text-teal-400">
+                {profile?.firstName ? profile.firstName.charAt(0) : 'D'}
+              </div>
+              <div className="overflow-hidden flex-1">
+                <p className="text-sm font-bold text-white truncate">Dr. {profile?.firstName} {profile?.lastName}</p>
+                <p className="text-xs text-slate-500 truncate font-mono">{user?.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/')}
+              className="w-full bg-slate-950 border border-slate-900 hover:border-teal-500/20 hover:text-teal-400 text-slate-400 text-xs font-semibold py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer mb-3"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              <span>VeloCura Home</span>
+            </button>
+            <button
+              onClick={logout}
+              className="w-full bg-slate-950 border border-slate-900 hover:border-red-500/20 hover:text-red-400 text-slate-400 text-xs font-semibold py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 01-3-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* MAIN PANEL CONTENT SPACE */}
+        <main className="flex-1 px-8 py-10 overflow-y-auto max-w-5xl relative">
+          
+          {/* Top-Right Floating Controls */}
+          <div className="absolute top-8 right-8 z-50">
+            <ThemeToggle />
+          </div>
+
+          {/* TAB CONTENT CONDITIONAL SWITCH */}
+          {activeTab === 'overview' && (
+            <div className="space-y-8">
+              
+              {/* Welcome card banner */}
+              <div className="glass-card rounded-3xl p-8 relative overflow-hidden">
+                <div className="absolute top-[-50%] right-[-10%] w-[300px] h-[300px] bg-teal-500/10 rounded-full blur-[80px]" />
+                <h2 className="text-3xl font-extrabold text-white">Hello, Dr. {profile?.firstName}!</h2>
+                
+                {profile?.verified ? (
+                  <div className="inline-flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-full px-3 py-1 mt-4 font-mono">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    <span>Credentials Verified</span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center space-x-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs rounded-full px-3 py-1 mt-4 font-mono animate-pulse">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                    <span>Awaiting Admin Verification</span>
+                  </div>
+                )}
+
+                <p className="text-slate-400 mt-4 text-sm leading-relaxed max-w-xl">
+                  Welcome to your clinical portal workspace. Here you can retrieve your patient booking queues, issue digital e-prescriptions, and write consultation notes.
+                </p>
+              </div>
+
+              {/* Doctor Stats cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="glass-card rounded-2xl p-6 flex items-center space-x-4">
+                  <div className="p-4 bg-teal-500/10 rounded-xl text-teal-400">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Consultation Fee</p>
+                    <p className="text-2xl font-bold text-white mt-1">${profile?.consultationFee}</p>
+                  </div>
+                </div>
+
+                <div className="glass-card rounded-2xl p-6 flex items-center space-x-4">
+                  <div className="p-4 bg-cyan-500/10 rounded-xl text-cyan-400">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Years Experience</p>
+                    <p className="text-2xl font-bold text-white mt-1">{profile?.experienceYears} yrs</p>
+                  </div>
+                </div>
+
+                <div className="glass-card rounded-2xl p-6 flex items-center space-x-4">
+                  <div className="p-4 bg-emerald-500/10 rounded-xl text-emerald-400">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Consultations Queue</p>
+                    <p className="text-2xl font-bold text-white mt-1">
+                      {appointments.filter(a => a.status === 'PENDING' || a.status === 'CONFIRMED').length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Biography sheet */}
+              <div className="glass-card rounded-3xl p-6">
+                <h3 className="text-lg font-bold text-white mb-4">Professional Biography</h3>
+                <p className="text-sm text-slate-400 leading-relaxed">
+                  {profile?.biography || "No biography provided. Please configure your biography in the Setup Profile tab."}
+                </p>
+              </div>
+
+            </div>
+          )}
+
+          {activeTab === 'queue' && (
+            <div className="space-y-6">
+              
+              {/* Consultation Pad Form Overlay */}
+              {consultationAppt && (
+                <div className="glass-card rounded-2xl p-8 border border-teal-500/20 shadow-xl">
+                  <div className="flex justify-between items-start mb-6 border-b border-slate-900 pb-4">
+                    <div>
+                      <h4 className="text-lg font-bold text-white">Clinical Consultation Workspace</h4>
+                      <p className="text-xs text-slate-400 mt-1 font-mono">Patient: {consultationAppt.patientName}</p>
+                    </div>
+                    <button 
+                      onClick={() => setConsultationAppt(null)}
+                      className="text-slate-500 hover:text-slate-300 text-xs font-mono"
+                    >
+                      Close Workspace
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    
+                    {/* Left: Consult form inputs */}
+                    <div className="lg:col-span-2 space-y-6">
+                      <form onSubmit={handleConsultationSubmit} className="space-y-6">
+                        
+                        {/* Diagnostic notes Section */}
+                        <div>
+                          <h5 className="text-xs font-bold uppercase tracking-wider text-teal-400 mb-3 font-mono">1. Diagnosis & Symptoms</h5>
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div>
+                              <label htmlFor="diag" className="block text-xs text-slate-400 font-semibold mb-2">Diagnosis *</label>
+                              <input
+                                id="diag"
+                                type="text"
+                                required
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500"
+                                placeholder="e.g. Acute Bronchitis"
+                                value={diagnosis}
+                                onChange={(e) => setDiagnosis(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label htmlFor="symp" className="block text-xs text-slate-400 font-semibold mb-2">Presented Symptoms</label>
+                              <input
+                                id="symp"
+                                type="text"
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500"
+                                placeholder="e.g. Cough, wheezing, mild fever"
+                                value={symptoms}
+                                onChange={(e) => setSymptoms(e.target.value)}
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-4">
+                            <label htmlFor="treat" className="block text-xs text-slate-400 font-semibold mb-2">Treatment Plan Description</label>
+                            <input
+                              id="treat"
+                              type="text"
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500"
+                              placeholder="e.g. Bed rest, fluid intake, nebulizer if needed"
+                              value={treatment}
+                              onChange={(e) => setTreatment(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Prescription Section */}
+                        <div>
+                          <h5 className="text-xs font-bold uppercase tracking-wider text-teal-400 mb-3 font-mono">2. Digital E-Prescription</h5>
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div>
+                              <label htmlFor="med" className="block text-xs text-slate-400 font-semibold mb-2">Medication *</label>
+                              <input
+                                id="med"
+                                type="text"
+                                required
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500"
+                                placeholder="e.g. Amoxicillin 500mg"
+                                value={medication}
+                                onChange={(e) => setMedication(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label htmlFor="dos" className="block text-xs text-slate-400 font-semibold mb-2">Dosage Guide *</label>
+                              <input
+                                id="dos"
+                                type="text"
+                                required
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500"
+                                placeholder="e.g. 1 capsule three times daily"
+                                value={dosage}
+                                onChange={(e) => setDosage(e.target.value)}
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-4">
+                            <label htmlFor="inst" className="block text-xs text-slate-400 font-semibold mb-2">Special Guidelines / Instructions</label>
+                            <input
+                              id="inst"
+                              type="text"
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500"
+                              placeholder="e.g. Take with meals, finish the complete course"
+                              value={instructions}
+                              onChange={(e) => setInstructions(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <button
+                            type="submit"
+                            disabled={actionLoading}
+                            className="bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-bold px-6 py-2.5 rounded-xl text-xs hover:shadow-lg hover:shadow-teal-500/10 cursor-pointer"
+                          >
+                            {actionLoading ? 'Saving consultation records...' : 'Submit Consultation & Complete'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConsultationAppt(null)}
+                            className="bg-slate-950 border border-slate-800 text-slate-400 px-6 py-2.5 rounded-xl text-xs hover:bg-slate-900 cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
+                    {/* Right: Patient Health Passport */}
+                    <div className="lg:col-span-1 bg-slate-950/40 border border-slate-900 rounded-2xl p-6 space-y-6 self-start max-h-[500px] overflow-y-auto custom-scrollbar">
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-teal-400 font-mono mb-3">⚠️ Allergies & Salt Sensitivities</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {patientAllergies.trim() ? (
+                            patientAllergies.split(',').map((tag, idx) => (
+                              <span key={idx} className="px-2 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/20 font-mono text-[10px] font-bold">
+                                {tag.trim()}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-500 italic">No allergies reported.</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="border-t border-slate-900/60 pt-4">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-400 font-mono mb-4">📜 Historical Timeline Log</h4>
+                        {passportLoading ? (
+                          <div className="text-xs text-slate-500 font-mono">Loading patient medical history...</div>
+                        ) : patientTimeline.length === 0 ? (
+                          <p className="text-xs text-slate-500 italic font-mono">No medical events or surgeries logged.</p>
+                        ) : (
+                          <div className="relative border-l border-slate-900 ml-2 pl-4 space-y-5">
+                            {patientTimeline.map((ev) => (
+                              <div key={ev.id} className="relative">
+                                <span className="absolute -left-[23px] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-slate-950 border-2 border-cyan-500">
+                                  <span className="h-1 w-1 rounded-full bg-cyan-400" />
+                                </span>
+                                <div>
+                                  <span className="text-[9px] text-cyan-400 font-mono font-bold">{ev.date}</span>
+                                  <h5 className="text-xs font-bold text-slate-200 mt-1">{ev.eventType}</h5>
+                                  {ev.description && (
+                                    <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">{ev.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
+              {/* Consultation queue directory list */}
+              <div className="glass-card rounded-3xl p-6">
+                <h3 className="text-xl font-bold text-white mb-6">Patient Consultation Queue</h3>
+                
+                {appointments.length === 0 ? (
+                  <p className="text-sm text-slate-500 font-mono py-8 text-center">No patient sessions scheduled.</p>
+                ) : (
+                  <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left text-sm text-slate-400">
+                      <thead className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-900">
+                        <tr>
+                          <th className="pb-3">Patient</th>
+                          <th className="pb-3">Schedule Date & Time</th>
+                          <th className="pb-3">Symptoms / Reason</th>
+                          <th className="pb-3">Status</th>
+                          <th className="pb-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-900">
+                        {appointments.map((a) => (
+                          <tr key={a.appointmentId} className="hover:bg-slate-900/10">
+                            <td className="py-4 font-bold text-white">{a.patientName}</td>
+                            <td className="py-4 font-mono text-xs text-cyan-400">
+                              {new Date(a.appointmentTime).toLocaleString()}
+                            </td>
+                            <td className="py-4 truncate max-w-xs">{a.reason}</td>
+                            <td className="py-4">
+                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase font-mono tracking-wide ${
+                                a.status === 'CONFIRMED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                a.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                                a.status === 'CANCELLED' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                                'bg-slate-800 text-slate-400 border border-slate-700'
+                              }`}>
+                                {a.status}
+                              </span>
+                            </td>
+                            <td className="py-4 text-right">
+                              {(a.status === 'PENDING' || a.status === 'CONFIRMED') && (
+                                <div className="inline-flex gap-2">
+                                  {a.status === 'CONFIRMED' && (
+                                    <button
+                                      onClick={() => handleJoinVideoCall(a)}
+                                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs px-3.5 py-1.5 rounded-xl transition-colors duration-200 cursor-pointer"
+                                    >
+                                      Join Call
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleStartConsultation(a)}
+                                    className="bg-teal-500 text-slate-950 font-bold text-xs px-3.5 py-1.5 rounded-xl hover:bg-teal-400 transition-colors duration-200 cursor-pointer"
+                                  >
+                                    Consult
+                                  </button>
+                                  <button
+                                    onClick={() => handleCancelAppointment(a.appointmentId)}
+                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs px-3 py-1.5 rounded-xl border border-red-500/20 transition-all duration-200 cursor-pointer"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'profile' && (
+            <div className="glass-card rounded-3xl p-8 max-w-2xl">
+              <h3 className="text-xl font-bold text-white mb-6 font-sans">Setup Portal profile</h3>
+              
+              <form onSubmit={handleUpdateProfile} className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Specialization</label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-500"
+                      value={specialization}
+                      onChange={(e) => setSpecialization(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">License Number</label>
+                    <input
+                      type="text"
+                      disabled
+                      className="w-full bg-slate-950/50 border border-slate-905 text-slate-500 rounded-xl px-4 py-3 text-sm cursor-not-allowed"
+                      value={profile?.licenseNumber || ''}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Years Experience</label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-500"
+                      value={experienceYears}
+                      onChange={(e) => setExperienceYears(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Consultation Fee ($ USD)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      required
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-500"
+                      value={consultationFee}
+                      onChange={(e) => setConsultationFee(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Professional Biography</label>
+                  <textarea
+                    rows="4"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-500 resize-none"
+                    value={biography}
+                    onChange={(e) => setBiography(e.target.value)}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-bold px-6 py-3 rounded-xl hover:shadow-lg hover:shadow-teal-500/10 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 transition-all duration-200 text-sm cursor-pointer"
+                >
+                  {actionLoading ? 'Saving...' : 'Save Profile Changes'}
+                </button>
+              </form>
+
+              {/* Danger Zone */}
+              <div className="mt-12 pt-8 border-t border-slate-900">
+                <div className="p-6 rounded-2xl bg-red-500/5 border border-red-500/20">
+                  <h4 className="text-sm font-bold text-red-400 uppercase tracking-wider font-mono">⚠️ Security Danger Zone</h4>
+                  <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                    Permanently delete your VeloCura physician profile, consultations records, schedule configurations, and portal account. This action cannot be reversed.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleInitiateDelete}
+                    disabled={actionLoading}
+                    className="mt-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer disabled:opacity-40"
+                  >
+                    {actionLoading ? 'Sending OTP...' : 'Request Account Deletion OTP'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </main>
+      </div>
+
       {activeVideoSession && (
         <TelehealthRoom
           roomName={activeVideoSession.roomName}
-          userName={user?.firstName ? `Dr. ${user.firstName} ${user.lastName || ''}` : 'Doctor'}
-          onClose={async () => {
-            try {
-              await api.post(`/api/consultations/hangup?patientId=${activeVideoSession.patientId}`);
-            } catch (e) {}
+          userName={activeVideoSession.userName}
+          onClose={() => {
+            if (activeVideoSession.patientId) {
+              api.post(`/api/consultations/hangup?patientId=${activeVideoSession.patientId}`)
+                .catch(err => console.error("Error hanging up call:", err));
+            }
             setActiveVideoSession(null);
           }}
         />
       )}
 
-      {/* Global Alerts */}
-      {error && <Alert variant="error" onClose={() => setError('')} className="mb-4">{error}</Alert>}
-      {success && <Alert variant="success" onClose={() => setSuccess('')} className="mb-4">{success}</Alert>}
-
-      {/* Unverified Credential Status Alert */}
-      {profile && !profile.isVerified && (
-        <Alert variant="warning" title="Credentials Pending Admin Verification" className="mb-6">
-          Your medical practitioner license (<strong>{profile.licenseNumber || 'Unassigned'}</strong>) is under administrative audit. You can still conduct visits and view patient records.
-        </Alert>
-      )}
-
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-        </div>
-      ) : (
-        <>
-          {/* ========================================================================= */}
-          {/* TAB 1: CLINICAL OPERATIONAL WORKSPACE (DASHBOARD)                         */}
-          {/* ========================================================================= */}
-          {activeTab === 'schedule' && (
-            <div className="space-y-6">
-              {/* Doctor Operational Summary Banner */}
-              <div className="p-6 surface-card border-l-4 border-l-[var(--color-primary)] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <h2 className="text-xl font-extrabold text-[var(--text-primary)]">
-                      Welcome, Dr. {user?.firstName} {user?.lastName}
-                    </h2>
-                    {profile?.isVerified ? (
-                      <Badge variant="teal" className="flex items-center gap-1">
-                        <ShieldCheck className="w-3 h-3" />
-                        Verified Practitioner
-                      </Badge>
-                    ) : (
-                      <Badge variant="warning">Verification Pending</Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-[var(--text-secondary)] mt-1 font-mono">
-                    Specialty: <span className="text-[var(--color-primary)] font-bold">{specialty}</span> • Rate: ${consultationFee}/visit
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="px-3.5 py-1.5 rounded-lg bg-[var(--bg-app)] border border-[var(--border-subtle)] text-center">
-                    <span className="block text-[10px] font-mono text-[var(--text-muted)] uppercase">TODAY'S VISITS</span>
-                    <span className="text-sm font-extrabold text-[var(--text-primary)] font-mono">{appointments.length}</span>
-                  </div>
-                  <div className="px-3.5 py-1.5 rounded-lg bg-[var(--color-primary-subtle)] border border-[var(--color-primary)]/20 text-center">
-                    <span className="block text-[10px] font-mono text-[var(--color-primary)] uppercase">CONFIRMED</span>
-                    <span className="text-sm font-extrabold text-[var(--color-primary)] font-mono">{confirmedCount}</span>
-                  </div>
-                  <div className="px-3.5 py-1.5 rounded-lg bg-[var(--color-warning-subtle)] border border-[var(--color-warning)]/20 text-center">
-                    <span className="block text-[10px] font-mono text-[var(--color-warning)] uppercase">PENDING</span>
-                    <span className="text-sm font-extrabold text-[var(--color-warning)] font-mono">{pendingCount}</span>
-                  </div>
-                  <div className="px-3.5 py-1.5 rounded-lg bg-[var(--color-success-subtle)] border border-[var(--color-success)]/20 text-center">
-                    <span className="block text-[10px] font-mono text-[var(--color-success)] uppercase">COMPLETED</span>
-                    <span className="text-sm font-extrabold text-[var(--color-success)] font-mono">{completedCount}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* NEXT PATIENT HERO SECTION */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)] font-bold flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-[var(--color-primary)]" />
-                    Immediate Next Patient Encounter
-                  </h3>
-                  {nextPatientAppt && (
-                    <span className="text-[11px] font-mono text-[var(--color-teal)] font-medium">Ready for Consultation</span>
-                  )}
-                </div>
-
-                {nextPatientAppt ? (
-                  <div className="p-5 surface-elevated border border-[var(--border-focus)] space-y-4 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--color-primary-subtle)] rounded-full blur-2xl pointer-events-none" />
-                    
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
-                      <div className="flex items-start space-x-4">
-                        <div className="w-12 h-12 rounded-xl bg-[var(--color-primary)] text-[var(--text-inverse)] flex items-center justify-center font-black text-lg shadow">
-                          {nextPatientAppt.patientName.charAt(0)}
-                        </div>
-                        <div>
-                          <div className="flex items-center space-x-3">
-                            <h4 className="text-base font-bold text-[var(--text-primary)]">{nextPatientAppt.patientName}</h4>
-                            <StatusBadge status={nextPatientAppt.status} />
-                          </div>
-                          <p className="text-xs text-[var(--text-secondary)] font-mono mt-1">
-                            Scheduled: <span className="text-[var(--text-primary)] font-bold">{nextPatientAppt.appointmentTime}</span>
-                          </p>
-                          <p className="text-xs text-[var(--text-muted)] mt-1 line-clamp-1 italic">
-                            Reason: "{nextPatientAppt.reason}"
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2.5 flex-wrap w-full md:w-auto">
-                        <Button
-                          variant="primary"
-                          size="md"
-                          icon={Stethoscope}
-                          onClick={() => {
-                            setSelectedAppt(nextPatientAppt);
-                            handleTabChange('consultations');
-                          }}
-                        >
-                          Open Consultation
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="md"
-                          icon={Video}
-                          onClick={() => handleStartVideoCall(nextPatientAppt)}
-                        >
-                          Ring Telehealth
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="md"
-                          icon={UserCheck}
-                          onClick={() => handleViewPatientPassport(nextPatientAppt.patientId)}
-                        >
-                          Passport
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon={CheckCircle2}
-                    title="No Pending Encounters Today"
-                    description="All scheduled patient visits for today have been completed or cancelled."
-                  />
-                )}
-              </div>
-
-              {/* PATIENTS REQUIRING ATTENTION & TODAY'S SCHEDULE */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Today's Schedule Table */}
-                <Card className="lg:col-span-2 space-y-4">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle subtitle="Chronological queue of patient appointments">
-                        Today's Clinical Schedule
-                      </CardTitle>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        icon={ArrowRight}
-                        iconPosition="right"
-                        onClick={() => handleTabChange('appointments')}
-                      >
-                        All Schedule
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    {appointments.length === 0 ? (
-                      <div className="p-6">
-                        <EmptyState title="No Scheduled Appointments" description="Your appointment roster is currently clear." />
-                      </div>
-                    ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Time</TableHead>
-                            <TableHead>Patient</TableHead>
-                            <TableHead>Reason</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {appointments.slice(0, 5).map((appt) => (
-                            <TableRow key={appt.appointmentId || appt.id}>
-                              <TableCell className="font-mono text-xs font-bold text-[var(--text-primary)]">
-                                {appt.appointmentTime}
-                              </TableCell>
-                              <TableCell>
-                                <button
-                                  onClick={() => handleViewPatientPassport(appt.patientId)}
-                                  className="font-bold text-[var(--color-primary)] hover:underline text-left cursor-pointer text-xs"
-                                >
-                                  {appt.patientName}
-                                </button>
-                              </TableCell>
-                              <TableCell className="text-xs text-[var(--text-secondary)] max-w-xs truncate">
-                                {appt.reason}
-                              </TableCell>
-                              <TableCell>
-                                <StatusBadge status={appt.status} />
-                              </TableCell>
-                              <TableCell className="text-right space-x-1.5">
-                                {(appt.status === 'CONFIRMED' || appt.status === 'PENDING') && (
-                                  <>
-                                    <Button
-                                      variant="primary"
-                                      size="sm"
-                                      onClick={() => {
-                                        setSelectedAppt(appt);
-                                        handleTabChange('consultations');
-                                      }}
-                                    >
-                                      Consult
-                                    </Button>
-                                  </>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Priority Queue Sidebar */}
-                <Card className="space-y-4">
-                  <CardHeader>
-                    <CardTitle subtitle="Visits pending action">Priority Queue</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {appointments.filter(a => a.status === 'PENDING' || a.status === 'CONFIRMED').length === 0 ? (
-                      <p className="text-xs text-[var(--text-muted)] text-center py-4">No active patients in priority queue.</p>
-                    ) : (
-                      appointments
-                        .filter(a => a.status === 'PENDING' || a.status === 'CONFIRMED')
-                        .slice(0, 4)
-                        .map(appt => (
-                          <div
-                            key={appt.appointmentId || appt.id}
-                            className="p-3 surface-card flex items-center justify-between gap-2 hover:border-[var(--border-focus)] cursor-pointer"
-                            onClick={() => {
-                              setSelectedAppt(appt);
-                              handleTabChange('consultations');
-                            }}
-                          >
-                            <div>
-                              <p className="text-xs font-bold text-[var(--text-primary)]">{appt.patientName}</p>
-                              <p className="text-[10px] font-mono text-[var(--text-muted)]">{appt.appointmentTime}</p>
-                            </div>
-                            <Badge variant="cyan" className="text-[10px]">Open Visit</Badge>
-                          </div>
-                        ))
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+      {/* Account Deletion OTP Confirmation Modal Overlay */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative">
+            
+            {/* Warning SVG Decoration */}
+            <div className="mx-auto w-12 h-12 bg-red-500/10 border border-red-500/25 rounded-2xl flex items-center justify-center mb-6 text-red-400">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
             </div>
-          )}
 
-          {/* ========================================================================= */}
-          {/* TAB 2: PATIENT DIRECTORY & ENTERPRISE CLINICAL WORKSPACE                  */}
-          {/* ========================================================================= */}
-          {activeTab === 'patients' && (
-            <div className="space-y-6">
-              {/* Filter & Search Bar */}
-              <div className="p-4 surface-card flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="relative w-full sm:w-80">
-                  <Search className="w-4 h-4 absolute left-3 top-3 text-[var(--text-muted)]" />
-                  <Input
-                    placeholder="Search patient name, ID, or clinical reason..."
-                    value={patientSearch}
-                    onChange={(e) => setPatientSearch(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <div className="flex items-center space-x-2 text-xs font-mono text-[var(--text-muted)]">
-                  <Users className="w-4 h-4 text-[var(--color-primary)]" />
-                  <span>Showing {filteredAppointments.length} Patient Encounters</span>
-                </div>
+            <h3 className="text-xl font-bold text-center text-white">Confirm Account Deletion</h3>
+            <p className="text-xs text-slate-400 text-center mt-2 leading-relaxed">
+              For security, please enter the 6-digit verification code sent to your registered email to permanently delete your account.
+            </p>
+
+            {deleteError && (
+              <div className="mt-4 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{deleteError}</span>
               </div>
+            )}
 
-              {/* Enterprise Clinical Table */}
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Patient Identifier</TableHead>
-                    <TableHead>Scheduled Time</TableHead>
-                    <TableHead>Primary Clinical Reason</TableHead>
-                    <TableHead>Encounter Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAppointments.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8">
-                        <EmptyState title="No Matching Patients" description="No patient records match the search filter." />
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredAppointments.map((appt) => (
-                      <TableRow key={appt.appointmentId || appt.id}>
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 rounded-full bg-[var(--color-primary-subtle)] text-[var(--color-primary)] flex items-center justify-center font-bold text-xs">
-                              {appt.patientName.charAt(0)}
-                            </div>
-                            <div>
-                              <button
-                                onClick={() => handleViewPatientPassport(appt.patientId)}
-                                className="font-bold text-[var(--text-primary)] hover:text-[var(--color-primary)] text-left block text-xs"
-                              >
-                                {appt.patientName}
-                              </button>
-                              <span className="text-[10px] font-mono text-[var(--text-muted)]">ID: #{appt.patientId}</span>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-mono text-xs text-[var(--text-secondary)]">
-                          {appt.appointmentTime}
-                        </TableCell>
-                        <TableCell className="text-xs text-[var(--text-secondary)] max-w-sm truncate">
-                          {appt.reason}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={appt.status} />
-                        </TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            icon={UserCheck}
-                            onClick={() => handleViewPatientPassport(appt.patientId)}
-                          >
-                            Medical Passport
-                          </Button>
-                          {(appt.status === 'CONFIRMED' || appt.status === 'PENDING') && (
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              icon={Stethoscope}
-                              onClick={() => {
-                                setSelectedAppt(appt);
-                                handleTabChange('consultations');
-                              }}
-                            >
-                              Consult Workspace
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* TAB 3: APPOINTMENTS & CONSULTATIONS SCHEDULE                              */}
-          {/* ========================================================================= */}
-          {activeTab === 'appointments' && (
-            <div className="space-y-6">
-              {/* Status Filter Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-4 p-4 surface-card">
-                <div className="flex items-center space-x-2">
-                  <Filter className="w-4 h-4 text-[var(--color-primary)]" />
-                  <span className="text-xs font-mono uppercase font-bold text-[var(--text-muted)]">Filter Status:</span>
-                  {['ALL', 'CONFIRMED', 'PENDING', 'COMPLETED', 'CANCELLED'].map((st) => (
-                    <button
-                      key={st}
-                      onClick={() => setStatusFilter(st)}
-                      className={`text-xs font-mono px-3 py-1 rounded transition-colors ${
-                        statusFilter === st
-                          ? 'bg-[var(--color-primary)] text-[var(--text-inverse)] font-bold'
-                          : 'bg-[var(--bg-app)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-subtle)]'
-                      }`}
-                    >
-                      {st}
-                    </button>
-                  ))}
-                </div>
-
-                <span className="text-xs font-mono text-[var(--text-muted)]">
-                  Total Visits: {filteredAppointments.length}
-                </span>
+            {deleteSuccess && (
+              <div className="mt-4 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{deleteSuccess}</span>
               </div>
+            )}
 
-              {/* Appointments Table */}
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Patient Name</TableHead>
-                    <TableHead>Time Slot</TableHead>
-                    <TableHead>Symptom / Clinical Reason</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAppointments.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8">
-                        <EmptyState title="No Scheduled Appointments" description="No appointments match the current status filter." />
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredAppointments.map((appt) => (
-                      <TableRow key={appt.appointmentId || appt.id}>
-                        <TableCell>
-                          <button
-                            onClick={() => handleViewPatientPassport(appt.patientId)}
-                            className="font-bold text-[var(--color-primary)] hover:underline text-xs"
-                          >
-                            {appt.patientName}
-                          </button>
-                        </TableCell>
-                        <TableCell className="font-mono text-xs text-[var(--text-primary)] font-semibold">
-                          {appt.appointmentTime}
-                        </TableCell>
-                        <TableCell className="text-xs text-[var(--text-secondary)] max-w-xs truncate">
-                          {appt.reason}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={appt.status} />
-                        </TableCell>
-                        <TableCell className="text-right space-x-2">
-                          {(appt.status === 'CONFIRMED' || appt.status === 'PENDING') && (
-                            <>
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                icon={Video}
-                                onClick={() => handleStartVideoCall(appt)}
-                              >
-                                Ring Call
-                              </Button>
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                icon={Stethoscope}
-                                onClick={() => {
-                                  setSelectedAppt(appt);
-                                  handleTabChange('consultations');
-                                }}
-                              >
-                                Open Encounter
-                              </Button>
-                              <Button
-                                variant="danger"
-                                size="sm"
-                                onClick={() => handleCancelAppointment(appt.appointmentId || appt.id)}
-                              >
-                                Cancel
-                              </Button>
-                            </>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* TAB 4: ACTIVE CLINICAL CONSULTATION WORKSPACE                             */}
-          {/* ========================================================================= */}
-          {activeTab === 'consultations' && (
-            <div className="space-y-6">
-              {/* Encounter Patient Selector Bar */}
-              <div className="p-4 surface-card flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-l-4 border-l-[var(--color-primary)]">
-                <div>
-                  <h3 className="text-sm font-bold text-[var(--text-primary)]">Active Encounter Selection</h3>
-                  <p className="text-xs text-[var(--text-secondary)]">Select a scheduled patient to open clinical context and record visit observations.</p>
-                </div>
-                <div className="w-full sm:w-72">
-                  <Select
-                    value={selectedAppt ? (selectedAppt.appointmentId || selectedAppt.id) : ''}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      const appt = appointments.find(a => (a.appointmentId || a.id).toString() === id);
-                      setSelectedAppt(appt || null);
-                    }}
-                    options={[
-                      { value: '', label: '-- Select Patient Visit --' },
-                      ...appointments.map(a => ({
-                        value: a.appointmentId || a.id,
-                        label: `${a.patientName} (${a.appointmentTime}) - ${a.status}`
-                      }))
-                    ]}
-                  />
-                </div>
-              </div>
-
-              {selectedAppt ? (
-                /* CLINICAL WORKSPACE SPLIT LAYOUT (Desktop Split / Mobile Stacked) */
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                  
-                  {/* LEFT / CONTEXT PANEL (4 cols) */}
-                  <div className="lg:col-span-5 space-y-6">
-                    {/* Patient Header & Allergy Alert */}
-                    <PatientIdentityHeader patient={selectedAppt} />
-
-                    {/* Patient Context & Encounter Details */}
-                    <Card className="space-y-3">
-                      <CardHeader>
-                        <CardTitle subtitle="Clinical reason submitted during booking">
-                          Encounter Context
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="p-3 bg-[var(--bg-app)] rounded-lg border border-[var(--border-subtle)] space-y-1">
-                          <span className="block text-[10px] font-mono text-[var(--text-muted)] uppercase">Chief Complaint / Reason</span>
-                          <p className="text-xs text-[var(--text-primary)] font-medium italic">
-                            "{selectedAppt.reason}"
-                          </p>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            icon={Video}
-                            className="w-full"
-                            onClick={() => handleStartVideoCall(selectedAppt)}
-                          >
-                            Launch Telehealth Ring
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={UserCheck}
-                            onClick={() => handleViewPatientPassport(selectedAppt.patientId)}
-                          >
-                            Passport
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* RIGHT / ACTIVE ENCOUNTER FORM PANEL (7 cols) */}
-                  <div className="lg:col-span-7 space-y-6">
-                    <Card className="space-y-5">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle subtitle="Record medical diagnosis and treatment directives">
-                            Clinical Encounter Documentation
-                          </CardTitle>
-                          <Badge variant="cyan">SOAP Format</Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <form onSubmit={handleOpenReviewModal} className="space-y-5">
-                          
-                          {/* Clinical Diagnosis textarea with Voice Dictation */}
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                              <label className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                                <Stethoscope className="w-3.5 h-3.5 text-[var(--color-primary)]" />
-                                Diagnosis & Clinical Observations *
-                              </label>
-                              <VoiceDictationButton
-                                onTranscript={(text) => setDiagnosis(prev => prev ? `${prev} ${text}` : text)}
-                              />
-                            </div>
-                            <Textarea
-                              placeholder="Record clinical observations, physical exam notes, and diagnosis..."
-                              value={diagnosis}
-                              onChange={(e) => setDiagnosis(e.target.value)}
-                              rows={4}
-                              required
-                            />
-                          </div>
-
-                          {/* Prescription Form Section */}
-                          <div className="p-4 surface-elevated border border-[var(--border-subtle)] space-y-4 rounded-xl">
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-xs font-bold font-mono text-[var(--color-teal)] uppercase flex items-center gap-1.5">
-                                <FileText className="w-4 h-4" />
-                                Prescription Builder (Optional)
-                              </h4>
-                              <VoiceDictationButton
-                                label="Dictate Directives"
-                                onTranscript={(text) => setInstructions(prev => prev ? `${prev} ${text}` : text)}
-                              />
-                            </div>
-
-                            <Input
-                              label="Medication Name"
-                              placeholder="e.g. Amoxicillin 500mg"
-                              value={medicationName}
-                              onChange={(e) => setMedicationName(e.target.value)}
-                            />
-
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                              <Input
-                                label="Dosage"
-                                placeholder="500 mg"
-                                value={dosage}
-                                onChange={(e) => setDosage(e.target.value)}
-                              />
-                              <Input
-                                label="Frequency"
-                                placeholder="Twice Daily"
-                                value={frequency}
-                                onChange={(e) => setFrequency(e.target.value)}
-                              />
-                              <Input
-                                label="Duration"
-                                placeholder="7 Days"
-                                value={duration}
-                                onChange={(e) => setDuration(e.target.value)}
-                              />
-                            </div>
-
-                            <Textarea
-                              label="Special Patient Directives"
-                              placeholder="Take with meals, avoid driving..."
-                              value={instructions}
-                              onChange={(e) => setInstructions(e.target.value)}
-                              rows={2}
-                            />
-                          </div>
-
-                          {/* Submit Action */}
-                          <div className="flex justify-end gap-3 pt-2">
-                            <Button
-                              type="submit"
-                              variant="primary"
-                              size="md"
-                              icon={CheckCircle2}
-                              isLoading={actionLoading}
-                            >
-                              Review & Complete Encounter
-                            </Button>
-                          </div>
-                        </form>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-              ) : (
-                <EmptyState
-                  icon={Stethoscope}
-                  title="No Active Patient Selected"
-                  description="Select a patient encounter from the dropdown above to open the clinical workstation."
+            <form onSubmit={handleConfirmDelete} className="mt-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 font-mono">6-Digit Verification Code</label>
+                <input
+                  type="text"
+                  maxLength="6"
+                  required
+                  placeholder="000000"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-center tracking-[0.2em] font-bold font-mono text-white focus:outline-none focus:border-cyan-500/50 transition-all duration-200"
+                  value={deleteCode}
+                  onChange={(e) => setDeleteCode(e.target.value.replace(/\D/g, ''))}
                 />
-              )}
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* TAB 5: PRESCRIPTIONS LOG                                                  */}
-          {/* ========================================================================= */}
-          {activeTab === 'prescriptions' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center flex-wrap gap-4 p-4 surface-card">
-                <div>
-                  <h3 className="text-base font-bold text-[var(--text-primary)]">Prescriptions Directives Directory</h3>
-                  <p className="text-xs text-[var(--text-secondary)]">Review all medication prescriptions issued across your clinical visits.</p>
-                </div>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={Plus}
-                  onClick={() => handleTabChange('consultations')}
-                >
-                  Create New Prescription
-                </Button>
               </div>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Patient</TableHead>
-                    <TableHead>Scheduled Time</TableHead>
-                    <TableHead>Clinical Reason</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {appointments.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8">
-                        <EmptyState title="No Prescriptions Issued" description="No prescription directives recorded yet." />
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    appointments.map((appt) => (
-                      <TableRow key={appt.appointmentId || appt.id}>
-                        <TableCell className="font-bold text-xs text-[var(--text-primary)]">
-                          {appt.patientName}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs text-[var(--text-secondary)]">
-                          {appt.appointmentTime}
-                        </TableCell>
-                        <TableCell className="text-xs text-[var(--text-secondary)] max-w-xs truncate">
-                          {appt.reason}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={appt.status} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            icon={Stethoscope}
-                            onClick={() => {
-                              setSelectedAppt(appt);
-                              handleTabChange('consultations');
-                            }}
-                          >
-                            Open Consultation
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className="w-full bg-gradient-to-r from-red-500 to-rose-600 text-white font-bold py-3.5 rounded-xl text-sm transition-all duration-200 cursor-pointer disabled:opacity-40"
+              >
+                {actionLoading ? 'Deleting Account...' : 'Verify & Delete Account'}
+              </button>
+            </form>
+
+            <div className="text-center mt-6">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="text-xs text-slate-500 hover:text-slate-400 font-semibold"
+              >
+                Cancel / Close
+              </button>
             </div>
-          )}
 
-          {/* ========================================================================= */}
-          {/* TAB 6: MEDICAL RECORDS & PASSPORT INSPECTOR                               */}
-          {/* ========================================================================= */}
-          {activeTab === 'passport' && (
-            <div className="space-y-6">
-              <Card className="space-y-4">
-                <CardHeader>
-                  <CardTitle subtitle="Select a patient from your roster to inspect medical history, allergies, and vitals">
-                    Patient Medical Records Inspector
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    {appointments.map((appt) => (
-                      <div
-                        key={appt.appointmentId || appt.id}
-                        onClick={() => handleViewPatientPassport(appt.patientId)}
-                        className="p-4 surface-card hover:border-[var(--border-focus)] cursor-pointer flex items-center justify-between transition-colors"
-                      >
-                        <div>
-                          <p className="text-xs font-bold text-[var(--text-primary)]">{appt.patientName}</p>
-                          <p className="text-[10px] font-mono text-[var(--text-muted)]">ID: #{appt.patientId}</p>
-                        </div>
-                        <Badge variant="cyan" className="text-[10px]">Inspect Passport</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* TAB 7: DOCTOR CREDENTIALS & PROFILE                                       */}
-          {/* ========================================================================= */}
-          {activeTab === 'profile' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle subtitle="Update license number, medical specialty, and consultation rate">
-                    Practitioner Credentials & Status
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleUpdateProfile} className="space-y-4">
-                    <Select
-                      label="Medical Specialty"
-                      value={specialty}
-                      onChange={(e) => setSpecialty(e.target.value)}
-                      options={['General Medicine', 'Cardiology', 'Neurology', 'Pediatrics', 'Dermatology']}
-                      required
-                    />
-                    <Input
-                      label="Medical License Number"
-                      value={licenseNumber}
-                      onChange={(e) => setLicenseNumber(e.target.value)}
-                      required
-                    />
-                    <Input
-                      label="Consultation Rate ($ USD)"
-                      type="number"
-                      value={consultationFee}
-                      onChange={(e) => setConsultationFee(parseFloat(e.target.value))}
-                      required
-                    />
-                    <Textarea
-                      label="Professional Biography"
-                      value={bio}
-                      onChange={(e) => setBio(e.target.value)}
-                      rows={4}
-                    />
-                    <Button type="submit" variant="primary" size="sm" isLoading={actionLoading}>
-                      Save Credential Updates
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-
-              <Card className="space-y-3">
-                <h4 className="text-xs font-bold font-mono uppercase text-[var(--text-primary)] flex items-center gap-1">
-                  <ShieldCheck className="w-4 h-4 text-[var(--color-primary)]" />
-                  Verification Guidelines
-                </h4>
-                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                  Medical licenses are audited against active regulatory registers. Ensure license details remain up to date to preserve verified practitioner badge status.
-                </p>
-              </Card>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Safety Prescription Review Modal */}
-      <PrescriptionReviewModal
-        isOpen={showReviewModal}
-        onClose={() => setShowReviewModal(false)}
-        onConfirm={handleFinalSubmitConsultation}
-        isLoading={actionLoading}
-        prescriptionData={{
-          patientName: selectedAppt?.patientName || 'Selected Patient',
-          medicationName,
-          dosage,
-          frequency,
-          duration,
-          instructions
-        }}
-      />
-
-      {/* Patient Passport Drawer */}
-      <Drawer
-        isOpen={showPassportDrawer}
-        onClose={() => setShowPassportDrawer(false)}
-        title="Patient Medical Passport"
-        subtitle={passportPatient ? `Patient ID: #${passportPatient.patientId || 'N/A'}` : ''}
-      >
-        {passportLoading ? (
-          <CardSkeleton />
-        ) : passportPatient ? (
-          <div className="space-y-6">
-            <PatientIdentityHeader patient={passportPatient} />
-
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold font-mono text-[var(--text-muted)] uppercase">Medical History Timeline</h4>
-              <ClinicalTimeline timelineData={passportPatient.medicalHistoryTimeline} />
-            </div>
           </div>
-        ) : (
-          <EmptyState title="No Passport Record" description="Select a valid patient to view their passport." />
-        )}
-      </Drawer>
-    </AppShell>
+        </div>
+      )}
+    </div>
   );
 };
 

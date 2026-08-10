@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { ThemeContext } from '../context/ThemeContext';
 import api from '../api';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -12,6 +11,8 @@ import {
   ArrowRight,
   AlertTriangle,
   Send,
+  Mic,
+  MicOff,
   Sparkles,
   CheckCircle2,
   AlertOctagon,
@@ -21,14 +22,11 @@ import {
   BadgeCheck,
   Star,
   Users,
-  Clock,
-  Sun,
-  Moon
+  Clock
 } from 'lucide-react';
 
 export const LandingPage = () => {
   const { user } = useContext(AuthContext);
-  const { theme, toggleTheme } = useContext(ThemeContext);
   const navigate = useNavigate();
 
   // AI Triage Demo States
@@ -41,6 +39,58 @@ export const LandingPage = () => {
   ]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [triageResult, setTriageResult] = useState(null);
+  const [isListening, setIsListening] = useState(false);
+  const [micError, setMicError] = useState('');
+
+  const startSpeechRecognition = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setMicError("Voice-to-Text speech recognition is not supported in this browser.");
+      return;
+    }
+
+    setMicError('');
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = navigator.language || 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event) => {
+      if (event.results && event.results.length > 0) {
+        const speechToText = event.results[0][0].transcript;
+        setSymptomInput(prev => prev ? prev + " " + speechToText : speechToText);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error", event.error);
+      setIsListening(false);
+      
+      let errMsg = "Speech recognition error: " + event.error;
+      if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+        errMsg = "Microphone access blocked. Please allow microphone access.";
+      } else if (event.error === 'no-speech') {
+        errMsg = "No speech detected. Please try speaking again.";
+      }
+      setMicError(errMsg);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    try {
+      recognition.start();
+    } catch (err) {
+      console.error("Failed to start speech recognition:", err);
+      setIsListening(false);
+    }
+  };
 
   const handleDemoSubmit = async (e) => {
     e.preventDefault();
@@ -109,7 +159,7 @@ export const LandingPage = () => {
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text1)] flex flex-col font-sans">
       {/* 1. STICKY NAV */}
-      <header className="sticky top-0 z-50 glass-nav h-[56px] px-4 md:px-10 flex items-center justify-between">
+      <header className="fixed top-0 w-full z-50 glass-nav h-[56px] px-6 md:px-10 flex items-center justify-between">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
           <div className="w-[30px] h-[30px] rounded-[8px] bg-[var(--brand)] flex items-center justify-center text-white shadow-sm">
             <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -121,7 +171,7 @@ export const LandingPage = () => {
           </span>
         </div>
 
-        {/* Navigation Links — Desktop */}
+        {/* Navigation Links */}
         <nav className="hidden md:flex items-center space-x-6 text-[13px] font-medium text-[var(--text2)]">
           <a href="#how-it-works" className="hover:bg-[var(--surface2)] hover:text-[var(--text1)] px-2.5 py-1 rounded-[6px] transition-all">How it works</a>
           <a href="#trust" className="hover:bg-[var(--surface2)] hover:text-[var(--text1)] px-2.5 py-1 rounded-[6px] transition-all">Find a doctor</a>
@@ -129,17 +179,8 @@ export const LandingPage = () => {
           <a href="#testimonials" className="hover:bg-[var(--surface2)] hover:text-[var(--text1)] px-2.5 py-1 rounded-[6px] transition-all">About</a>
         </nav>
 
-        {/* Right CTA & Theme Toggle */}
-        <div className="flex items-center gap-2 md:gap-3">
-          <button
-            onClick={toggleTheme}
-            className="w-8 h-8 rounded-[7px] border border-[var(--border)] bg-slate-900/10 dark:bg-white/[0.03] text-[var(--text2)] hover:text-[var(--text1)] flex items-center justify-center cursor-pointer transition-all"
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
-          </button>
-
+        {/* Right CTA */}
+        <div className="flex items-center gap-3">
           {user ? (
             <Button variant="primary" size="sm" onClick={redirectDashboard} icon={ArrowRight} iconPosition="right">
               Workstation
@@ -158,7 +199,7 @@ export const LandingPage = () => {
       </header>
 
       {/* 2. HERO SECTION */}
-      <section className="py-[72px] px-6 md:px-[40px] text-center max-w-[780px] mx-auto">
+      <section className="pt-[128px] pb-[72px] px-6 md:px-[40px] text-center max-w-[780px] mx-auto">
         <div className="inline-flex items-center gap-1.5 bg-[rgba(79,110,247,0.08)] border border-[rgba(79,110,247,0.18)] rounded-[20px] px-3.5 py-1 mb-[24px]">
           <span className="text-[11px] font-semibold text-[var(--brand)] tracking-[0.3px]">
             ✦ AI-powered · Verified specialists · Trusted by patients across India
@@ -245,7 +286,7 @@ export const LandingPage = () => {
       </section>
 
       {/* 5. HOW IT WORKS SECTION */}
-      <section id="how-it-works" className="bg-[var(--surface2)] py-[80px] px-6 md:px-[40px]">
+      <section id="how-it-works" className="scroll-mt-[56px] bg-[var(--surface2)] py-[80px] px-6 md:px-[40px]">
         <div className="max-w-[600px] mx-auto text-center mb-10">
           <span className="text-[11px] font-semibold tracking-[0.5px] uppercase text-[var(--brand)]">HOW IT WORKS</span>
           <h2 className="font-heading text-[30px] md:text-[34px] font-extrabold tracking-[-0.02em] text-[var(--text1)] mt-1">
@@ -302,7 +343,7 @@ export const LandingPage = () => {
       </section>
 
       {/* 6. LIVE AI TRIAGE DEMO */}
-      <section id="demo" className="bg-[var(--surface2)] py-[80px] px-6 md:px-[40px]">
+      <section id="demo" className="scroll-mt-[56px] bg-[var(--surface2)] py-[80px] px-6 md:px-[40px]">
         <div className="max-w-[600px] mx-auto text-center mb-8">
           <span className="text-[11px] font-semibold tracking-[0.5px] uppercase text-[var(--brand)]">TRY IT NOW</span>
           <h2 className="font-heading text-[30px] md:text-[34px] font-extrabold tracking-[-0.02em] text-[var(--text1)] mt-1">
@@ -367,8 +408,29 @@ export const LandingPage = () => {
             </div>
           )}
 
+          {micError && (
+            <div className="px-4 pb-2">
+              <div className="text-[11px] text-[var(--danger)] flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                {micError}
+              </div>
+            </div>
+          )}
+
           {/* Demo Input Row */}
           <form onSubmit={handleDemoSubmit} className="p-3 border-t border-[var(--border)] flex gap-2">
+            <button
+              type="button"
+              onClick={startSpeechRecognition}
+              className={`px-3 flex items-center justify-center rounded-[8px] border transition-all ${
+                isListening 
+                  ? 'bg-[rgba(220,38,38,0.1)] border-[rgba(220,38,38,0.3)] text-[var(--danger)] animate-pulse' 
+                  : 'bg-[var(--surface2)] border-[var(--border)] text-[var(--text2)] hover:text-[var(--brand)] hover:border-[var(--brand)]'
+              }`}
+              title="Speak symptoms"
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
             <input
               type="text"
               placeholder="e.g. My lower back has been aching for three days..."
@@ -384,7 +446,7 @@ export const LandingPage = () => {
       </section>
 
       {/* 7. TRUST ARCHITECTURE SECTION */}
-      <section id="trust" className="bg-[var(--surface)] py-[80px] px-6 md:px-[40px]">
+      <section id="trust" className="scroll-mt-[56px] bg-[var(--surface)] py-[80px] px-6 md:px-[40px]">
         <div className="max-w-[820px] mx-auto text-center mb-12">
           <span className="text-[11px] font-semibold tracking-[0.5px] uppercase text-[var(--brand)]">WHY PATIENTS TRUST US</span>
           <h2 className="font-heading text-[30px] md:text-[34px] font-extrabold tracking-[-0.02em] text-[var(--text1)] mt-1">
@@ -495,7 +557,7 @@ export const LandingPage = () => {
       </section>
 
       {/* 8. TESTIMONIALS SECTION */}
-      <section id="testimonials" className="bg-[var(--surface)] py-[80px] px-6 md:px-[40px]">
+      <section id="testimonials" className="scroll-mt-[56px] bg-[var(--surface)] py-[80px] px-6 md:px-[40px]">
         <div className="max-w-[660px] mx-auto text-center mb-10">
           <span className="text-[11px] font-semibold tracking-[0.5px] uppercase text-[var(--brand)]">REAL STORIES</span>
           <h2 className="font-heading text-[30px] md:text-[34px] font-extrabold tracking-[-0.02em] text-[var(--text1)] mt-1">
@@ -544,7 +606,7 @@ export const LandingPage = () => {
       </section>
 
       {/* 9. DOCTOR ACQUISITION SECTION (DARK THEME) */}
-      <section id="practitioners" className="bg-[#0D1424] text-white py-[72px] px-6 md:px-[40px] text-center">
+      <section id="practitioners" className="scroll-mt-[56px] bg-[#0D1424] text-white py-[72px] px-6 md:px-[40px] text-center">
         <div className="max-w-[600px] mx-auto space-y-4">
           <span className="text-[11px] font-bold tracking-[0.8px] uppercase text-[#06B6D4]">FOR PRACTITIONERS</span>
           <h2 className="font-heading text-[32px] md:text-[36px] font-extrabold tracking-[-0.02em] text-[#F1F5F9]">
@@ -641,9 +703,9 @@ export const LandingPage = () => {
             <span className="text-[11px] font-bold tracking-[0.6px] uppercase text-[var(--text2)] block">COMPANY</span>
             <div className="space-y-1.5 text-[13px] text-[var(--text3)]">
               <a href="#testimonials" className="block hover:text-[var(--brand)]">About us</a>
-              <a href="/login" className="block hover:text-[var(--brand)]">Privacy policy</a>
-              <a href="/login" className="block hover:text-[var(--brand)]">Terms of service</a>
-              <a href="/login" className="block hover:text-[var(--brand)]">Contact</a>
+              <Link to="/privacy" className="block hover:text-[var(--brand)]">Privacy policy</Link>
+              <Link to="/terms" className="block hover:text-[var(--brand)]">Terms of service</Link>
+              <Link to="/contact" className="block hover:text-[var(--brand)]">Contact</Link>
             </div>
           </div>
         </div>

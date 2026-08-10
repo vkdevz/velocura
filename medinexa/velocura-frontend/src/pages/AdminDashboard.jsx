@@ -1,130 +1,106 @@
 import { useState, useEffect, useContext } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import api from '../api';
-import { AppShell } from '../components/layout/AppShell';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Select } from '../components/ui/Select';
-import { Badge } from '../components/ui/Badge';
-import { StatusBadge } from '../components/ui/StatusBadge';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
-import { Modal } from '../components/ui/Modal';
-import { Alert } from '../components/ui/Alert';
-import { EmptyState } from '../components/ui/EmptyState';
-import { Skeleton, CardSkeleton } from '../components/ui/Skeleton';
-
-import {
-  Activity,
-  Users,
-  Stethoscope,
-  ShieldAlert,
-  CheckCircle2,
-  AlertTriangle,
-  RefreshCw,
-  Copy,
-  Send,
-  UserCheck,
-  UserX,
-  Trash2,
-  Search,
-  Plus,
-  Clock,
-  Key,
-  XCircle
-} from 'lucide-react';
+import ThemeToggle from '../components/ThemeToggle';
 
 const AdminDashboard = () => {
-  const { user, logout } = useContext(AuthContext);
-  const location = useLocation();
-  const [activeTab, setActiveTab] = useState('dashboard');
-
-  useEffect(() => {
-    const segments = location.pathname.split('/').filter(Boolean);
-    const sub = segments[1];
-    if (sub && sub !== 'dashboard' && ['dashboard', 'users', 'doctors', 'security'].includes(sub)) {
-      setActiveTab(sub);
-    }
-  }, [location.pathname]);
+  const { logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('overview');
 
   // Core Data states
   const [stats, setStats] = useState(null);
-  const [users, setUsers] = useState([]);
   const [unverifiedDoctors, setUnverifiedDoctors] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [otpShowActiveOnly, setOtpShowActiveOnly] = useState(true);
   const [activeOtps, setActiveOtps] = useState([]);
 
-  // UI & Feedback states
+  // Loading & notification states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [otpShowActiveOnly, setOtpShowActiveOnly] = useState(true);
 
   useEffect(() => {
-    fetchAdminData();
+    fetchDashboardData();
   }, []);
 
-  const fetchAdminData = async () => {
+  const fetchDashboardData = async () => {
     setLoading(true);
     setError('');
     try {
-      const [statsRes, usersRes, otpsRes, docsRes] = await Promise.allSettled([
-        api.get('/api/admin/dashboard-stats'),
-        api.get('/api/admin/users'),
-        api.get('/api/admin/otps'),
-        api.get('/api/admin/doctors/unverified')
-      ]);
+      // 1. Load system analytics counts
+      const statsRes = await api.get('/api/admin/dashboard-stats');
+      setStats(statsRes.data);
 
-      let hasError = false;
-      let errorMessage = '';
+      // 2. Load all users for directory auditing
+      const usersRes = await api.get('/api/admin/users');
+      setUsers(usersRes.data);
 
-      if (statsRes.status === 'fulfilled') {
-        setStats(statsRes.value.data);
-      } else {
-        hasError = true;
-        const err = statsRes.reason;
-        if (err.response?.status === 401) {
-          errorMessage = 'Your admin session has expired. Please log in again.';
-        } else if (err.response?.status === 403) {
-          errorMessage = 'Access denied: Admin role permissions required.';
-        }
-      }
+      // 3. Load all active OTP sessions
+      const otpsRes = await api.get('/api/admin/otps');
+      setActiveOtps(otpsRes.data);
 
-      if (usersRes.status === 'fulfilled') {
-        setUsers(usersRes.value.data);
-      } else {
-        hasError = true;
-      }
-
-      if (otpsRes.status === 'fulfilled') {
-        setActiveOtps(otpsRes.value.data);
-      } else {
-        hasError = true;
-      }
-
-      if (docsRes.status === 'fulfilled') {
-        setUnverifiedDoctors(docsRes.value.data);
-      } else {
-        hasError = true;
-      }
-
-      if (hasError) {
-        if (!errorMessage) {
-          errorMessage = 'Server connection issue. Backend may be waking up from sleep mode.';
-        }
-        setError(errorMessage);
-      }
+      // Filter unverified doctors from users or retrieve from backend?
+      // Since our GET /api/admin/users returns user details, let's extract doctors who are unverified.
+      // Wait, we need to load unverified doctors.
+      // In the backend, AdminService has getDashboardStats which queries pending counts.
+      // But we can get unverified doctors list. Wait! Did we expose an endpoint to list unverified doctors?
+      // No, we didn't write an endpoint specifically for listing unverified doctors!
+      // But wait! We have `GET /api/admin/users` which returns user list. We can filter unverified doctors from there?
+      // No, `users` returns role and user names, but doctor profiles (containing `isVerified`) are separate entities.
+      // Wait! In `DoctorRepository` we have `findByIsVerified(false)`.
+      // Let's check if we can list unverified doctors?
+      // Oh! In `AdminServiceImpl.java` or `AdminController.java`, we did NOT expose `GET /api/admin/unverified-doctors`!
+      // Wait, let's check: does `AdminService` have a method to list unverified doctors?
+      // No, it has `getAllUsers`, `verifyDoctor`, and `getDashboardStats`.
+      // Let's add a method to get unverified doctors, or can we return them?
+      // Wait! We can easily get unverified doctors from the `users` list if we modify the `UserResponse` DTO to return verification status? No, `UserResponse` has role.
+      // What if we expose a `GET /api/admin/unverified-doctors`? Yes, that is incredibly clean!
+      // Let's look at `AdminService.java`. It can define:
+      // `List<DoctorProfileResponse> getUnverifiedDoctors();`
+      // And `AdminController.java` can map it as `GET /api/admin/doctors/unverified`.
+      // 4. Load unverified doctors
+      const docsRes = await api.get('/api/admin/doctors/unverified');
+      setUnverifiedDoctors(docsRes.data);
     } catch (err) {
-      console.error('Admin data fetch error:', err);
-      if (err.response?.status === 401) {
-        setError('Your session has expired. Please log in again.');
-      } else {
-        setError('Failed to fetch admin dashboard statistics. Please try again.');
-      }
+      console.error(err);
+      setError('Failed to fetch admin dashboard statistics. Error: ' + err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // I will write the complete AdminDashboard.jsx file assuming the backend endpoint exists, and then modify the backend files.
+  // The endpoint will be: `GET /api/admin/doctors/unverified` -> returns `List<DoctorProfileResponse>`
+
+  const handleVerifyDoctor = async (doctorId) => {
+    setError('');
+    setSuccess('');
+    setActionLoading(true);
+
+    try {
+      await api.put(`/api/admin/doctors/${doctorId}/verify`);
+      setSuccess('Doctor credential verified and account activated successfully!');
+      
+      // Refresh dashboard data
+      const statsRes = await api.get('/api/admin/dashboard-stats');
+      setStats(statsRes.data);
+      
+      const docsRes = await api.get('/api/admin/doctors/unverified');
+      setUnverifiedDoctors(docsRes.data);
+
+      const usersRes = await api.get('/api/admin/users');
+      setUsers(usersRes.data);
+
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to verify doctor account.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -132,48 +108,33 @@ const AdminDashboard = () => {
     try {
       const res = await api.get('/api/admin/doctors/unverified');
       setUnverifiedDoctors(res.data);
-    } catch (err) {}
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const loadActiveOtps = async () => {
     try {
       const res = await api.get('/api/admin/otps');
       setActiveOtps(res.data);
-    } catch (err) {}
-  };
-
-  const handleVerifyDoctor = async (doctorId) => {
-    setError('');
-    setSuccess('');
-    setActionLoading(true);
-    try {
-      await api.put(`/api/admin/doctors/${doctorId}/verify`);
-      setSuccess('Doctor account verified successfully.');
-      const statsRes = await api.get('/api/admin/dashboard-stats');
-      setStats(statsRes.data);
-      const docsRes = await api.get('/api/admin/doctors/unverified');
-      setUnverifiedDoctors(docsRes.data);
-      const usersRes = await api.get('/api/admin/users');
-      setUsers(usersRes.data);
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError('Failed to verify doctor application.');
-    } finally {
-      setActionLoading(false);
+      console.error(err);
     }
   };
 
-  const handleToggleUserStatus = async (userId) => {
+  const handleToggleActive = async (userId) => {
     setError('');
     setSuccess('');
     setActionLoading(true);
     try {
       await api.put(`/api/admin/users/${userId}/toggle-active`);
-      setSuccess('User active status updated.');
+      setSuccess('User active status toggled successfully!');
+      
       const usersRes = await api.get('/api/admin/users');
       setUsers(usersRes.data);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
+      console.error(err);
       setError('Failed to update user status.');
     } finally {
       setActionLoading(false);
@@ -181,41 +142,40 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Permanently delete this user account? Action cannot be undone.')) return;
+    if (!window.confirm('Are you absolutely sure you want to permanently delete this user account? This action cannot be undone.')) {
+      return;
+    }
     setError('');
     setSuccess('');
     setActionLoading(true);
     try {
       await api.delete(`/api/admin/users/${userId}`);
       setSuccess('User account deleted permanently.');
+      
       const usersRes = await api.get('/api/admin/users');
       setUsers(usersRes.data);
       const statsRes = await api.get('/api/admin/dashboard-stats');
       setStats(statsRes.data);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
+      console.error(err);
       setError('Failed to delete user account.');
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Admin OTP Modal & Expiry timer states
-  const [showIssueOtpModal, setShowIssueOtpModal] = useState(false);
-  const [issueOtpEmail, setIssueOtpEmail] = useState('');
-  const [currentTime, setCurrentTime] = useState(Date.now());
-
   const handleAdminResendOtp = async (userEmail) => {
     setError('');
     setSuccess('');
     setActionLoading(true);
     try {
-      const res = await api.post('/api/admin/otps/resend', { email: userEmail });
-      const newCode = res.data?.code ? ` (${res.data.code})` : '';
-      setSuccess(`Fresh security code${newCode} generated and dispatched to ${userEmail}!`);
+      await api.post('/api/auth/otp/send', { email: userEmail });
+      setSuccess(`Fresh security code generated and dispatched to ${userEmail}!`);
       await loadActiveOtps();
-      setTimeout(() => setSuccess(''), 4000);
+      setTimeout(() => setSuccess(''), 3500);
     } catch (err) {
+      console.error(err);
       if (err.response && err.response.data && typeof err.response.data === 'string') {
         setError(err.response.data);
       } else {
@@ -226,560 +186,612 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleAdminIssueOtp = async (e) => {
-    e.preventDefault();
-    if (!issueOtpEmail) return;
-    setError('');
-    setSuccess('');
-    setActionLoading(true);
-    try {
-      const res = await api.post('/api/admin/otps/issue', { email: issueOtpEmail });
-      setSuccess(`Generated 6-digit OTP code (${res.data.code}) for ${issueOtpEmail}`);
-      setShowIssueOtpModal(false);
-      setIssueOtpEmail('');
-      await loadActiveOtps();
-      setTimeout(() => setSuccess(''), 4500);
-    } catch (err) {
-      setError('Failed to issue security OTP code.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleRevokeOtp = async (userEmail) => {
-    if (!window.confirm(`Revoke active verification code for ${userEmail}?`)) return;
-    setError('');
-    setSuccess('');
-    setActionLoading(true);
-    try {
-      await api.delete(`/api/admin/otps/${encodeURIComponent(userEmail)}`);
-      setSuccess(`Revoked OTP session for ${userEmail}`);
-      await loadActiveOtps();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError('Failed to revoke OTP session.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   useEffect(() => {
+    setSearchQuery('');
     let intervalId;
-    let clockId;
-    if (activeTab === 'doctors') {
+
+    if (activeTab === 'verifications') {
       loadUnverifiedDoctors();
-      intervalId = setInterval(loadUnverifiedDoctors, 5000);
-    } else if (activeTab === 'security') {
+    } else if (activeTab === 'otps') {
       loadActiveOtps();
-      intervalId = setInterval(loadActiveOtps, 5000);
-      clockId = setInterval(() => setCurrentTime(Date.now()), 1000);
+      // Auto-poll active OTPs list every 3 seconds to keep it fully real-time
+      intervalId = setInterval(loadActiveOtps, 3000);
+    } else if (activeTab === 'users') {
+      // Instantly refresh OTP list when looking at user list to ensure matching values are fresh
+      loadActiveOtps();
     }
+
     return () => {
-      if (intervalId) clearInterval(intervalId);
-      if (clockId) clearInterval(clockId);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
     };
   }, [activeTab]);
 
-  const sectionTitles = {
-    dashboard: 'Admin System Control Panel',
-    users: 'Platform User Management',
-    doctors: 'Doctor Verifications Queue',
-    security: 'Security OTP Audit Monitor'
-  };
-
-  const filteredUsers = users.filter(u =>
-    (u.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (u.firstName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (u.lastName || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredOtps = activeOtps.filter(o =>
-    (o.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (o.userName || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 rounded-full border-4 border-cyan-500/25 border-t-cyan-500 animate-spin" />
+        <p className="text-sm font-medium text-slate-400 font-mono">Loading administrative console...</p>
+      </div>
+    );
+  }
 
   return (
-    <AppShell
-      activeSection={activeTab}
-      onSelectSection={setActiveTab}
-      sectionTitles={sectionTitles}
-    >
-      {/* System Feedback Alerts */}
-      {error && <Alert variant="error" onClose={() => setError('')} className="mb-4">{error}</Alert>}
-      {success && <Alert variant="success" onClose={() => setSuccess('')} className="mb-4">{success}</Alert>}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative">
+      {/* Background decoration elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-500/5 rounded-full blur-[120px] animate-pulse-glow" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-indigo-500/5 rounded-full blur-[150px] animate-pulse-glow" />
 
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-        </div>
-      ) : (
-        <>
-          {/* TAB 1: DASHBOARD METRICS OVERVIEW */}
-          {activeTab === 'dashboard' && (
-            <div className="space-y-6">
-              {/* Metrics Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card padding="p-4" className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center">
-                    <Users className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 font-mono uppercase">Total Users</p>
-                    <p className="text-xl font-bold text-slate-100">{stats?.totalUsers || 0}</p>
-                  </div>
-                </Card>
-                <Card padding="p-4" className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center">
-                    <Activity className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 font-mono uppercase">Registered Patients</p>
-                    <p className="text-xl font-bold text-slate-100">{stats?.totalPatients || 0}</p>
-                  </div>
-                </Card>
-                <Card padding="p-4" className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
-                    <Stethoscope className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 font-mono uppercase">Verified Doctors</p>
-                    <p className="text-xl font-bold text-slate-100">{stats?.verifiedDoctors || 0}</p>
-                  </div>
-                </Card>
-                <Card padding="p-4" className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
-                    <ShieldAlert className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 font-mono uppercase">Active OTP Sessions</p>
-                    <p className="text-xl font-bold text-slate-100">{activeOtps.length}</p>
-                  </div>
-                </Card>
-              </div>
+      {/* Main dashboard grid layout */}
+      <div className="flex-1 flex flex-col md:flex-row z-10">
+        
+        {/* SIDEBAR NAVIGATION PANEL */}
+        <aside className="w-full md:w-64 bg-slate-900/40 border-r border-slate-900 px-6 py-8 flex flex-col shrink-0">
+          <div className="flex items-center space-x-3 mb-8">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center shadow-md shadow-purple-500/20">
+              <svg className="w-5 h-5 text-slate-950 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <div>
+              <span className="text-lg font-bold tracking-tight text-white font-sans">VeloCura</span>
+              <span className="block text-[9px] text-purple-400 font-bold uppercase tracking-widest mt-[-2px]">Admin Console</span>
+            </div>
+          </div>
 
-              {/* Unverified Doctors Queue Quick Banner */}
-              {unverifiedDoctors.length > 0 && (
-                <Alert variant="warning" title="Doctor Verification Requests Pending">
-                  There are {unverifiedDoctors.length} practitioner credentials awaiting admin review.
-                  <Button variant="outline" size="sm" className="ml-3 mt-2 sm:mt-0" onClick={() => setActiveTab('doctors')}>
-                    Review Queue
-                  </Button>
-                </Alert>
+          {/* Nav links */}
+          <nav className="flex-1 flex flex-col space-y-1">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                activeTab === 'overview'
+                  ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+              <span>Overview</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('verifications')}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                activeTab === 'verifications'
+                  ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <span>Doctor Verification</span>
+              {stats?.pendingVerificationsCount > 0 && (
+                <span className="bg-purple-500 text-slate-950 font-bold px-2 py-0.5 rounded-full text-[10px] ml-auto">
+                  {stats.pendingVerificationsCount}
+                </span>
               )}
+            </button>
 
-              {/* Active Security OTP Codes Quick Access Panel */}
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle subtitle="Live verification codes for registration and password resets">
-                      <span className="flex items-center gap-2">
-                        <ShieldAlert className="w-5 h-5 text-amber-400" />
-                        Active Security OTP Codes ({activeOtps.length})
-                      </span>
-                    </CardTitle>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" icon={Plus} onClick={() => setShowIssueOtpModal(true)}>
-                        Issue OTP
-                      </Button>
-                      <Button variant="ghost" size="sm" icon={RefreshCw} onClick={loadActiveOtps}>
-                        Refresh
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {activeOtps.length === 0 ? (
-                    <p className="text-xs text-slate-500 italic py-2">No active verification OTP sessions currently running.</p>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {activeOtps.map((o, idx) => {
-                        const remainingMs = o.expiryTime ? (o.expiryTime - currentTime) : 0;
-                        const isExpired = remainingMs <= 0;
-                        const mins = Math.floor(Math.max(0, remainingMs) / 60000);
-                        const secs = Math.floor((Math.max(0, remainingMs) % 60000) / 1000);
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                activeTab === 'users'
+                  ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              <span>User Directory</span>
+            </button>
 
-                        return (
-                          <div key={idx} className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between gap-2.5">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <p className="text-xs font-bold text-slate-100 truncate max-w-[170px]" title={o.email}>
-                                  {o.email}
-                                </p>
-                                <p className="text-[11px] text-slate-400">{o.userName} ({o.role})</p>
-                              </div>
-                              <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded ${
-                                isExpired ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'
-                              }`}>
-                                {isExpired ? 'Expired' : `${mins}m ${secs}s`}
-                              </span>
-                            </div>
+            <button
+              onClick={() => setActiveTab('otps')}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                activeTab === 'otps'
+                  ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <span>Security OTPs</span>
+            </button>
+          </nav>
 
-                            <div className="flex items-center justify-between bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
-                              <span className="text-xs text-slate-400 font-mono">OTP CODE:</span>
-                              <span className="font-mono font-bold text-sm text-amber-300 tracking-wider">
-                                {o.code}
-                              </span>
-                            </div>
+          {/* User profile brief & logout */}
+          <div className="border-t border-slate-900 pt-6 mt-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-bold text-purple-400">
+                A
+              </div>
+              <div className="overflow-hidden flex-1">
+                <p className="text-sm font-bold text-white truncate">Administrator</p>
+                <p className="text-xs text-slate-500 truncate font-mono">admin@velocura.com</p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/')}
+              className="w-full bg-slate-950 border border-slate-900 hover:border-blue-500/20 hover:text-blue-400 text-slate-400 text-xs font-semibold py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer mb-3"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              <span>VeloCura Home</span>
+            </button>
+            <button
+              onClick={logout}
+              className="w-full bg-slate-950 border border-slate-900 hover:border-red-500/20 hover:text-red-400 text-slate-400 text-xs font-semibold py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 01-3-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </aside>
 
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                icon={Copy}
-                                className="w-full text-xs py-1"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(o.code);
-                                  setSuccess(`Copied OTP (${o.code}) for ${o.email}`);
-                                  setTimeout(() => setSuccess(''), 3000);
-                                }}
-                              >
-                                Copy Code
-                              </Button>
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                icon={Send}
-                                className="w-full text-xs py-1"
-                                onClick={() => handleAdminResendOtp(o.email)}
-                              >
-                                Resend
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* System Audit Summary */}
-              <Card>
-                <CardHeader>
-                  <CardTitle subtitle="Platform compliance and security status">Security Compliance Overview</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
-                    <p className="text-[10px] font-mono text-slate-500 uppercase">JWT Expiration Policy</p>
-                    <p className="text-xs font-bold text-emerald-400">24-Hour Stateless Session Tokens</p>
-                  </div>
-                  <div className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
-                    <p className="text-[10px] font-mono text-slate-500 uppercase">Database Persistence</p>
-                    <p className="text-xs font-bold text-cyan-400">Managed PostgreSQL Storage Active</p>
-                  </div>
-                  <div className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
-                    <p className="text-[10px] font-mono text-slate-500 uppercase">OTP Rate Limiting</p>
-                    <p className="text-xs font-bold text-purple-400">30s Cooldown / 5m Expiry Algorithm</p>
-                  </div>
-                </CardContent>
-              </Card>
+        {/* MAIN PANEL CONTENT SPACE */}
+        <main className="flex-1 px-8 py-10 overflow-y-auto max-w-5xl relative">
+          
+          {/* Top-Right Floating Controls */}
+          <div className="absolute top-8 right-8 z-50">
+            <ThemeToggle />
+          </div>
+          
+          {/* Action alerts */}
+          {success && (
+            <div className="mb-8 p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 text-sm flex items-center gap-3 animate-float">
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{success}</span>
             </div>
           )}
 
-          {/* TAB 2: USER MANAGEMENT */}
-          {activeTab === 'users' && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <h3 className="text-base font-bold text-slate-100">User Accounts Roster</h3>
-                  <p className="text-xs text-slate-400">Manage patient, doctor, and admin system accounts.</p>
-                </div>
-                <Input
-                  placeholder="Search user name or email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full sm:w-64"
-                />
+          {error && (
+            <div className="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-3">
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* TAB CONTENT CONDITIONAL SWITCH */}
+          {activeTab === 'overview' && (
+            <div className="space-y-8">
+              
+              {/* Welcome card banner */}
+              <div className="glass-card rounded-3xl p-8 relative overflow-hidden">
+                <div className="absolute top-[-50%] right-[-10%] w-[300px] h-[300px] bg-purple-500/10 rounded-full blur-[80px]" />
+                <h2 className="text-3xl font-extrabold text-white">Hello, Admin!</h2>
+                <p className="text-slate-400 mt-2 text-sm leading-relaxed max-w-xl">
+                  Welcome to the VeloCura System Administration Workspace. You can monitor platform performance, verify medical credentials, and audit active users.
+                </p>
               </div>
 
-              {filteredUsers.length === 0 ? (
-                <EmptyState icon={Users} title="No Users Found" description="No user accounts match your search parameters." />
+              {/* Stats aggregates */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="glass-card rounded-2xl p-6 flex items-center space-x-4">
+                  <div className="p-4 bg-purple-500/10 rounded-xl text-purple-400">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Total Patients</p>
+                    <p className="text-2xl font-bold text-white mt-1">{stats?.patientCount}</p>
+                  </div>
+                </div>
+
+                <div className="glass-card rounded-2xl p-6 flex items-center space-x-4">
+                  <div className="p-4 bg-teal-500/10 rounded-xl text-teal-400">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Total Doctors</p>
+                    <p className="text-2xl font-bold text-white mt-1">{stats?.doctorCount}</p>
+                  </div>
+                </div>
+
+                <div className="glass-card rounded-2xl p-6 flex items-center space-x-4">
+                  <div className="p-4 bg-cyan-500/10 rounded-xl text-cyan-400">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Appointments</p>
+                    <p className="text-2xl font-bold text-white mt-1">{stats?.appointmentCount}</p>
+                  </div>
+                </div>
+
+                <div className="glass-card rounded-2xl p-6 flex items-center space-x-4">
+                  <div className="p-4 bg-amber-500/10 rounded-xl text-amber-400">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Pending Verif.</p>
+                    <p className="text-2xl font-bold text-white mt-1">{stats?.pendingVerificationsCount}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'verifications' && (
+            <div className="glass-card rounded-3xl p-6">
+              <h3 className="text-xl font-bold text-white mb-6">Doctor Credentials Verification Queue</h3>
+              {unverifiedDoctors.length === 0 ? (
+                <p className="text-sm text-slate-500 font-mono py-8 text-center">No doctor credentials awaiting verification.</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User ID</TableHead>
-                      <TableHead>Email Address</TableHead>
-                      <TableHead>Full Name</TableHead>
-                      <TableHead>System Role</TableHead>
-                      <TableHead>Account Status</TableHead>
-                      <TableHead>Active OTP</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.map((u) => {
-                      const displayEmail = (u.email || '').includes('_deleted_') ? u.email.split('_deleted_')[0] : u.email;
-                      return (
-                        <TableRow key={u.id}>
-                          <TableCell className="font-mono text-xs text-slate-500">#{u.id}</TableCell>
-                          <TableCell className="font-bold text-slate-100">{displayEmail}</TableCell>
-                          <TableCell>{u.firstName} {u.lastName}</TableCell>
-                          <TableCell>
-                            <Badge variant={u.role === 'ADMIN' ? 'purple' : u.role === 'DOCTOR' ? 'teal' : 'cyan'}>
-                              {u.role}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <span className={`inline-flex items-center gap-1 text-xs font-mono font-semibold ${
-                              u.active ? 'text-emerald-400' : 'text-red-400'
-                            }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${u.active ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                              {u.active ? 'Active' : 'Inactive'}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            {u.otp ? (
-                              <div className="inline-flex items-center gap-1.5">
-                                <span className="font-mono font-bold text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded">
-                                  {u.otp}
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-left text-sm text-slate-400">
+                    <thead className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-900">
+                      <tr>
+                        <th className="pb-3">Doctor Name</th>
+                        <th className="pb-3">License Number</th>
+                        <th className="pb-3">Specialization</th>
+                        <th className="pb-3">Experience</th>
+                        <th className="pb-3">Fee</th>
+                        <th className="pb-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900">
+                      {unverifiedDoctors.map((d) => (
+                        <tr key={d.id} className="hover:bg-slate-900/10">
+                          <td className="py-4 font-bold text-white">Dr. {d.firstName} {d.lastName}</td>
+                          <td className="py-4 font-mono text-xs text-cyan-400">{d.licenseNumber}</td>
+                          <td className="py-4">{d.specialization}</td>
+                          <td className="py-4">{d.experienceYears} yrs</td>
+                          <td className="py-4 font-mono">${d.consultationFee}</td>
+                          <td className="py-4 text-right">
+                            <button
+                              onClick={() => handleVerifyDoctor(d.id)}
+                              disabled={actionLoading}
+                              className="bg-gradient-to-r from-purple-500 to-indigo-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl hover:shadow-lg hover:shadow-purple-500/10 transition-all duration-200 cursor-pointer"
+                            >
+                              Approve Credentials
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'users' && (
+            <div className="glass-card rounded-3xl p-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <h3 className="text-xl font-bold text-white">User Auditing & Management</h3>
+                <div className="w-full sm:w-72">
+                  <input
+                    type="text"
+                    placeholder="Search by email or name..."
+                    className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 transition-all duration-200"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {users.length === 0 ? (
+                <p className="text-sm text-slate-500 font-mono py-8 text-center">No registered users found.</p>
+              ) : (
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-left text-sm text-slate-400">
+                    <thead className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-900">
+                      <tr>
+                        <th className="pb-3">ID</th>
+                        <th className="pb-3">Email Address</th>
+                        <th className="pb-3">Full Name</th>
+                        <th className="pb-3">System Role</th>
+                        <th className="pb-3">Status</th>
+                        <th className="pb-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900">
+                      {users
+                        .filter(u => 
+                          u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          u.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          u.lastName.toLowerCase().includes(searchQuery.toLowerCase())
+                        )
+                        .map((u) => {
+                          const displayEmail = u.email.includes('_deleted_') ? u.email.split('_deleted_')[0] : u.email;
+                          return (
+                            <tr key={u.id} className={`hover:bg-slate-900/10 ${u.isDeleted ? 'opacity-65' : ''}`}>
+                              <td className="py-4 font-mono text-xs text-slate-500">#{u.id}</td>
+                              <td className="py-4 font-bold text-white">
+                                {displayEmail}
+                                {u.isDeleted && <span className="ml-2 text-[9px] bg-slate-800 text-slate-500 px-1 py-0.5 rounded font-mono">ARCHIVED</span>}
+                              </td>
+                              <td className="py-4">{u.firstName} {u.lastName}</td>
+                              <td className="py-4">
+                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase font-mono tracking-wide ${
+                                  u.role === 'ADMIN' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                                  u.role === 'DOCTOR' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20' :
+                                  'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                                }`}>
+                                  {u.role}
                                 </span>
+                              </td>
+                              <td className="py-4">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono tracking-wide ${
+                                  u.isDeleted ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20' :
+                                  u.active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                }`}>
+                                  {u.isDeleted ? 'Deleted' : u.active ? 'Active' : 'Suspended'}
+                                </span>
+                              </td>
+                              <td className="py-4 text-right flex items-center justify-end gap-2">
+                                {u.role !== 'ADMIN' && !u.isDeleted && (
+                                  <>
+                                    <button
+                                      onClick={() => handleToggleActive(u.id)}
+                                      disabled={actionLoading}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 cursor-pointer ${
+                                        u.active 
+                                          ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/25'
+                                          : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25'
+                                      }`}
+                                    >
+                                      {u.active ? 'Suspend' : 'Activate'}
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteUser(u.id)}
+                                      disabled={actionLoading}
+                                      className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 cursor-pointer"
+                                    >
+                                      Delete
+                                    </button>
+                                  </>
+                                )}
+                                {u.isDeleted && (
+                                  <span className="text-xs text-slate-500 font-mono italic pr-2">History Retained</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'otps' && (
+            <div className="glass-card rounded-3xl p-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-white">Security OTP Monitoring</h3>
+                  <p className="text-xs text-slate-500 mt-1">Audit active verification codes generated for platform security actions.</p>
+                </div>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                  {/* Refresh Button */}
+                  <button
+                    onClick={loadActiveOtps}
+                    className="bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700 text-xs px-3.5 py-2 rounded-xl transition-all duration-150 cursor-pointer flex items-center justify-center space-x-1.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.5" />
+                    </svg>
+                    <span>Refresh</span>
+                  </button>
+                  {/* Active Toggle */}
+                  <button
+                    onClick={() => setOtpShowActiveOnly(!otpShowActiveOnly)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 border cursor-pointer flex items-center justify-center space-x-2 ${
+                      otpShowActiveOnly
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/25'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span>{otpShowActiveOnly ? 'Showing: Active OTPs Only' : 'Showing: All Users'}</span>
+                  </button>
+                  {/* Search bar */}
+                  <div className="w-full sm:w-60">
+                    <input
+                      type="text"
+                      placeholder="Search email or name..."
+                      className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 transition-all duration-200"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Filtering logic */}
+              {(() => {
+                if (otpShowActiveOnly) {
+                  const filteredOtps = activeOtps.filter(o =>
+                    (o.email || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+                    (o.userName || '').toLowerCase().includes((searchQuery || '').toLowerCase())
+                  );
+
+                  if (filteredOtps.length === 0) {
+                    return (
+                      <p className="text-sm text-slate-500 font-mono py-8 text-center">
+                        No active OTP verification sessions found.
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <div className="overflow-x-auto custom-scrollbar">
+                      <table className="w-full text-left text-sm text-slate-400">
+                        <thead className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-900">
+                          <tr>
+                            <th className="pb-3">Email Address</th>
+                            <th className="pb-3">Full Name</th>
+                            <th className="pb-3">System Role</th>
+                            <th className="pb-3">Active OTP Code</th>
+                            <th className="pb-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-900">
+                          {filteredOtps.map((o, index) => (
+                            <tr key={index} className="hover:bg-slate-900/10">
+                              <td className="py-4 font-bold text-white">{o.email}</td>
+                              <td className="py-4">
+                                {(o.registeredUser !== undefined ? o.registeredUser : o.isRegisteredUser) ? (
+                                  o.userName
+                                ) : (
+                                  <span className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded font-mono uppercase tracking-wide">
+                                    {o.userName}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-4">
+                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase font-mono tracking-wide ${
+                                  o.role === 'ADMIN' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                                  o.role === 'DOCTOR' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20' :
+                                  o.role === 'GUEST' ? 'bg-slate-850 text-slate-400 border border-slate-700/50' :
+                                  'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                                }`}>
+                                  {o.role}
+                                </span>
+                              </td>
+                              <td className="py-4">
+                                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/25 px-2.5 py-1 rounded font-mono font-bold text-xs tracking-wider animate-pulse">
+                                  {o.code}
+                                </span>
+                              </td>
+                              <td className="py-4 text-right space-x-2">
                                 <button
-                                  type="button"
+                                  onClick={() => handleAdminResendOtp(o.email)}
+                                  disabled={actionLoading}
+                                  className="bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 text-xs px-3 py-1.5 rounded-lg transition-all duration-150 cursor-pointer disabled:opacity-50"
+                                >
+                                  Resend OTP
+                                </button>
+                                <button
                                   onClick={() => {
-                                    navigator.clipboard.writeText(u.otp);
-                                    setSuccess(`Copied OTP (${u.otp}) for ${displayEmail}`);
+                                    navigator.clipboard.writeText(o.code);
+                                    setSuccess(`Copied OTP for ${o.email} to clipboard!`);
                                     setTimeout(() => setSuccess(''), 3000);
                                   }}
-                                  className="text-[10px] font-mono text-slate-400 hover:text-amber-300 p-1 hover:bg-slate-800 rounded transition-all cursor-pointer"
-                                  title="Copy OTP"
+                                  className="bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700 text-xs px-3 py-1.5 rounded-lg transition-all duration-150 cursor-pointer"
                                 >
-                                  <Copy className="w-3.5 h-3.5" />
+                                  Copy Code
                                 </button>
-                              </div>
-                            ) : (
-                              <span className="text-[11px] font-mono text-slate-600">None</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleToggleUserStatus(u.id)}
-                            >
-                              {u.active ? 'Deactivate' : 'Activate'}
-                            </Button>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              icon={Trash2}
-                              onClick={() => handleDeleteUser(u.id)}
-                            >
-                              Delete
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                } else {
+                  // Show all users
+                  const filteredUsers = users.filter(u =>
+                    u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    u.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    u.lastName.toLowerCase().includes(searchQuery.toLowerCase())
+                  );
+
+                  if (filteredUsers.length === 0) {
+                    return (
+                      <p className="text-sm text-slate-500 font-mono py-8 text-center">
+                        No users found matching search criteria.
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <div className="overflow-x-auto custom-scrollbar">
+                      <table className="w-full text-left text-sm text-slate-400">
+                        <thead className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-900">
+                          <tr>
+                            <th className="pb-3">User ID</th>
+                            <th className="pb-3">Email Address</th>
+                            <th className="pb-3">Full Name</th>
+                            <th className="pb-3">System Role</th>
+                            <th className="pb-3">Active OTP Code</th>
+                            <th className="pb-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-900">
+                          {filteredUsers.map((u) => {
+                            const displayEmail = (u.email || '').includes('_deleted_') ? u.email.split('_deleted_')[0] : (u.email || '');
+                            // Find active OTP from activeOtps list with safe guards
+                            const matchingOtp = activeOtps.find(o => o && (o.email || '').toLowerCase().trim() === displayEmail.toLowerCase().trim());
+                            const otpCode = matchingOtp ? matchingOtp.code : u.otp;
+
+                            return (
+                              <tr key={u.id} className="hover:bg-slate-900/10">
+                                <td className="py-4 font-mono text-xs text-slate-500">#{u.id}</td>
+                                <td className="py-4 font-bold text-white">{displayEmail}</td>
+                                <td className="py-4">{u.firstName} {u.lastName}</td>
+                                <td className="py-4">
+                                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase font-mono tracking-wide ${
+                                    u.role === 'ADMIN' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                                    u.role === 'DOCTOR' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20' :
+                                    'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                                  }`}>
+                                    {u.role}
+                                  </span>
+                                </td>
+                                <td className="py-4">
+                                  {otpCode ? (
+                                    <span className="bg-amber-500/10 text-amber-400 border border-amber-500/25 px-2.5 py-1 rounded font-mono font-bold text-xs tracking-wider animate-pulse">
+                                      {otpCode}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-600">—</span>
+                                  )}
+                                </td>
+                                <td className="py-4 text-right space-x-2">
+                                  <button
+                                    onClick={() => handleAdminResendOtp(displayEmail)}
+                                    disabled={actionLoading}
+                                    className="bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 text-xs px-3 py-1.5 rounded-lg transition-all duration-150 cursor-pointer disabled:opacity-50"
+                                  >
+                                    Resend OTP
+                                  </button>
+                                  {otpCode && (
+                                    <button
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(otpCode);
+                                        setSuccess(`Copied OTP for ${displayEmail} to clipboard!`);
+                                        setTimeout(() => setSuccess(''), 3000);
+                                      }}
+                                      className="bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700 text-xs px-3 py-1.5 rounded-lg transition-all duration-150 cursor-pointer"
+                                    >
+                                      Copy Code
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                }
+              })()}
             </div>
           )}
 
-          {/* TAB 3: DOCTOR VERIFICATIONS */}
-          {activeTab === 'doctors' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-base font-bold text-slate-100">Doctor Verification Queue</h3>
-                  <p className="text-xs text-slate-400">Review and verify practitioner credentials.</p>
-                </div>
-                <Button variant="ghost" size="sm" icon={RefreshCw} onClick={loadUnverifiedDoctors}>
-                  Refresh Queue
-                </Button>
-              </div>
-
-              {unverifiedDoctors.length === 0 ? (
-                <EmptyState
-                  icon={CheckCircle2}
-                  title="Verification Queue Empty"
-                  description="All registered medical practitioner accounts have been verified."
-                />
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Doctor Name</TableHead>
-                      <TableHead>Email Address</TableHead>
-                      <TableHead>Specialty</TableHead>
-                      <TableHead>License Number</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {unverifiedDoctors.map((doc) => (
-                      <TableRow key={doc.id}>
-                        <TableCell className="font-bold text-slate-100">Dr. {doc.name}</TableCell>
-                        <TableCell className="font-mono text-xs">{doc.email}</TableCell>
-                        <TableCell><Badge variant="teal">{doc.specialty}</Badge></TableCell>
-                        <TableCell className="font-mono text-xs text-amber-400">{doc.licenseNumber || 'PENDING'}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="success"
-                            size="sm"
-                            icon={CheckCircle2}
-                            isLoading={actionLoading}
-                            onClick={() => handleVerifyDoctor(doc.id)}
-                          >
-                            Approve & Verify
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </div>
-          )}
-
-          {/* TAB 4: SECURITY OTP AUDIT */}
-          {activeTab === 'security' && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                    <ShieldAlert className="w-5 h-5 text-amber-400" />
-                    Security OTP Monitoring Audit & Dispatch Control
-                  </h3>
-                  <p className="text-xs text-slate-400">Audit active verification codes and issue or refresh security OTPs for registered users or guests.</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="primary" size="sm" icon={Plus} onClick={() => setShowIssueOtpModal(true)}>
-                    Issue New OTP
-                  </Button>
-                  <Button variant="ghost" size="sm" icon={RefreshCw} onClick={loadActiveOtps}>Refresh</Button>
-                </div>
-              </div>
-
-              {filteredOtps.length === 0 ? (
-                <EmptyState
-                  icon={ShieldAlert}
-                  title="No Active OTP Sessions"
-                  description="There are currently no active verification sessions."
-                />
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Email Address</TableHead>
-                      <TableHead>User / Identity</TableHead>
-                      <TableHead>System Role</TableHead>
-                      <TableHead>Active OTP Code</TableHead>
-                      <TableHead>Time Remaining</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredOtps.map((o, idx) => {
-                      const remainingMs = o.expiryTime ? (o.expiryTime - currentTime) : 0;
-                      const isExpired = remainingMs <= 0;
-                      const mins = Math.floor(Math.max(0, remainingMs) / 60000);
-                      const secs = Math.floor((Math.max(0, remainingMs) % 60000) / 1000);
-
-                      return (
-                        <TableRow key={idx}>
-                          <TableCell className="font-bold text-slate-100">{o.email}</TableCell>
-                          <TableCell className="text-xs text-slate-300">{o.userName}</TableCell>
-                          <TableCell><Badge variant={o.role === 'GUEST' ? 'slate' : 'cyan'}>{o.role}</Badge></TableCell>
-                          <TableCell>
-                            <span className="font-mono font-bold text-sm text-amber-300 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-md tracking-wider">
-                              {o.code}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span className={`inline-flex items-center gap-1 font-mono text-xs font-semibold px-2 py-0.5 rounded ${
-                              isExpired
-                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                                : mins < 1
-                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse'
-                                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            }`}>
-                              <Clock className="w-3 h-3" />
-                              {isExpired ? 'Expired' : `${mins}m ${secs}s`}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right space-x-1.5">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              icon={Send}
-                              isLoading={actionLoading}
-                              onClick={() => handleAdminResendOtp(o.email)}
-                              title="Override rate limit and dispatch fresh code"
-                            >
-                              Resend
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              icon={Copy}
-                              onClick={() => {
-                                navigator.clipboard.writeText(o.code);
-                                setSuccess(`Copied OTP (${o.code}) for ${o.email}`);
-                                setTimeout(() => setSuccess(''), 3000);
-                              }}
-                            >
-                              Copy
-                            </Button>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              icon={XCircle}
-                              isLoading={actionLoading}
-                              onClick={() => handleRevokeOtp(o.email)}
-                              title="Revoke active OTP session"
-                            >
-                              Revoke
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              )}
-
-              {/* ISSUE NEW OTP MODAL */}
-              <Modal
-                isOpen={showIssueOtpModal}
-                onClose={() => setShowIssueOtpModal(false)}
-                title="Issue Security OTP Code"
-                subtitle="Generate and dispatch a 6-digit verification code on demand"
-              >
-                <form onSubmit={handleAdminIssueOtp} className="space-y-4">
-                  <Input
-                    label="Target Email Address *"
-                    type="email"
-                    placeholder="user@example.com"
-                    value={issueOtpEmail}
-                    onChange={(e) => setIssueOtpEmail(e.target.value)}
-                    required
-                  />
-                  <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs flex items-start gap-2">
-                    <Key className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-                    <span>
-                      Issuing an OTP will generate a fresh 6-digit security code valid for 5 minutes, replacing any existing active OTP for this email.
-                    </span>
-                  </div>
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button variant="outline" size="sm" type="button" onClick={() => setShowIssueOtpModal(false)}>
-                      Cancel
-                    </Button>
-                    <Button variant="primary" size="sm" type="submit" isLoading={actionLoading} icon={Key}>
-                      Generate & Dispatch OTP
-                    </Button>
-                  </div>
-                </form>
-              </Modal>
-            </div>
-          )}
-        </>
-      )}
-    </AppShell>
+        </main>
+      </div>
+    </div>
   );
 };
 
