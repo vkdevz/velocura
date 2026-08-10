@@ -1,9 +1,12 @@
 import { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import api from '../api';
+import ThemeToggle from '../components/ThemeToggle';
 
 const AdminDashboard = () => {
   const { logout } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
 
   // Core Data states
@@ -59,13 +62,12 @@ const AdminDashboard = () => {
       // Let's look at `AdminService.java`. It can define:
       // `List<DoctorProfileResponse> getUnverifiedDoctors();`
       // And `AdminController.java` can map it as `GET /api/admin/doctors/unverified`.
-      // Let's add this backend API first, so that the admin can view and verify doctors from the list!
-      // Wait! Let's check: is this method needed?
-      // Yes! To display unverified doctors in the UI panel, the admin needs an endpoint to fetch them.
-      // Let's add `getUnverifiedDoctors` to `AdminService` and implement it!
+      // 4. Load unverified doctors
+      const docsRes = await api.get('/api/admin/doctors/unverified');
+      setUnverifiedDoctors(docsRes.data);
     } catch (err) {
       console.error(err);
-      setError('Failed to fetch admin dashboard statistics.');
+      setError('Failed to fetch admin dashboard statistics. Error: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -163,13 +165,47 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleAdminResendOtp = async (userEmail) => {
+    setError('');
+    setSuccess('');
+    setActionLoading(true);
+    try {
+      await api.post('/api/auth/otp/send', { email: userEmail });
+      setSuccess(`Fresh security code generated and dispatched to ${userEmail}!`);
+      await loadActiveOtps();
+      setTimeout(() => setSuccess(''), 3500);
+    } catch (err) {
+      console.error(err);
+      if (err.response && err.response.data && typeof err.response.data === 'string') {
+        setError(err.response.data);
+      } else {
+        setError('Failed to resend OTP for ' + userEmail);
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   useEffect(() => {
     setSearchQuery('');
+    let intervalId;
+
     if (activeTab === 'verifications') {
       loadUnverifiedDoctors();
     } else if (activeTab === 'otps') {
       loadActiveOtps();
+      // Auto-poll active OTPs list every 3 seconds to keep it fully real-time
+      intervalId = setInterval(loadActiveOtps, 3000);
+    } else if (activeTab === 'users') {
+      // Instantly refresh OTP list when looking at user list to ensure matching values are fresh
+      loadActiveOtps();
     }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
   }, [activeTab]);
 
   if (loading) {
@@ -274,11 +310,20 @@ const AdminDashboard = () => {
               <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-bold text-purple-400">
                 A
               </div>
-              <div className="overflow-hidden">
+              <div className="overflow-hidden flex-1">
                 <p className="text-sm font-bold text-white truncate">Administrator</p>
                 <p className="text-xs text-slate-500 truncate font-mono">admin@velocura.com</p>
               </div>
             </div>
+            <button
+              onClick={() => navigate('/')}
+              className="w-full bg-slate-950 border border-slate-900 hover:border-blue-500/20 hover:text-blue-400 text-slate-400 text-xs font-semibold py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer mb-3"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              <span>VeloCura Home</span>
+            </button>
             <button
               onClick={logout}
               className="w-full bg-slate-950 border border-slate-900 hover:border-red-500/20 hover:text-red-400 text-slate-400 text-xs font-semibold py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer"
@@ -292,7 +337,12 @@ const AdminDashboard = () => {
         </aside>
 
         {/* MAIN PANEL CONTENT SPACE */}
-        <main className="flex-1 px-8 py-10 overflow-y-auto max-w-5xl">
+        <main className="flex-1 px-8 py-10 overflow-y-auto max-w-5xl relative">
+          
+          {/* Top-Right Floating Controls */}
+          <div className="absolute top-8 right-8 z-50">
+            <ThemeToggle />
+          </div>
           
           {/* Action alerts */}
           {success && (
@@ -570,8 +620,8 @@ const AdminDashboard = () => {
               {(() => {
                 if (otpShowActiveOnly) {
                   const filteredOtps = activeOtps.filter(o =>
-                    o.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    o.userName.toLowerCase().includes(searchQuery.toLowerCase())
+                    (o.email || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+                    (o.userName || '').toLowerCase().includes((searchQuery || '').toLowerCase())
                   );
 
                   if (filteredOtps.length === 0) {
@@ -599,7 +649,7 @@ const AdminDashboard = () => {
                             <tr key={index} className="hover:bg-slate-900/10">
                               <td className="py-4 font-bold text-white">{o.email}</td>
                               <td className="py-4">
-                                {o.isRegisteredUser ? (
+                                {(o.registeredUser !== undefined ? o.registeredUser : o.isRegisteredUser) ? (
                                   o.userName
                                 ) : (
                                   <span className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded font-mono uppercase tracking-wide">
@@ -622,7 +672,14 @@ const AdminDashboard = () => {
                                   {o.code}
                                 </span>
                               </td>
-                              <td className="py-4 text-right">
+                              <td className="py-4 text-right space-x-2">
+                                <button
+                                  onClick={() => handleAdminResendOtp(o.email)}
+                                  disabled={actionLoading}
+                                  className="bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 text-xs px-3 py-1.5 rounded-lg transition-all duration-150 cursor-pointer disabled:opacity-50"
+                                >
+                                  Resend OTP
+                                </button>
                                 <button
                                   onClick={() => {
                                     navigator.clipboard.writeText(o.code);
@@ -671,9 +728,9 @@ const AdminDashboard = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-900">
                           {filteredUsers.map((u) => {
-                            const displayEmail = u.email.includes('_deleted_') ? u.email.split('_deleted_')[0] : u.email;
-                            // Find active OTP from activeOtps list
-                            const matchingOtp = activeOtps.find(o => o.email.toLowerCase().trim() === displayEmail.toLowerCase().trim());
+                            const displayEmail = (u.email || '').includes('_deleted_') ? u.email.split('_deleted_')[0] : (u.email || '');
+                            // Find active OTP from activeOtps list with safe guards
+                            const matchingOtp = activeOtps.find(o => o && (o.email || '').toLowerCase().trim() === displayEmail.toLowerCase().trim());
                             const otpCode = matchingOtp ? matchingOtp.code : u.otp;
 
                             return (
@@ -699,7 +756,14 @@ const AdminDashboard = () => {
                                     <span className="text-slate-600">—</span>
                                   )}
                                 </td>
-                                <td className="py-4 text-right">
+                                <td className="py-4 text-right space-x-2">
+                                  <button
+                                    onClick={() => handleAdminResendOtp(displayEmail)}
+                                    disabled={actionLoading}
+                                    className="bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 text-xs px-3 py-1.5 rounded-lg transition-all duration-150 cursor-pointer disabled:opacity-50"
+                                  >
+                                    Resend OTP
+                                  </button>
                                   {otpCode && (
                                     <button
                                       onClick={() => {

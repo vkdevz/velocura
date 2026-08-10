@@ -82,13 +82,13 @@ public class AuthController {
             return ResponseEntity.badRequest().body("Error: Disposable or temporary email providers are not permitted. Please use a valid email address.");
         }
 
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.existsByEmailIgnoreCase(email)) {
             return ResponseEntity.badRequest().body("Error: Email is already in use!");
         }
 
         // 1. Create and save base User
         User user = User.builder()
-                .email(registerRequest.getEmail())
+                .email(email)
                 .password(passwordEncoder.encode(registerRequest.getPassword()))
                 .firstName(registerRequest.getFirstName())
                 .lastName(registerRequest.getLastName())
@@ -125,7 +125,16 @@ public class AuthController {
         // Send Welcome email
         notificationService.sendWelcomeEmail(user.getEmail(), user.getFirstName() + " " + user.getLastName());
 
-        return ResponseEntity.ok("User registered successfully!");
+        // Generate JWT token for seamless auto-login
+        String jwt = jwtUtils.generateToken(user.getEmail(), user.getRole().name());
+
+        return ResponseEntity.ok(AuthResponse.builder()
+                .token(jwt)
+                .email(user.getEmail())
+                .role(user.getRole())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .build());
     }
 
     @PostMapping("/login")

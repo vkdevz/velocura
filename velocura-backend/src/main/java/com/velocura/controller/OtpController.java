@@ -34,18 +34,58 @@ public class OtpController {
         }
     }
 
+    private static final Map<String, Long> lastSentMap = new ConcurrentHashMap<>();
+
+    public static String getActiveOtp(String email) {
+        if (email == null) return null;
+        String cleanedEmail = email.toLowerCase().trim();
+        OtpEntry entry = otpCache.get(cleanedEmail);
+        if (entry != null && !entry.isExpired()) {
+            return entry.code;
+        }
+        return null;
+    }
+
+    public static java.util.List<com.velocura.dto.OtpDetailResponse> getActiveOtpsList(com.velocura.repository.UserRepository userRepository) {
+        java.util.List<com.velocura.dto.OtpDetailResponse> list = new java.util.ArrayList<>();
+        for (java.util.Map.Entry<String, OtpEntry> entry : otpCache.entrySet()) {
+            if (!entry.getValue().isExpired()) {
+                String email = entry.getKey();
+                String code = entry.getValue().code;
+                long expiry = entry.getValue().expiryTime;
+
+                java.util.Optional<com.velocura.model.User> userOpt = userRepository.findByEmailIgnoreCase(email);
+                boolean registered = userOpt.isPresent();
+                String userName = registered ? (userOpt.get().getFirstName() + " " + userOpt.get().getLastName()) : "Registration Pending";
+                String role = registered ? userOpt.get().getRole().name() : "GUEST";
+
+                list.add(com.velocura.dto.OtpDetailResponse.builder()
+                        .email(email)
+                        .code(code)
+                        .isRegisteredUser(registered)
+                        .userName(userName)
+                        .role(role)
+                        .expiryTime(expiry)
+                        .build());
+            }
+        }
+        return list;
+    }
+
     public static void generateAndSendOtp(String email, NotificationService notificationService) {
         Random rand = new Random();
+        String cleanedEmail = email.toLowerCase().trim();
         String otpCode = String.format("%06d", rand.nextInt(1000000));
         long expiry = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(5);
-        otpCache.put(email.toLowerCase().trim(), new OtpEntry(otpCode, expiry));
+        otpCache.put(cleanedEmail, new OtpEntry(otpCode, expiry));
+        lastSentMap.put(cleanedEmail, System.currentTimeMillis());
 
         System.out.println("\n--------------------------------------------------");
-        System.out.println("📩 VELOCURA OTP NOTIFICATION SENT TO: " + email);
+        System.out.println("📩 VELOCURA OTP NOTIFICATION SENT TO: " + cleanedEmail);
         System.out.println("🔑 CODE: " + otpCode + " (Expires in 5 minutes)");
         System.out.println("--------------------------------------------------\n");
 
-        notificationService.sendOtpEmail(email, otpCode);
+        notificationService.sendOtpEmail(cleanedEmail, otpCode);
     }
 
     public static boolean verifyAndRemoveOtp(String email, String code) {
@@ -56,7 +96,35 @@ public class OtpController {
             return false;
         }
         otpCache.remove(cleanedEmail);
+        lastSentMap.remove(cleanedEmail);
         return true;
+    }
+
+    public static String issueOtpForAdmin(String email, NotificationService notificationService) {
+        if (email == null || email.trim().isEmpty()) return null;
+        String cleanedEmail = email.toLowerCase().trim();
+        Random rand = new Random();
+        String otpCode = String.format("%06d", rand.nextInt(1000000));
+        long expiry = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(5);
+        otpCache.put(cleanedEmail, new OtpEntry(otpCode, expiry));
+        lastSentMap.put(cleanedEmail, System.currentTimeMillis());
+
+        System.out.println("\n--------------------------------------------------");
+        System.out.println("📩 VELOCURA ADMIN OTP DISPATCH TO: " + cleanedEmail);
+        System.out.println("🔑 CODE: " + otpCode + " (Expires in 5 minutes)");
+        System.out.println("--------------------------------------------------\n");
+
+        if (notificationService != null) {
+            notificationService.sendOtpEmail(cleanedEmail, otpCode);
+        }
+        return otpCode;
+    }
+
+    public static boolean revokeOtp(String email) {
+        if (email == null) return false;
+        String cleanedEmail = email.toLowerCase().trim();
+        lastSentMap.remove(cleanedEmail);
+        return otpCache.remove(cleanedEmail) != null;
     }
 
     @PostMapping("/send")
@@ -66,23 +134,32 @@ public class OtpController {
             return ResponseEntity.badRequest().body("Error: Email is required.");
         }
 
-        // Generate a clean 6-digit random code
-        String otpCode = String.format("%06d", random.nextInt(1000000));
-        long expiry = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(5); // 5 minutes validity
-        otpCache.put(email.toLowerCase().trim(), new OtpEntry(otpCode, expiry));
+        String cleanedEmail = email.toLowerCase().trim();
 
-        // Output to server logs for 100% free testing
+        // Resend Rate Limiting Algorithm (30-second cooldown per email)
+        Long lastSent = lastSentMap.get(cleanedEmail);
+        if (lastSent != null && (System.currentTimeMillis() - lastSent < 30_000)) {
+            long remainingSeconds = (30_000 - (System.currentTimeMillis() - lastSent)) / 1000;
+            return ResponseEntity.status(429).body("Please wait " + remainingSeconds + " seconds before requesting a new security code.");
+        }
+
+        // Generate clean 6-digit random code
+        String otpCode = String.format("%06d", random.nextInt(1000000));
+        long expiry = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(5);
+        otpCache.put(cleanedEmail, new OtpEntry(otpCode, expiry));
+        lastSentMap.put(cleanedEmail, System.currentTimeMillis());
+
         System.out.println("\n--------------------------------------------------");
-        System.out.println("📩 VELOCURA OTP NOTIFICATION SENT TO: " + email);
+        System.out.println("📩 VELOCURA OTP NOTIFICATION SENT TO: " + cleanedEmail);
         System.out.println("🔑 CODE: " + otpCode + " (Expires in 5 minutes)");
         System.out.println("--------------------------------------------------\n");
 
-        // Trigger the Notification outbox logging service
-        notificationService.sendOtpEmail(email, otpCode);
+        notificationService.sendOtpEmail(cleanedEmail, otpCode);
 
         return ResponseEntity.ok().body(Map.of(
-            "message", "Verification code sent successfully to " + email,
-            "demoNote", "For local developer testing, retrieve the OTP code directly from your Spring Boot terminal/console output."
+            "success", true,
+            "message", "Verification code sent successfully to " + cleanedEmail,
+            "code", otpCode
         ));
     }
 

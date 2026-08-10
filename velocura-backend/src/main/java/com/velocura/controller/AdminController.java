@@ -52,4 +52,39 @@ public class AdminController {
         adminService.deleteUser(id);
         return ResponseEntity.ok("User deleted successfully!");
     }
+
+    @GetMapping("/otps")
+    public ResponseEntity<List<com.velocura.dto.OtpDetailResponse>> getActiveOtps() {
+        return ResponseEntity.ok(adminService.getActiveOtps());
+    }
+
+    @PostMapping("/otps/issue")
+    public ResponseEntity<?> issueOtp(@RequestBody java.util.Map<String, String> request) {
+        String email = request.get("email");
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Email address is required.");
+        }
+        String code = adminService.issueOtp(email);
+        return ResponseEntity.ok(java.util.Map.of("message", "Security code issued successfully.", "email", email, "code", code));
+    }
+
+    @PostMapping("/otps/resend")
+    public ResponseEntity<?> resendOtp(@RequestBody java.util.Map<String, String> request) {
+        String email = request.get("email");
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Email address is required.");
+        }
+        String code = adminService.resendOtp(email);
+        return ResponseEntity.ok(java.util.Map.of("message", "Security code refreshed and sent to " + email, "email", email, "code", code));
+    }
+
+    @DeleteMapping("/otps/{email:.+}")
+    public ResponseEntity<?> revokeOtp(@PathVariable String email) {
+        boolean revoked = adminService.revokeOtp(email);
+        if (revoked) {
+            return ResponseEntity.ok("OTP session for " + email + " revoked successfully.");
+        } else {
+            return ResponseEntity.badRequest().body("No active OTP session found for " + email);
+        }
+    }
 }

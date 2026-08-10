@@ -1,7 +1,9 @@
 import { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import api from '../api';
 import TelehealthRoom from '../components/TelehealthRoom';
+import ThemeToggle from '../components/ThemeToggle';
 
 const VitalsChart = ({ data }) => {
   if (!data || data.length === 0) return null;
@@ -104,6 +106,7 @@ const VitalsChart = ({ data }) => {
 
 const PatientDashboard = () => {
   const { user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
 
   // Core Data states
@@ -150,10 +153,7 @@ const PatientDashboard = () => {
   // ==========================================
   // STARTUP FEATURE STATES: AI CHAT & VITALS
   // ==========================================
-  const [vitalsList, setVitalsList] = useState([
-    { id: 1, timestamp: new Date(Date.now() - 86400000 * 2).toLocaleString(), systolic: 120, diastolic: 80, heartRate: 72, bloodSugar: 95 },
-    { id: 2, timestamp: new Date(Date.now() - 86400000).toLocaleString(), systolic: 135, diastolic: 85, heartRate: 80, bloodSugar: 110 }
-  ]);
+  const [vitalsList, setVitalsList] = useState([]);
   const [systolic, setSystolic] = useState('');
   const [diastolic, setDiastolic] = useState('');
   const [heartRate, setHeartRate] = useState('');
@@ -172,13 +172,14 @@ const PatientDashboard = () => {
   const startSpeechRecognition = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Voice-to-Text speech recognition is not supported in this browser. Please try Google Chrome or Safari.");
+      setError("Voice-to-Text speech recognition is not supported in this browser. Please use Google Chrome, Microsoft Edge, or Safari.");
       return;
     }
 
+    setError('');
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
-    recognition.lang = 'en-US';
+    recognition.lang = navigator.language || 'en-US';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
@@ -187,20 +188,37 @@ const PatientDashboard = () => {
     };
 
     recognition.onresult = (event) => {
-      const speechToText = event.results[0][0].transcript;
-      setChatInput(prev => prev ? prev + " " + speechToText : speechToText);
+      if (event.results && event.results.length > 0) {
+        const speechToText = event.results[0][0].transcript;
+        setChatInput(prev => prev ? prev + " " + speechToText : speechToText);
+      }
     };
 
     recognition.onerror = (event) => {
       console.error("Speech recognition error", event.error);
       setIsListening(false);
+      
+      let errMsg = "Speech recognition error: " + event.error;
+      if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+        errMsg = "Microphone access blocked. Click the lock/tune icon in your browser address bar to allow microphone access.";
+      } else if (event.error === 'no-speech') {
+        errMsg = "No speech detected. Please try speaking again.";
+      } else if (event.error === 'network') {
+        errMsg = "Network error: Web speech recognition requires active internet connectivity.";
+      }
+      setError(errMsg);
     };
 
     recognition.onend = () => {
       setIsListening(false);
     };
 
-    recognition.start();
+    try {
+      recognition.start();
+    } catch (err) {
+      console.error("Failed to start speech recognition:", err);
+      setIsListening(false);
+    }
   };
 
   const [activeVideoSession, setActiveVideoSession] = useState(null);
@@ -317,6 +335,19 @@ const PatientDashboard = () => {
       const passportRes = await api.get('/api/patient/passport');
       setAllergies(passportRes.data.allergies || '');
       setTimelineEvents(JSON.parse(passportRes.data.medicalHistoryTimeline || '[]'));
+
+      // Load Vitals
+      try {
+        const vitalsRes = await api.get('/api/patient/vitals');
+        const formattedVitals = (vitalsRes.data || []).map(v => ({
+          ...v,
+          timestamp: new Date(v.recordedAt).toLocaleString()
+        }));
+        setVitalsList(formattedVitals);
+      } catch (vitalErr) {
+        console.error("Failed to load vitals:", vitalErr);
+        setVitalsList([]);
+      }
     } catch (err) {
       console.error(err);
       setError('Failed to fetch dashboard data. Please try again.');
@@ -628,29 +659,40 @@ const PatientDashboard = () => {
   // ==========================================
   // STARTUP FEATURE LOGIC: VITALS TRACKER
   // ==========================================
-  const handleAddVitals = (e) => {
+  const handleAddVitals = async (e) => {
     e.preventDefault();
     if (!systolic || !diastolic || !heartRate || !bloodSugar) {
       setError('Please fill out all vital fields.');
       return;
     }
 
-    const newEntry = {
-      id: Date.now(),
-      timestamp: new Date().toLocaleString(),
-      systolic: parseInt(systolic),
-      diastolic: parseInt(diastolic),
-      heartRate: parseInt(heartRate),
-      bloodSugar: parseInt(bloodSugar)
-    };
-
-    setVitalsList(prev => [newEntry, ...prev]);
-    setSystolic('');
-    setDiastolic('');
-    setHeartRate('');
-    setBloodSugar('');
-    setSuccess('Vitals logged successfully!');
-    setTimeout(() => setSuccess(''), 3000);
+    try {
+      setActionLoading(true);
+      const res = await api.post('/api/patient/vitals', {
+        systolic: parseInt(systolic),
+        diastolic: parseInt(diastolic),
+        heartRate: parseInt(heartRate),
+        bloodSugar: parseInt(bloodSugar)
+      });
+      
+      const newVital = {
+        ...res.data,
+        timestamp: new Date(res.data.recordedAt).toLocaleString()
+      };
+      
+      setVitalsList(prev => [newVital, ...prev]);
+      setSystolic('');
+      setDiastolic('');
+      setHeartRate('');
+      setBloodSugar('');
+      setSuccess('Vitals logged successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to log vitals.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const getBPStatus = (sys, dia) => {
@@ -660,10 +702,10 @@ const PatientDashboard = () => {
   };
 
   // Aggregates for widgets
-  const avgSystolic = vitalsList.length > 0 ? Math.round(vitalsList.reduce((acc, v) => acc + v.systolic, 0) / vitalsList.length) : 120;
-  const avgDiastolic = vitalsList.length > 0 ? Math.round(vitalsList.reduce((acc, v) => acc + v.diastolic, 0) / vitalsList.length) : 80;
-  const avgHeartRate = vitalsList.length > 0 ? Math.round(vitalsList.reduce((acc, v) => acc + v.heartRate, 0) / vitalsList.length) : 72;
-  const avgBloodSugar = vitalsList.length > 0 ? Math.round(vitalsList.reduce((acc, v) => acc + v.bloodSugar, 0) / vitalsList.length) : 90;
+  const avgSystolic = vitalsList.length > 0 ? Math.round(vitalsList.reduce((acc, v) => acc + v.systolic, 0) / vitalsList.length) : '--';
+  const avgDiastolic = vitalsList.length > 0 ? Math.round(vitalsList.reduce((acc, v) => acc + v.diastolic, 0) / vitalsList.length) : '--';
+  const avgHeartRate = vitalsList.length > 0 ? Math.round(vitalsList.reduce((acc, v) => acc + v.heartRate, 0) / vitalsList.length) : '--';
+  const avgBloodSugar = vitalsList.length > 0 ? Math.round(vitalsList.reduce((acc, v) => acc + v.bloodSugar, 0) / vitalsList.length) : '--';
 
   if (loading) {
     return (
@@ -826,11 +868,20 @@ const PatientDashboard = () => {
               <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-bold text-cyan-400">
                 {profile?.firstName ? profile.firstName.charAt(0) : 'P'}
               </div>
-              <div className="overflow-hidden">
+              <div className="overflow-hidden flex-1">
                 <p className="text-sm font-bold text-white truncate">{profile?.firstName} {profile?.lastName}</p>
                 <p className="text-xs text-slate-500 truncate font-mono">{user?.email}</p>
               </div>
             </div>
+            <button
+              onClick={() => navigate('/')}
+              className="w-full bg-slate-950 border border-slate-900 hover:border-cyan-500/20 hover:text-cyan-400 text-slate-400 text-xs font-semibold py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer mb-3"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              <span>VeloCura Home</span>
+            </button>
             <button
               onClick={logout}
               className="w-full bg-slate-950 border border-slate-900 hover:border-red-500/20 hover:text-red-400 text-slate-400 text-xs font-semibold py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer"
@@ -844,7 +895,12 @@ const PatientDashboard = () => {
         </aside>
 
         {/* MAIN PANEL CONTENT SPACE */}
-        <main className="flex-1 px-8 py-10 overflow-y-auto max-w-5xl">
+        <main className="flex-1 px-8 py-10 overflow-y-auto max-w-5xl relative">
+          
+          {/* Top-Right Floating Controls */}
+          <div className="absolute top-8 right-8 z-50">
+            <ThemeToggle />
+          </div>
           
           {success && (
             <div className="mb-8 p-4 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 text-sm flex items-center gap-3 animate-float">

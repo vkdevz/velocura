@@ -17,11 +17,14 @@ RUN npm run build
 # ==============================================================================
 FROM nginx:1.25-alpine
 
+# Set default PORT environment variable for Nginx template substitution
+ENV PORT=80
+
 # Copy built static files from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Mount custom Nginx SPA routing configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Mount custom Nginx SPA routing configuration template for dynamic PORT substitution
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 # Expose Nginx server port
 EXPOSE 80

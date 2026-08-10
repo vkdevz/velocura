@@ -18,4 +18,5 @@ public class UserResponse {
     private Role role;
     private boolean isActive;
     private boolean isDeleted;
+    private String otp;
 }

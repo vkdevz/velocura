@@ -268,7 +268,7 @@ public class GeminiAiService {
             differentialDiagnoses = List.of("Systemic Inflammatory Response", "Viral Syndrome / Physical Strain", "Localized Non-specific Tissue Irritation");
             immediatePrecautions = List.of("Maintain good fluid intake and rest", "Track body temperature every 6 hours", "Seek clinical consultation if symptoms worsen or persist past 48 hours");
             homeRemedies = List.of("Warm water fluids and herbal infusions", "Ensure 8 hours of restful sleep", "Nutrient-dense light diet");
-            suggestedOtc = List.of("Paracetamol 650mg (for pain/fever relief)", "Electrolyte Hydration Salts (ORS)");
+            suggestedOtc = List.of("Paracetamol 650mg (for pain/fever - max 3g/day)", "Electrolyte Hydration Salts (ORS)");
         }
 
         return TriageResponse.builder()

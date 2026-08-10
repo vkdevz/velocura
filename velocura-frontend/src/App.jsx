@@ -8,6 +8,11 @@ import PatientDashboard from './pages/PatientDashboard';
 import DoctorDashboard from './pages/DoctorDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import ThemeToggle from './components/ThemeToggle';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+import HipaaCompliance from './pages/HipaaCompliance';
+import ConsentProcedures from './pages/ConsentProcedures';
 
 function LandingPage() {
   const { user } = useContext(AuthContext);
@@ -83,14 +88,14 @@ function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative">
       
       {/* Background decoration elements */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[120px] animate-pulse-glow" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[150px] animate-pulse-glow" />
       
       {/* Header / Navbar */}
-      <header className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/75 border-b border-slate-900">
+      <header className="fixed top-0 w-full z-50 backdrop-blur-md bg-slate-950/75 border-b border-slate-900">
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
           <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => navigate('/')}>
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-teal-500 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform duration-300">
@@ -111,6 +116,7 @@ function LandingPage() {
           </nav>
 
           <div className="flex items-center space-x-4">
+            <ThemeToggle />
             {user ? (
               <>
                 <span className="text-xs text-slate-400 font-mono hidden sm:inline">Portal Session Active</span>
@@ -139,7 +145,7 @@ function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative max-w-7xl mx-auto px-6 pt-20 pb-24 flex flex-col items-center text-center z-10">
+      <section className="relative max-w-7xl mx-auto px-6 pt-36 pb-24 flex flex-col items-center text-center z-10">
         <div className="inline-flex items-center space-x-2 bg-teal-500/10 border border-teal-500/20 rounded-full px-4 py-1.5 mb-8">
           <span className="flex h-2 w-2 relative">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
@@ -174,7 +180,7 @@ function LandingPage() {
       </section>
 
       {/* PUBLIC INTERACTIVE CHATBOT SECTION */}
-      <section id="chatbot-section" className="max-w-4xl mx-auto px-6 pb-20 w-full relative z-10">
+      <section id="chatbot-section" className="scroll-mt-20 max-w-4xl mx-auto px-6 pb-20 w-full relative z-10">
         <div className="glass-card rounded-3xl p-6 md:p-8 shadow-2xl relative border border-slate-900">
           <div className="absolute top-[-20%] right-[-10%] w-[250px] h-[250px] bg-cyan-500/5 rounded-full blur-[80px]" />
           
@@ -403,7 +409,7 @@ function LandingPage() {
       )}
 
       {/* Feature value propositions */}
-      <section id="features" className="max-w-7xl mx-auto px-6 py-20 border-t border-slate-900 w-full relative z-10">
+      <section id="features" className="scroll-mt-20 max-w-7xl mx-auto px-6 py-20 border-t border-slate-900 w-full relative z-10">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <span className="text-xs text-cyan-400 font-bold uppercase tracking-widest font-mono">B2C Product capabilities</span>
           <h2 className="text-3xl font-bold tracking-tight mt-2">VeloCura Startup Ecosystem</h2>
@@ -453,7 +459,7 @@ function LandingPage() {
       </section>
 
       {/* System Security & Clinical Trust */}
-      <section id="stats" className="max-w-7xl mx-auto px-6 py-16 bg-slate-900/40 border border-slate-900 rounded-3xl w-full relative z-10 text-center">
+      <section id="stats" className="scroll-mt-20 max-w-7xl mx-auto px-6 py-16 bg-slate-900/40 border border-slate-900 rounded-3xl w-full relative z-10 text-center">
         <h2 className="text-2xl font-bold tracking-tight text-white mb-10">Engineered for Medical Privacy & Trust</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
@@ -476,7 +482,7 @@ function LandingPage() {
       </section>
 
       {/* Care Subscription Plans */}
-      <section id="pricing" className="max-w-7xl mx-auto px-6 py-20 w-full relative z-10">
+      <section id="pricing" className="scroll-mt-20 max-w-7xl mx-auto px-6 py-20 w-full relative z-10">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <span className="text-xs text-cyan-400 font-bold uppercase tracking-widest font-mono">Affordable Subscriptions</span>
           <h2 className="text-3xl font-bold tracking-tight mt-2">Care & Consultation Plans</h2>
@@ -541,7 +547,7 @@ function LandingPage() {
       </section>
 
       {/* How it Works Section */}
-      <section id="workflow" className="max-w-7xl mx-auto px-6 py-20 border-t border-slate-900 w-full relative z-10">
+      <section id="workflow" className="scroll-mt-20 max-w-7xl mx-auto px-6 py-20 border-t border-slate-900 w-full relative z-10">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <span className="text-xs text-cyan-400 font-bold uppercase tracking-widest font-mono">Simple Care Pathway</span>
           <h2 className="text-3xl font-bold tracking-tight mt-2">How VeloCura Works</h2>
@@ -600,7 +606,7 @@ function LandingPage() {
       </section>
 
       {/* FAQ Accordion Section */}
-      <section id="faq" className="max-w-4xl mx-auto px-6 py-20 w-full relative z-10">
+      <section id="faq" className="scroll-mt-20 max-w-4xl mx-auto px-6 py-20 w-full relative z-10">
         <div className="text-center mb-12">
           <span className="text-xs text-cyan-400 font-bold uppercase tracking-widest font-mono">Common Queries</span>
           <h2 className="text-3xl font-bold tracking-tight mt-2">Frequently Asked Questions</h2>
@@ -680,10 +686,10 @@ function LandingPage() {
           {/* Regulatory & Compliance */}
           <div className="flex flex-col space-y-3">
             <h5 className="font-bold text-white tracking-wide uppercase text-xs">Legal & Regulatory</h5>
-            <span className="text-xs text-slate-400 cursor-pointer hover:text-white">Privacy Protection Policy</span>
-            <span className="text-xs text-slate-400 cursor-pointer hover:text-white">Terms of Clinical Service</span>
-            <span className="text-xs text-slate-400 cursor-pointer hover:text-white">HIPAA Compliance Shield</span>
-            <span className="text-xs text-slate-400 cursor-pointer hover:text-white">Consent for Care Procedures</span>
+            <Link to="/privacy" className="text-xs text-slate-400 hover:text-white transition-colors duration-150">Privacy Protection Policy</Link>
+            <Link to="/terms" className="text-xs text-slate-400 hover:text-white transition-colors duration-150">Terms of Clinical Service</Link>
+            <Link to="/hipaa" className="text-xs text-slate-400 hover:text-white transition-colors duration-150">HIPAA Compliance Shield</Link>
+            <Link to="/consent" className="text-xs text-slate-400 hover:text-white transition-colors duration-150">Consent for Care Procedures</Link>
           </div>
 
           {/* Corporate Headquarters */}
@@ -722,6 +728,10 @@ function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/hipaa" element={<HipaaCompliance />} />
+      <Route path="/consent" element={<ConsentProcedures />} />
       
       {/* SECURED PATIENT ROUTE GROUP */}
       <Route element={<ProtectedRoute allowedRoles={['PATIENT']} />}>

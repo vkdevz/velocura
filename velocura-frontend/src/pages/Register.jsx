@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 
@@ -36,7 +36,36 @@ const Register = () => {
   const [otpCode, setOtpCode] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState('');
+  const [otpSuccess, setOtpSuccess] = useState('');
   const [cachedRegisterData, setCachedRegisterData] = useState(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    let timer;
+    if (resendCooldown > 0) {
+      timer = setInterval(() => {
+        setResendCooldown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+    setOtpError('');
+    setOtpSuccess('');
+    setOtpLoading(true);
+    try {
+      await api.post('/api/auth/otp/send', { email });
+      setOtpSuccess('A fresh security code has been dispatched to your email!');
+      setResendCooldown(30);
+    } catch (err) {
+      console.error(err);
+      setOtpError('Failed to resend verification code. Please try again.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
@@ -128,15 +157,25 @@ const Register = () => {
       await api.post('/api/auth/otp/verify', { email, code: otpCode });
       
       // Step 3: Complete actual user profile persistence
-      await api.post('/api/auth/register', cachedRegisterData);
-      
-      setSuccess('Account verified and created successfully! Redirecting to login...');
-      setShowOtpModal(false);
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
+      try {
+        await api.post('/api/auth/register', cachedRegisterData);
+        setSuccess('Account verified and created successfully! Redirecting to login...');
+        setShowOtpModal(false);
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
+      } catch (regErr) {
+        console.error("Profile registration error after OTP match:", regErr);
+        if (regErr.response && regErr.response.data && typeof regErr.response.data === 'string') {
+          setOtpError("OTP verified, but registration failed: " + regErr.response.data);
+        } else if (regErr.response && regErr.response.data && regErr.response.data.message) {
+          setOtpError("OTP verified, but registration failed: " + regErr.response.data.message);
+        } else {
+          setOtpError("OTP verified, but failed to create patient database records.");
+        }
+      }
     } catch (err) {
-      console.error(err);
+      console.error("OTP verification error:", err);
       if (err.response && err.response.data && err.response.data.message) {
         setOtpError(err.response.data.message);
       } else if (err.response && err.response.data && typeof err.response.data === 'string') {
@@ -493,6 +532,15 @@ const Register = () => {
                 </div>
               )}
 
+              {otpSuccess && (
+                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>{otpSuccess}</span>
+                </div>
+              )}
+
               <div>
                 <input
                   type="text"
@@ -505,10 +553,18 @@ const Register = () => {
                 />
               </div>
 
-              <div className="text-center">
+              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
                 <span className="text-[10px] text-slate-500 font-mono">
-                  💡 Free Testing Note: Retrieve code directly from Spring Boot logs.
+                  Didn't receive code?
                 </span>
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={resendCooldown > 0 || otpLoading}
+                  className="text-cyan-400 hover:text-cyan-300 font-semibold disabled:text-slate-600 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                >
+                  {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : 'Resend OTP'}
+                </button>
               </div>
 
               <button
@@ -530,7 +586,7 @@ const Register = () => {
                 <button
                   type="button"
                   onClick={() => setShowOtpModal(false)}
-                  className="text-xs text-slate-500 hover:text-slate-400 font-semibold"
+                  className="text-xs text-slate-500 hover:text-slate-400 font-semibold cursor-pointer"
                 >
                   Cancel
                 </button>

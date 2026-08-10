@@ -6,6 +6,7 @@ import com.velocura.dto.PrescriptionResponse;
 import com.velocura.dto.UpdatePatientProfileRequest;
 import com.velocura.dto.DoctorProfileResponse;
 import com.velocura.dto.PatientPassportDto;
+import com.velocura.dto.VitalsDto;
 
 import java.util.List;
 
@@ -18,4 +19,6 @@ public interface PatientService {
     PatientPassportDto getPatientPassport(String email);
     PatientPassportDto updatePatientPassport(String email, PatientPassportDto request);
     PatientPassportDto getPatientPassportById(Long patientId);
+    List<VitalsDto> getVitals(String email);
+    VitalsDto addVitals(String email, VitalsDto request);
 }

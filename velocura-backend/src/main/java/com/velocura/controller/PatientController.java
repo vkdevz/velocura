@@ -4,6 +4,7 @@ import com.velocura.dto.MedicalHistoryResponse;
 import com.velocura.dto.PatientProfileResponse;
 import com.velocura.dto.PrescriptionResponse;
 import com.velocura.dto.UpdatePatientProfileRequest;
+import com.velocura.dto.VitalsDto;
 import com.velocura.service.PatientService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,5 +67,17 @@ public class PatientController {
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody com.velocura.dto.PatientPassportDto request) {
         return ResponseEntity.ok(patientService.updatePatientPassport(userDetails.getUsername(), request));
+    }
+
+    @GetMapping("/vitals")
+    public ResponseEntity<List<VitalsDto>> getVitals(@AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(patientService.getVitals(userDetails.getUsername()));
+    }
+
+    @PostMapping("/vitals")
+    public ResponseEntity<VitalsDto> addVitals(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody VitalsDto request) {
+        return ResponseEntity.ok(patientService.addVitals(userDetails.getUsername(), request));
     }
 }

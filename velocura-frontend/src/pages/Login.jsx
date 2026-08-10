@@ -23,6 +23,34 @@ const Login = () => {
   const [resetError, setResetError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    let timer;
+    if (resendCooldown > 0) {
+      timer = setInterval(() => {
+        setResendCooldown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const handleResendResetOtp = async () => {
+    if (resendCooldown > 0 || !resetEmail) return;
+    setResetError('');
+    setResetSuccess('');
+    setResetLoading(true);
+    try {
+      await api.post('/api/auth/reset-password/request', { email: resetEmail });
+      setResetSuccess(`Fresh reset code sent to ${resetEmail}!`);
+      setResendCooldown(30);
+    } catch (err) {
+      console.error(err);
+      setResetError('Failed to resend code. Please check email address.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const handleRequestReset = async (e) => {
     e.preventDefault();
@@ -161,6 +189,8 @@ const Login = () => {
               <span>{error}</span>
             </div>
           )}
+
+
 
           <form onSubmit={handleLoginSubmit} className="space-y-6">
             
@@ -308,7 +338,17 @@ const Login = () => {
             ) : (
               <form onSubmit={handleVerifyReset} className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 font-mono">6-Digit Verification Code</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 font-mono">6-Digit Verification Code</label>
+                    <button
+                      type="button"
+                      onClick={handleResendResetOtp}
+                      disabled={resendCooldown > 0 || resetLoading}
+                      className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold disabled:text-slate-600 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                    >
+                      {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'Resend OTP'}
+                    </button>
+                  </div>
                   <input
                     type="text"
                     maxLength="6"

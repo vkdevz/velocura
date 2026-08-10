@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import api from '../api';
 import TelehealthRoom from '../components/TelehealthRoom';
+import ThemeToggle from '../components/ThemeToggle';
 
 const DoctorDashboard = () => {
   const { user, logout } = useContext(AuthContext);
@@ -342,11 +343,20 @@ const DoctorDashboard = () => {
               <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-bold text-teal-400">
                 {profile?.firstName ? profile.firstName.charAt(0) : 'D'}
               </div>
-              <div className="overflow-hidden">
+              <div className="overflow-hidden flex-1">
                 <p className="text-sm font-bold text-white truncate">Dr. {profile?.firstName} {profile?.lastName}</p>
                 <p className="text-xs text-slate-500 truncate font-mono">{user?.email}</p>
               </div>
             </div>
+            <button
+              onClick={() => navigate('/')}
+              className="w-full bg-slate-950 border border-slate-900 hover:border-teal-500/20 hover:text-teal-400 text-slate-400 text-xs font-semibold py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer mb-3"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              <span>VeloCura Home</span>
+            </button>
             <button
               onClick={logout}
               className="w-full bg-slate-950 border border-slate-900 hover:border-red-500/20 hover:text-red-400 text-slate-400 text-xs font-semibold py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer"
@@ -360,7 +370,12 @@ const DoctorDashboard = () => {
         </aside>
 
         {/* MAIN PANEL CONTENT SPACE */}
-        <main className="flex-1 px-8 py-10 overflow-y-auto max-w-5xl">
+        <main className="flex-1 px-8 py-10 overflow-y-auto max-w-5xl relative">
+          
+          {/* Top-Right Floating Controls */}
+          <div className="absolute top-8 right-8 z-50">
+            <ThemeToggle />
+          </div>
 
           {/* TAB CONTENT CONDITIONAL SWITCH */}
           {activeTab === 'overview' && (

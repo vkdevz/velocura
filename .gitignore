@@ -1,18 +1,31 @@
-.venv/
-venv/
-__pycache__/
-*.pyc
-.DS_Store
-.env
-.vscode/
-dist/
-build/
-*.egg-info/
-
-# Ignore frontend & backend modules / build artifacts
+# Dependencies & Build Output
 node_modules/
-medinexa-frontend/node_modules/
-medinexa-frontend/dist/
-medinexa-backend/target/
-medinexa-backend/.mvn/
-medinexa-backend/bin/
+dist/
+dist-ssr/
+target/
+.m2/
+
+# Environment & Local Configuration
+*.local
+.env
+.env.*
+
+# Database & Logs
+*.log
+logs/
+*.mv.db
+*.trace.db
+*.lock.db
+query.sql
+
+# Editor & OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+

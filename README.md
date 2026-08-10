@@ -90,7 +90,7 @@ Set these environment variables in your environment or in `velocura-backend/src/
 | `GEMINI_API_KEY` | *(Built-in AI Fallback)* | Google Gemini AI Studio API key (`AIzaSy...`) |
 | `JWT_SECRET` | `404E6352...` | HMAC-SHA512 Secret Key for JWT signature verification |
 | `JWT_EXPIRATION_MS` | `86400000` (24 Hours) | Token validity duration in milliseconds |
-| `DB_URL` | `` | Database connection URL |
+| `DB_URL` | `jdbc:h2:mem:velocura_db` | Database connection URL |
 | `DB_USERNAME` | `sa` | Database username |
 | `DB_PASSWORD` | `""` | Database password |
 
@@ -105,7 +105,6 @@ Set these environment variables in your environment or in `velocura-backend/src/
 
 ### Step 1: Start the Backend Server
 ```bash
-cd medinexa
 python3 run-backend.py
 ```
 *The Spring Boot server will start on **`http://localhost:8080`**.*
@@ -113,7 +112,6 @@ python3 run-backend.py
 ### Step 2: Start the Frontend Server
 In a second terminal window:
 ```bash
-cd medinexa
 python3 run-frontend.py
 ```
 *The Vite React application will start on **`http://localhost:5173`**.*
@@ -125,7 +123,6 @@ python3 run-frontend.py
 To launch the complete application stack (MySQL 8.0, Spring Boot, and Nginx Frontend) in containerized mode:
 
 ```bash
-cd medinexa
 docker-compose up --build -d
 ```
 
@@ -142,8 +139,8 @@ The database automatically seeds default administrative accounts on first launch
 
 | Role | Email | Password |
 |------|-------|----------|
-| **Admin** | `` | `` |
-| **Admin** | `` | `` |
+| **Admin** | `admin@velocura.com` | `admin_password` |
+| **Admin** | `admin@medinexa.com` | `admin_password` |
 
 *New Patients and Doctors can register directly using the web interface at `/register`.*
 
