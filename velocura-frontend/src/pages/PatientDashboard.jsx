@@ -56,8 +56,9 @@ const VitalsChart = ({ data }) => {
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-emerald-400 rounded-full inline-block"></span>Sugar</span>
         </div>
       </div>
-      <div className="relative w-full h-[200px]">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
+      <div className="relative w-full overflow-x-auto custom-scrollbar pb-2">
+        <div className="min-w-[450px] md:min-w-0 h-[200px]">
+          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
           {/* Horizontal Grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
             const y = padding + ratio * (height - padding * 2);
@@ -99,6 +100,7 @@ const VitalsChart = ({ data }) => {
             <circle key={i} cx={p.x} cy={p.y} r="4" fill="#34d399" />
           ))}
         </svg>
+        </div>
       </div>
     </div>
   );
@@ -108,6 +110,7 @@ const PatientDashboard = () => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Core Data states
   const [profile, setProfile] = useState(null);
@@ -718,15 +721,54 @@ const PatientDashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative">
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[120px] animate-pulse-glow" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-teal-500/5 rounded-full blur-[150px] animate-pulse-glow" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[120px] animate-pulse-glow" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-teal-500/5 rounded-full blur-[150px] animate-pulse-glow" />
+      </div>
 
-      <div className="flex-1 flex flex-col md:flex-row z-10">
+      <div className="flex-1 flex flex-col md:flex-row z-10 min-h-0">
         
+        {/* Mobile Top Bar - only visible on mobile */}
+        <div className="md:hidden flex items-center justify-between px-4 py-3 bg-slate-900/60 border-b border-slate-900 z-30">
+          <div className="flex items-center space-x-2">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-teal-500 flex items-center justify-center">
+              <svg className="w-4 h-4 text-slate-950 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <div>
+              <span className="text-sm font-bold text-white">VeloCura</span>
+              <span className="block text-[8px] text-teal-400 font-bold uppercase tracking-widest mt-[-1px]">Patient Portal</span>
+            </div>
+          </div>
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex flex-col items-center justify-center w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 gap-1.5 cursor-pointer"
+            aria-label="Open navigation menu"
+          >
+            <span className="w-4 h-0.5 bg-slate-300" />
+            <span className="w-4 h-0.5 bg-slate-300" />
+            <span className="w-4 h-0.5 bg-slate-300" />
+          </button>
+        </div>
+
+        {/* Mobile Backdrop */}
+        {mobileMenuOpen && (
+          <div
+            className="md:hidden fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+
         {/* SIDEBAR NAVIGATION PANEL */}
-        <aside className="w-full md:w-64 bg-slate-900/40 border-r border-slate-900 px-6 py-8 flex flex-col shrink-0">
-          <div className="flex items-center space-x-3 mb-8">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-teal-500 flex items-center justify-center shadow-md shadow-cyan-500/20">
+        <aside className={`
+          fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 border-r border-slate-900 px-6 py-8 flex flex-col shrink-0 transform transition-transform duration-300 ease-in-out
+          md:relative md:w-64 md:translate-x-0 md:bg-slate-900/40
+          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}>
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center space-x-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-teal-500 flex items-center justify-center shadow-md shadow-cyan-500/20">
               <svg className="w-5 h-5 text-slate-950 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
               </svg>
@@ -735,11 +777,22 @@ const PatientDashboard = () => {
               <span className="text-lg font-bold tracking-tight text-white">VeloCura</span>
               <span className="block text-[9px] text-teal-400 font-bold uppercase tracking-widest mt-[-2px]">Patient Portal</span>
             </div>
-          </div>
+              </div>
+              {/* Mobile Close button */}
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="md:hidden w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 transition-colors cursor-pointer"
+                aria-label="Close navigation menu"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
           <nav className="flex-1 flex flex-col space-y-1">
             <button
-              onClick={() => setActiveTab('overview')}
+              onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'overview' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
               }`}
@@ -752,7 +805,7 @@ const PatientDashboard = () => {
 
             {/* HEALTH PASSPORT TAB BUTTON */}
             <button
-              onClick={() => setActiveTab('passport')}
+              onClick={() => { setActiveTab('passport'); setMobileMenuOpen(false); }}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'passport' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
               }`}
@@ -765,7 +818,7 @@ const PatientDashboard = () => {
 
             {/* AI ASSISTANT STARTUP TAB BUTTON */}
             <button
-              onClick={() => setActiveTab('ai-assistant')}
+              onClick={() => { setActiveTab('ai-assistant'); setMobileMenuOpen(false); }}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'ai-assistant' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
               }`}
@@ -778,7 +831,7 @@ const PatientDashboard = () => {
 
             {/* VITALS TRACKER STARTUP TAB BUTTON */}
             <button
-              onClick={() => setActiveTab('vitals')}
+              onClick={() => { setActiveTab('vitals'); setMobileMenuOpen(false); }}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'vitals' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
               }`}
@@ -791,7 +844,7 @@ const PatientDashboard = () => {
 
             {/* LAB REPORT ANALYZER TAB BUTTON */}
             <button
-              onClick={() => setActiveTab('report-analyzer')}
+              onClick={() => { setActiveTab('report-analyzer'); setMobileMenuOpen(false); }}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'report-analyzer' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
               }`}
@@ -803,7 +856,7 @@ const PatientDashboard = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('book')}
+              onClick={() => { setActiveTab('book'); setMobileMenuOpen(false); }}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'book' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
               }`}
@@ -815,7 +868,7 @@ const PatientDashboard = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('appointments')}
+              onClick={() => { setActiveTab('appointments'); setMobileMenuOpen(false); }}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'appointments' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
               }`}
@@ -827,7 +880,7 @@ const PatientDashboard = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('records')}
+              onClick={() => { setActiveTab('records'); setMobileMenuOpen(false); }}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'records' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
               }`}
@@ -839,7 +892,7 @@ const PatientDashboard = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('prescriptions')}
+              onClick={() => { setActiveTab('prescriptions'); setMobileMenuOpen(false); }}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'prescriptions' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
               }`}
@@ -851,7 +904,7 @@ const PatientDashboard = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('profile')}
+              onClick={() => { setActiveTab('profile'); setMobileMenuOpen(false); }}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'profile' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
               }`}
@@ -895,7 +948,7 @@ const PatientDashboard = () => {
         </aside>
 
         {/* MAIN PANEL CONTENT SPACE */}
-        <main className="flex-1 px-8 py-10 overflow-y-auto max-w-5xl relative">
+        <main className="flex-1 px-4 sm:px-8 py-6 sm:py-10 overflow-y-auto max-w-5xl relative">
           
           {/* Top-Right Floating Controls */}
           <div className="absolute top-8 right-8 z-50">
@@ -1728,69 +1781,122 @@ const PatientDashboard = () => {
                 {appointments.length === 0 ? (
                   <p className="text-sm text-slate-500 font-mono py-8 text-center">You have no booked consultations.</p>
                 ) : (
-                  <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left text-sm text-slate-400">
-                      <thead className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-900">
-                        <tr>
-                          <th className="pb-3">Doctor</th>
-                          <th className="pb-3">Schedule Date & Time</th>
-                          <th className="pb-3">Reason</th>
-                          <th className="pb-3">Status</th>
-                          <th className="pb-3 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-900">
-                        {appointments.map((a) => (
-                          <tr key={a.id} className="hover:bg-slate-900/10">
-                            <td className="py-4 font-bold text-white">{a.doctorName}</td>
-                            <td className="py-4 font-mono text-xs text-cyan-400">
-                              {new Date(a.appointmentTime).toLocaleString()}
-                            </td>
-                            <td className="py-4 truncate max-w-xs">{a.reason}</td>
-                            <td className="py-4">
-                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase font-mono tracking-wide ${
-                                a.status === 'CONFIRMED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                                a.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                                a.status === 'CANCELLED' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-                                'bg-slate-800 text-slate-400 border border-slate-700'
-                              }`}>
-                                {a.status}
-                              </span>
-                            </td>
-                            <td className="py-4 text-right">
-                              {(a.status === 'PENDING' || a.status === 'CONFIRMED') && (
-                                <div className="inline-flex gap-2">
-                                  {a.status === 'CONFIRMED' && (
-                                    <button
-                                      onClick={() => setActiveVideoSession({
-                                        roomName: `velocura-room-${a.id}`,
-                                        userName: `${profile?.firstName} ${profile?.lastName}`
-                                      })}
-                                      className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-xl transition-all duration-200 cursor-pointer"
-                                    >
-                                      Join Video Call
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={() => { setRescheduleId(a.id); setRescheduleTime(''); }}
-                                    className="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-xs px-3 py-1.5 rounded-xl border border-cyan-500/20 transition-all duration-200 cursor-pointer"
-                                  >
-                                    Reschedule
-                                  </button>
-                                  <button
-                                    onClick={() => handleCancelAppointment(a.id)}
-                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs px-3 py-1.5 rounded-xl border border-red-500/20 transition-all duration-200 cursor-pointer"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
+                  <>
+                    {/* Mobile Appointments Card List (< md) */}
+                    <div className="block md:hidden space-y-3">
+                      {appointments.map((a) => (
+                        <div key={a.id} className="p-4 rounded-2xl bg-slate-950/60 border border-slate-900 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-bold text-white">{a.doctorName}</h4>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase font-mono tracking-wide ${
+                              a.status === 'CONFIRMED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                              a.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                              a.status === 'CANCELLED' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                              'bg-slate-800 text-slate-400 border border-slate-700'
+                            }`}>
+                              {a.status}
+                            </span>
+                          </div>
+                          <div className="text-xs text-slate-400 space-y-1 font-mono">
+                            <p><span className="text-slate-500 uppercase">Schedule:</span> <span className="text-cyan-400">{new Date(a.appointmentTime).toLocaleString()}</span></p>
+                            <p className="font-sans text-slate-300"><span className="text-slate-500 font-mono uppercase">Reason:</span> {a.reason}</p>
+                          </div>
+                          {(a.status === 'PENDING' || a.status === 'CONFIRMED') && (
+                            <div className="pt-2 border-t border-slate-900 flex flex-wrap gap-2">
+                              {a.status === 'CONFIRMED' && (
+                                <button
+                                  onClick={() => setActiveVideoSession({
+                                    roomName: `velocura-room-${a.id}`,
+                                    userName: `${profile?.firstName} ${profile?.lastName}`
+                                  })}
+                                  className="flex-1 min-h-[40px] bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs px-3 py-2 rounded-xl transition-all duration-200 cursor-pointer"
+                                >
+                                  Join Video Call
+                                </button>
                               )}
-                            </td>
+                              <button
+                                onClick={() => { setRescheduleId(a.id); setRescheduleTime(''); }}
+                                className="flex-1 min-h-[40px] bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-xs px-3 py-2 rounded-xl border border-cyan-500/20 transition-all duration-200 cursor-pointer"
+                              >
+                                Reschedule
+                              </button>
+                              <button
+                                onClick={() => handleCancelAppointment(a.id)}
+                                className="min-h-[40px] bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs px-3 py-2 rounded-xl border border-red-500/20 transition-all duration-200 cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Desktop Appointments Table (>= md) */}
+                    <div className="hidden md:block overflow-x-auto custom-scrollbar">
+                      <table className="w-full text-left text-sm text-slate-400">
+                        <thead className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-900">
+                          <tr>
+                            <th className="pb-3">Doctor</th>
+                            <th className="pb-3">Schedule Date & Time</th>
+                            <th className="pb-3">Reason</th>
+                            <th className="pb-3">Status</th>
+                            <th className="pb-3 text-right">Actions</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-900">
+                          {appointments.map((a) => (
+                            <tr key={a.id} className="hover:bg-slate-900/10">
+                              <td className="py-4 font-bold text-white">{a.doctorName}</td>
+                              <td className="py-4 font-mono text-xs text-cyan-400">
+                                {new Date(a.appointmentTime).toLocaleString()}
+                              </td>
+                              <td className="py-4 truncate max-w-xs">{a.reason}</td>
+                              <td className="py-4">
+                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase font-mono tracking-wide ${
+                                  a.status === 'CONFIRMED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                  a.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                                  a.status === 'CANCELLED' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                                  'bg-slate-800 text-slate-400 border border-slate-700'
+                                }`}>
+                                  {a.status}
+                                </span>
+                              </td>
+                              <td className="py-4 text-right">
+                                {(a.status === 'PENDING' || a.status === 'CONFIRMED') && (
+                                  <div className="inline-flex gap-2">
+                                    {a.status === 'CONFIRMED' && (
+                                      <button
+                                        onClick={() => setActiveVideoSession({
+                                          roomName: `velocura-room-${a.id}`,
+                                          userName: `${profile?.firstName} ${profile?.lastName}`
+                                        })}
+                                        className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-xl transition-all duration-200 cursor-pointer"
+                                      >
+                                        Join Video Call
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => { setRescheduleId(a.id); setRescheduleTime(''); }}
+                                      className="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-xs px-3 py-1.5 rounded-xl border border-cyan-500/20 transition-all duration-200 cursor-pointer"
+                                    >
+                                      Reschedule
+                                    </button>
+                                    <button
+                                      onClick={() => handleCancelAppointment(a.id)}
+                                      className="bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs px-3 py-1.5 rounded-xl border border-red-500/20 transition-all duration-200 cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </div>
             </div>

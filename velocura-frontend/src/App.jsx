@@ -31,6 +31,7 @@ function LandingPage() {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [activeFaq, setActiveFaq] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const count = parseInt(localStorage.getItem('anonymousChatCount') || '0');
@@ -91,21 +92,23 @@ function LandingPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative">
       
       {/* Background decoration elements */}
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[120px] animate-pulse-glow" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[150px] animate-pulse-glow" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[120px] animate-pulse-glow" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[150px] animate-pulse-glow" />
+      </div>
       
       {/* Header / Navbar */}
       <header className="fixed top-0 w-full z-50 backdrop-blur-md bg-slate-950/75 border-b border-slate-900">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex justify-between items-center">
           <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => navigate('/')}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-teal-500 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform duration-300">
-              <svg className="w-6 h-6 text-slate-950 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-teal-500 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform duration-300">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-slate-950 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
               </svg>
             </div>
             <div>
-              <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">VeloCura</span>
-              <span className="block text-[10px] text-teal-400 font-semibold uppercase tracking-widest mt-[-2px]">AI Clinical Advisor</span>
+              <span className="text-lg sm:text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">VeloCura</span>
+              <span className="block text-[9px] sm:text-[10px] text-teal-400 font-semibold uppercase tracking-widest mt-[-2px]">AI Clinical Advisor</span>
             </div>
           </div>
 
@@ -115,38 +118,103 @@ function LandingPage() {
             <a href="#pricing" className="hover:text-white transition-colors duration-200">Care Plans</a>
           </nav>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             <ThemeToggle />
             {user ? (
               <>
                 <span className="text-xs text-slate-400 font-mono hidden sm:inline">Portal Session Active</span>
                 <button
                   onClick={redirectDashboard}
-                  className="bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-bold px-5 py-2.5 rounded-xl shadow-lg shadow-cyan-500/10 hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-sm cursor-pointer"
+                  className="bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-bold px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl shadow-lg shadow-cyan-500/10 hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-xs sm:text-sm cursor-pointer"
                 >
                   My Workspace
                 </button>
               </>
             ) : (
               <>
-                <Link to="/login" className="text-sm font-medium hover:text-white transition-colors duration-200 px-4 py-2">
+                <Link to="/login" className="hidden sm:block text-sm font-medium hover:text-white transition-colors duration-200 px-4 py-2">
                   Sign In
                 </Link>
                 <Link
                   to="/register"
-                  className="bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-semibold px-5 py-2.5 rounded-xl shadow-lg shadow-cyan-500/10 hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-sm"
+                  className="hidden sm:block bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-semibold px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl shadow-lg shadow-cyan-500/10 hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-xs sm:text-sm"
                 >
                   Register
                 </Link>
               </>
             )}
+            {/* Mobile Hamburger Button */}
+            <button
+              id="mobile-menu-toggle"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden flex flex-col items-center justify-center w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 gap-1.5 cursor-pointer hover:border-slate-700 transition-colors duration-200"
+              aria-label="Toggle mobile menu"
+            >
+              <span className={`w-4 h-0.5 bg-slate-300 transition-all duration-300 ${mobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`} />
+              <span className={`w-4 h-0.5 bg-slate-300 transition-all duration-300 ${mobileMenuOpen ? 'opacity-0 scale-x-0' : ''}`} />
+              <span className={`w-4 h-0.5 bg-slate-300 transition-all duration-300 ${mobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
+            </button>
           </div>
         </div>
+
+        {/* Mobile Navigation Dropdown */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-slate-900 bg-slate-950/95 backdrop-blur-md px-4 pb-4 pt-2 space-y-1">
+            <a
+              href="#features"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-900 transition-all duration-200"
+            >
+              AI Symptom Check
+            </a>
+            <a
+              href="#stats"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-900 transition-all duration-200"
+            >
+              Startup Impact
+            </a>
+            <a
+              href="#pricing"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-900 transition-all duration-200"
+            >
+              Care Plans
+            </a>
+            <div className="border-t border-slate-900 pt-3 mt-2 flex flex-col gap-2">
+              {user ? (
+                <button
+                  onClick={() => { setMobileMenuOpen(false); redirectDashboard(); }}
+                  className="w-full bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-bold py-3 rounded-xl text-sm cursor-pointer"
+                >
+                  My Workspace
+                </button>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full text-center bg-slate-900 border border-slate-800 text-white font-semibold py-3 rounded-xl text-sm"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    to="/register"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full text-center bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-bold py-3 rounded-xl text-sm"
+                  >
+                    Register Free
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Hero Section */}
-      <section className="relative max-w-7xl mx-auto px-6 pt-36 pb-24 flex flex-col items-center text-center z-10">
-        <div className="inline-flex items-center space-x-2 bg-teal-500/10 border border-teal-500/20 rounded-full px-4 py-1.5 mb-8">
+      <section className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-28 sm:pt-36 pb-16 sm:pb-24 flex flex-col items-center text-center z-10">
+        <div className="inline-flex items-center space-x-2 bg-teal-500/10 border border-teal-500/20 rounded-full px-4 py-1.5 mb-6 sm:mb-8">
           <span className="flex h-2 w-2 relative">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
@@ -154,25 +222,25 @@ function LandingPage() {
           <span className="text-xs text-teal-400 font-medium tracking-wide font-mono">Platform v2.0 Launched</span>
         </div>
 
-        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight max-w-5xl leading-tight">
-          Your AI-Powered <br />
+        <h1 className="text-3xl sm:text-4xl md:text-6xl font-extrabold tracking-tight max-w-5xl leading-tight">
+          Your AI-Powered <br className="hidden sm:block" />
           <span className="bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400 bg-clip-text text-transparent">Digital Health Assistant</span>
         </h1>
 
-        <p className="mt-6 text-lg text-slate-400 max-w-2xl leading-relaxed">
+        <p className="mt-4 sm:mt-6 text-base sm:text-lg text-slate-400 max-w-2xl leading-relaxed px-2">
           VeloCura bridges automated triage checking with physical clinical solutions. Describe symptoms, receive instant risk levels, track vitals logs, and schedule video consultations with verified doctors in minutes.
         </p>
 
-        <div className="mt-10 flex flex-wrap justify-center gap-4">
+        <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row flex-wrap justify-center gap-3 sm:gap-4 w-full max-w-sm sm:max-w-none">
           <button
             onClick={() => document.getElementById('chatbot-section')?.scrollIntoView({ behavior: 'smooth' })}
-            className="bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-bold px-8 py-4 rounded-xl shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/45 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-sm cursor-pointer"
+            className="w-full sm:w-auto bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-bold px-8 py-4 rounded-xl shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/45 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-sm cursor-pointer"
           >
             Start AI Checkup Free
           </button>
           <a
             href="#features"
-            className="bg-slate-900 border border-slate-800 hover:border-slate-700 text-white font-medium px-8 py-4 rounded-xl transition-all duration-200 text-sm"
+            className="w-full sm:w-auto text-center bg-slate-900 border border-slate-800 hover:border-slate-700 text-white font-medium px-8 py-4 rounded-xl transition-all duration-200 text-sm"
           >
             How it works
           </a>
@@ -180,8 +248,8 @@ function LandingPage() {
       </section>
 
       {/* PUBLIC INTERACTIVE CHATBOT SECTION */}
-      <section id="chatbot-section" className="scroll-mt-20 max-w-4xl mx-auto px-6 pb-20 w-full relative z-10">
-        <div className="glass-card rounded-3xl p-6 md:p-8 shadow-2xl relative border border-slate-900">
+      <section id="chatbot-section" className="scroll-mt-20 max-w-4xl mx-auto px-4 sm:px-6 pb-16 sm:pb-20 w-full relative z-10">
+        <div className="glass-card rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden border border-slate-900">
           <div className="absolute top-[-20%] right-[-10%] w-[250px] h-[250px] bg-cyan-500/5 rounded-full blur-[80px]" />
           
           <div className="flex items-center justify-between border-b border-slate-900 pb-4 mb-6">
@@ -416,7 +484,7 @@ function LandingPage() {
           <p className="text-slate-400 mt-3">Combining automated clinical intelligence with immediate doctor intervention.</p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
           <div className="p-8 bg-slate-900/30 border border-slate-900 rounded-2xl hover:border-slate-800 transition-all duration-300">
             <div className="p-3 bg-cyan-500/10 rounded-xl text-cyan-400 w-fit mb-6">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -459,9 +527,9 @@ function LandingPage() {
       </section>
 
       {/* System Security & Clinical Trust */}
-      <section id="stats" className="scroll-mt-20 max-w-7xl mx-auto px-6 py-16 bg-slate-900/40 border border-slate-900 rounded-3xl w-full relative z-10 text-center">
-        <h2 className="text-2xl font-bold tracking-tight text-white mb-10">Engineered for Medical Privacy & Trust</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      <section id="stats" className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16 bg-slate-900/40 border border-slate-900 rounded-3xl w-full relative z-10 text-center">
+        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white mb-8 sm:mb-10">Engineered for Medical Privacy & Trust</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
           <div>
             <p className="text-lg font-bold text-cyan-400">Stateless JWT Auth</p>
             <p className="text-xs text-slate-500 font-mono mt-2">Role-Based Access Control</p>
@@ -489,7 +557,7 @@ function LandingPage() {
           <p className="text-slate-400 mt-3">Choose the plan that fits your family's healthcare requirements.</p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
           <div className="p-8 bg-slate-900/20 border border-slate-900 rounded-2xl flex flex-col justify-between hover:border-slate-800 transition-colors duration-300">
             <div>
               <h4 className="text-lg font-bold text-white mb-2">Free Tier</h4>
@@ -554,7 +622,7 @@ function LandingPage() {
           <p className="text-slate-400 mt-3">From symptoms identification to direct specialist clinical resolution in three steps.</p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 relative">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 relative">
           <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-500/20 via-teal-500/20 to-transparent -translate-y-1/2 hidden md:block z-0" />
           
           <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-8 relative z-10 hover:border-slate-800 transition-all duration-300">
@@ -584,7 +652,7 @@ function LandingPage() {
       </section>
 
       {/* Emergency Advisory Banner */}
-      <section className="max-w-7xl mx-auto px-6 py-6 w-full relative z-10">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full relative z-10">
         <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-red-500/10 rounded-xl text-red-400">
@@ -606,7 +674,7 @@ function LandingPage() {
       </section>
 
       {/* FAQ Accordion Section */}
-      <section id="faq" className="scroll-mt-20 max-w-4xl mx-auto px-6 py-20 w-full relative z-10">
+      <section id="faq" className="scroll-mt-20 max-w-4xl mx-auto px-4 sm:px-6 py-16 sm:py-20 w-full relative z-10">
         <div className="text-center mb-12">
           <span className="text-xs text-cyan-400 font-bold uppercase tracking-widest font-mono">Common Queries</span>
           <h2 className="text-3xl font-bold tracking-tight mt-2">Frequently Asked Questions</h2>
@@ -653,10 +721,10 @@ function LandingPage() {
 
       {/* Corporate Professional Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 pt-16 pb-12 relative z-10">
-        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12 text-sm mb-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 text-sm mb-12">
           
           {/* Brand Info */}
-          <div className="flex flex-col space-y-4">
+          <div className="flex flex-col space-y-4 col-span-2 md:col-span-1">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-teal-500 flex items-center justify-center">
                 <svg className="w-5 h-5 text-slate-950 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">

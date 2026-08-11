@@ -8,6 +8,7 @@ const AdminDashboard = () => {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Core Data states
   const [stats, setStats] = useState(null);
@@ -220,15 +221,54 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative">
       {/* Background decoration elements */}
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-500/5 rounded-full blur-[120px] animate-pulse-glow" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-indigo-500/5 rounded-full blur-[150px] animate-pulse-glow" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-500/5 rounded-full blur-[120px] animate-pulse-glow" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-indigo-500/5 rounded-full blur-[150px] animate-pulse-glow" />
+      </div>
 
       {/* Main dashboard grid layout */}
-      <div className="flex-1 flex flex-col md:flex-row z-10">
+      <div className="flex-1 flex flex-col md:flex-row z-10 min-h-0">
         
+        {/* Mobile Top Bar - only visible on mobile */}
+        <div className="md:hidden flex items-center justify-between px-4 py-3 bg-slate-900/60 border-b border-slate-900 z-30">
+          <div className="flex items-center space-x-2">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center">
+              <svg className="w-4 h-4 text-slate-950 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <div>
+              <span className="text-sm font-bold text-white">VeloCura</span>
+              <span className="block text-[8px] text-purple-400 font-bold uppercase tracking-widest mt-[-1px]">Admin Console</span>
+            </div>
+          </div>
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex flex-col items-center justify-center w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 gap-1.5 cursor-pointer"
+            aria-label="Open navigation menu"
+          >
+            <span className="w-4 h-0.5 bg-slate-300" />
+            <span className="w-4 h-0.5 bg-slate-300" />
+            <span className="w-4 h-0.5 bg-slate-300" />
+          </button>
+        </div>
+
+        {/* Mobile Backdrop */}
+        {mobileMenuOpen && (
+          <div
+            className="md:hidden fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+
         {/* SIDEBAR NAVIGATION PANEL */}
-        <aside className="w-full md:w-64 bg-slate-900/40 border-r border-slate-900 px-6 py-8 flex flex-col shrink-0">
-          <div className="flex items-center space-x-3 mb-8">
+        <aside className={`
+          fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 border-r border-slate-900 px-6 py-8 flex flex-col shrink-0 transform transition-transform duration-300 ease-in-out
+          md:relative md:w-64 md:translate-x-0 md:bg-slate-900/40
+          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}>
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center shadow-md shadow-purple-500/20">
               <svg className="w-5 h-5 text-slate-950 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -238,12 +278,23 @@ const AdminDashboard = () => {
               <span className="text-lg font-bold tracking-tight text-white font-sans">VeloCura</span>
               <span className="block text-[9px] text-purple-400 font-bold uppercase tracking-widest mt-[-2px]">Admin Console</span>
             </div>
+            </div>
+            {/* Mobile Close button */}
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="md:hidden w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 transition-colors cursor-pointer"
+              aria-label="Close navigation menu"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
           {/* Nav links */}
           <nav className="flex-1 flex flex-col space-y-1">
             <button
-              onClick={() => setActiveTab('overview')}
+              onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'overview'
                   ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
@@ -257,7 +308,7 @@ const AdminDashboard = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('verifications')}
+              onClick={() => { setActiveTab('verifications'); setMobileMenuOpen(false); }}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'verifications'
                   ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
@@ -276,7 +327,7 @@ const AdminDashboard = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('users')}
+              onClick={() => { setActiveTab('users'); setMobileMenuOpen(false); }}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'users'
                   ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
@@ -290,7 +341,7 @@ const AdminDashboard = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('otps')}
+              onClick={() => { setActiveTab('otps'); setMobileMenuOpen(false); }}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'otps'
                   ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
@@ -337,7 +388,7 @@ const AdminDashboard = () => {
         </aside>
 
         {/* MAIN PANEL CONTENT SPACE */}
-        <main className="flex-1 px-8 py-10 overflow-y-auto max-w-5xl relative">
+        <main className="flex-1 px-4 sm:px-8 py-6 sm:py-10 overflow-y-auto max-w-5xl relative">
           
           {/* Top-Right Floating Controls */}
           <div className="absolute top-8 right-8 z-50">
@@ -435,40 +486,71 @@ const AdminDashboard = () => {
               {unverifiedDoctors.length === 0 ? (
                 <p className="text-sm text-slate-500 font-mono py-8 text-center">No doctor credentials awaiting verification.</p>
               ) : (
-                <div className="overflow-x-auto custom-scrollbar">
-                  <table className="w-full text-left text-sm text-slate-400">
-                    <thead className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-900">
-                      <tr>
-                        <th className="pb-3">Doctor Name</th>
-                        <th className="pb-3">License Number</th>
-                        <th className="pb-3">Specialization</th>
-                        <th className="pb-3">Experience</th>
-                        <th className="pb-3">Fee</th>
-                        <th className="pb-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-900">
-                      {unverifiedDoctors.map((d) => (
-                        <tr key={d.id} className="hover:bg-slate-900/10">
-                          <td className="py-4 font-bold text-white">Dr. {d.firstName} {d.lastName}</td>
-                          <td className="py-4 font-mono text-xs text-cyan-400">{d.licenseNumber}</td>
-                          <td className="py-4">{d.specialization}</td>
-                          <td className="py-4">{d.experienceYears} yrs</td>
-                          <td className="py-4 font-mono">${d.consultationFee}</td>
-                          <td className="py-4 text-right">
-                            <button
-                              onClick={() => handleVerifyDoctor(d.id)}
-                              disabled={actionLoading}
-                              className="bg-gradient-to-r from-purple-500 to-indigo-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl hover:shadow-lg hover:shadow-purple-500/10 transition-all duration-200 cursor-pointer"
-                            >
-                              Approve Credentials
-                            </button>
-                          </td>
+                <>
+                  {/* Mobile Verification Queue Card List (< md) */}
+                  <div className="block md:hidden space-y-3">
+                    {unverifiedDoctors.map((d) => (
+                      <div key={d.id} className="p-4 rounded-2xl bg-slate-950/60 border border-slate-900 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-bold text-white">Dr. {d.firstName} {d.lastName}</h4>
+                          <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
+                            {d.licenseNumber}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-400 space-y-1 font-mono">
+                          <p><span className="text-slate-500 uppercase">Specialization:</span> <span className="text-slate-200">{d.specialization}</span></p>
+                          <p><span className="text-slate-500 uppercase">Experience:</span> {d.experienceYears} yrs</p>
+                          <p><span className="text-slate-500 uppercase">Fee:</span> ₹{d.consultationFee}</p>
+                        </div>
+                        <div className="pt-2 border-t border-slate-900">
+                          <button
+                            onClick={() => handleVerifyDoctor(d.id)}
+                            disabled={actionLoading}
+                            className="w-full min-h-[40px] bg-gradient-to-r from-purple-500 to-indigo-500 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl hover:shadow-lg hover:shadow-purple-500/10 transition-all duration-200 cursor-pointer disabled:opacity-40"
+                          >
+                            Approve Credentials
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop Verification Queue Table (>= md) */}
+                  <div className="hidden md:block overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left text-sm text-slate-400">
+                      <thead className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-900">
+                        <tr>
+                          <th className="pb-3">Doctor Name</th>
+                          <th className="pb-3">License Number</th>
+                          <th className="pb-3">Specialization</th>
+                          <th className="pb-3">Experience</th>
+                          <th className="pb-3">Fee</th>
+                          <th className="pb-3 text-right">Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-900">
+                        {unverifiedDoctors.map((d) => (
+                          <tr key={d.id} className="hover:bg-slate-900/10">
+                            <td className="py-4 font-bold text-white">Dr. {d.firstName} {d.lastName}</td>
+                            <td className="py-4 font-mono text-xs text-cyan-400">{d.licenseNumber}</td>
+                            <td className="py-4">{d.specialization}</td>
+                            <td className="py-4">{d.experienceYears} yrs</td>
+                            <td className="py-4 font-mono">₹{d.consultationFee}</td>
+                            <td className="py-4 text-right">
+                              <button
+                                onClick={() => handleVerifyDoctor(d.id)}
+                                disabled={actionLoading}
+                                className="bg-gradient-to-r from-purple-500 to-indigo-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl hover:shadow-lg hover:shadow-purple-500/10 transition-all duration-200 cursor-pointer"
+                              >
+                                Approve Credentials
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -481,7 +563,7 @@ const AdminDashboard = () => {
                   <input
                     type="text"
                     placeholder="Search by email or name..."
-                    className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 transition-all duration-200"
+              className="w-full bg-slate-950 border border-slate-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 transition-all duration-200"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -491,36 +573,22 @@ const AdminDashboard = () => {
               {users.length === 0 ? (
                 <p className="text-sm text-slate-500 font-mono py-8 text-center">No registered users found.</p>
               ) : (
-                <div className="overflow-x-auto custom-scrollbar">
-                  <table className="w-full text-left text-sm text-slate-400">
-                    <thead className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-900">
-                      <tr>
-                        <th className="pb-3">ID</th>
-                        <th className="pb-3">Email Address</th>
-                        <th className="pb-3">Full Name</th>
-                        <th className="pb-3">System Role</th>
-                        <th className="pb-3">Status</th>
-                        <th className="pb-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-900">
-                      {users
-                        .filter(u => 
-                          u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          u.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          u.lastName.toLowerCase().includes(searchQuery.toLowerCase())
-                        )
-                        .map((u) => {
-                          const displayEmail = u.email.includes('_deleted_') ? u.email.split('_deleted_')[0] : u.email;
-                          return (
-                            <tr key={u.id} className={`hover:bg-slate-900/10 ${u.isDeleted ? 'opacity-65' : ''}`}>
-                              <td className="py-4 font-mono text-xs text-slate-500">#{u.id}</td>
-                              <td className="py-4 font-bold text-white">
-                                {displayEmail}
-                                {u.isDeleted && <span className="ml-2 text-[9px] bg-slate-800 text-slate-500 px-1 py-0.5 rounded font-mono">ARCHIVED</span>}
-                              </td>
-                              <td className="py-4">{u.firstName} {u.lastName}</td>
-                              <td className="py-4">
+                <>
+                  {/* Mobile User Directory Card List (< md) */}
+                  <div className="block md:hidden space-y-3">
+                    {users
+                      .filter(u => 
+                        u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        u.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        u.lastName.toLowerCase().includes(searchQuery.toLowerCase())
+                      )
+                      .map((u) => {
+                        const displayEmail = u.email.includes('_deleted_') ? u.email.split('_deleted_')[0] : u.email;
+                        return (
+                          <div key={u.id} className={`p-4 rounded-2xl bg-slate-950/60 border border-slate-900 space-y-3 ${u.isDeleted ? 'opacity-65' : ''}`}>
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono text-xs text-slate-500">#{u.id}</span>
+                              <div className="flex items-center gap-1.5">
                                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase font-mono tracking-wide ${
                                   u.role === 'ADMIN' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
                                   u.role === 'DOCTOR' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20' :
@@ -528,48 +596,123 @@ const AdminDashboard = () => {
                                 }`}>
                                   {u.role}
                                 </span>
-                              </td>
-                              <td className="py-4">
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono tracking-wide ${
                                   u.isDeleted ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20' :
                                   u.active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
                                 }`}>
                                   {u.isDeleted ? 'Deleted' : u.active ? 'Active' : 'Suspended'}
                                 </span>
-                              </td>
-                              <td className="py-4 text-right flex items-center justify-end gap-2">
-                                {u.role !== 'ADMIN' && !u.isDeleted && (
-                                  <>
-                                    <button
-                                      onClick={() => handleToggleActive(u.id)}
-                                      disabled={actionLoading}
-                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 cursor-pointer ${
-                                        u.active 
-                                          ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/25'
-                                          : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25'
-                                      }`}
-                                    >
-                                      {u.active ? 'Suspend' : 'Activate'}
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteUser(u.id)}
-                                      disabled={actionLoading}
-                                      className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 cursor-pointer"
-                                    >
-                                      Delete
-                                    </button>
-                                  </>
-                                )}
-                                {u.isDeleted && (
-                                  <span className="text-xs text-slate-500 font-mono italic pr-2">History Retained</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                </div>
+                              </div>
+                            </div>
+                            <div className="text-xs text-slate-400 space-y-1">
+                              <h4 className="text-sm font-bold text-white">{u.firstName} {u.lastName}</h4>
+                              <p className="font-mono text-slate-300 truncate">{displayEmail}</p>
+                            </div>
+                            {u.role !== 'ADMIN' && !u.isDeleted && (
+                              <div className="pt-2 border-t border-slate-900 flex gap-2">
+                                <button
+                                  onClick={() => handleToggleActive(u.id)}
+                                  disabled={actionLoading}
+                                  className={`flex-1 min-h-[38px] px-3 py-2 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
+                                    u.active 
+                                      ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/25'
+                                      : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25'
+                                  }`}
+                                >
+                                  {u.active ? 'Deactivate' : 'Activate'}
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteUser(u.id)}
+                                  disabled={actionLoading}
+                                  className="min-h-[38px] px-3 py-2 rounded-xl text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 transition-all duration-150 cursor-pointer"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  {/* Desktop User Directory Table (>= md) */}
+                  <div className="hidden md:block overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left text-sm text-slate-400">
+                      <thead className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-900">
+                        <tr>
+                          <th className="pb-3">ID</th>
+                          <th className="pb-3">Email Address</th>
+                          <th className="pb-3">Full Name</th>
+                          <th className="pb-3">System Role</th>
+                          <th className="pb-3">Status</th>
+                          <th className="pb-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-900">
+                        {users
+                          .filter(u => 
+                            u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            u.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            u.lastName.toLowerCase().includes(searchQuery.toLowerCase())
+                          )
+                          .map((u) => {
+                            const displayEmail = u.email.includes('_deleted_') ? u.email.split('_deleted_')[0] : u.email;
+                            return (
+                              <tr key={u.id} className={`hover:bg-slate-900/10 ${u.isDeleted ? 'opacity-65' : ''}`}>
+                                <td className="py-4 font-mono text-xs text-slate-500">#{u.id}</td>
+                                <td className="py-4 font-bold text-white">
+                                  {displayEmail}
+                                  {u.isDeleted && <span className="ml-2 text-[9px] bg-slate-800 text-slate-500 px-1 py-0.5 rounded font-mono">ARCHIVED</span>}
+                                </td>
+                                <td className="py-4">{u.firstName} {u.lastName}</td>
+                                <td className="py-4">
+                                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase font-mono tracking-wide ${
+                                    u.role === 'ADMIN' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                                    u.role === 'DOCTOR' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20' :
+                                    'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                                  }`}>
+                                    {u.role}
+                                  </span>
+                                </td>
+                                <td className="py-4">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono tracking-wide ${
+                                    u.isDeleted ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20' :
+                                    u.active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                  }`}>
+                                    {u.isDeleted ? 'Deleted' : u.active ? 'Active' : 'Suspended'}
+                                  </span>
+                                </td>
+                                <td className="py-4 text-right flex items-center justify-end gap-2">
+                                  {u.role !== 'ADMIN' && !u.isDeleted && (
+                                    <>
+                                      <button
+                                        onClick={() => handleToggleActive(u.id)}
+                                        disabled={actionLoading}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 cursor-pointer ${
+                                          u.active 
+                                            ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/25'
+                                            : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25'
+                                        }`}
+                                      >
+                                        {u.active ? 'Deactivate' : 'Activate'}
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteUser(u.id)}
+                                        disabled={actionLoading}
+                                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 transition-all duration-150 cursor-pointer"
+                                      >
+                                        Delete
+                                      </button>
+                                    </>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </div>
           )}
