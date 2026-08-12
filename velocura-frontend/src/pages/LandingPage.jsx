@@ -140,6 +140,19 @@ export const LandingPage = () => {
         if (res.data && res.data.triageLevel) {
           level = res.data.triageLevel.toUpperCase();
           summary = res.data.clinicalSummary || summary;
+          const isBasic = res.data.recommendedSpecialty === 'General Health Assistance' || (res.data.differentialDiagnoses?.length === 0 && res.data.immediatePrecautions?.length === 0);
+          if (isBasic) {
+            setMessages(prev => [
+              ...prev.filter(m => !m.isTemporary),
+              {
+                sender: 'ai',
+                text: summary
+              }
+            ]);
+            setTriageResult(null);
+            setIsAnalyzing(false);
+            return;
+          }
         }
       } catch (err) {}
 

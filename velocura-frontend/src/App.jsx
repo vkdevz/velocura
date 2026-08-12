@@ -59,13 +59,17 @@ function LandingPage() {
       localStorage.setItem('anonymousChatCount', nextCount.toString());
       setAnonymousChatCount(nextCount);
 
+      const isBasic = triage.recommendedSpecialty === 'General Health Assistance' || (triage.differentialDiagnoses?.length === 0 && triage.immediatePrecautions?.length === 0);
+
       // Append AI response
       setChatHistory(prev => [
         ...prev,
         {
           sender: 'ai',
-          text: `Triage Analysis Result:\nRisk Category: ${triage.triageLevel.toUpperCase()}\n\nClinical Summary:\n${triage.clinicalSummary}`,
-          triageResult: triage
+          text: isBasic
+            ? triage.clinicalSummary
+            : `Triage Analysis Result:\nRisk Category: ${triage.triageLevel.toUpperCase()}\n\nClinical Summary:\n${triage.clinicalSummary}`,
+          triageResult: isBasic ? null : triage
         }
       ]);
     } catch (err) {

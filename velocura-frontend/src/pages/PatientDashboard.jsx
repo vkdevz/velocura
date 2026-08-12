@@ -640,10 +640,12 @@ const PatientDashboard = () => {
       const res = await api.post('/api/auth/triage', { symptoms: userQuery });
       const triage = res.data;
 
+      const isBasic = triage.recommendedSpecialty === 'General Health Assistance' || (triage.differentialDiagnoses?.length === 0 && triage.immediatePrecautions?.length === 0);
+
       const botMessage = {
         sender: 'bot',
-        text: `Triage Analysis Result:\nRisk Category: ${triage.triageLevel.toUpperCase()}\n\nClinical Summary:\n${triage.clinicalSummary}`,
-        data: triage
+        text: isBasic ? triage.clinicalSummary : `Triage Analysis Result:\nRisk Category: ${triage.triageLevel.toUpperCase()}\n\nClinical Summary:\n${triage.clinicalSummary}`,
+        data: isBasic ? null : triage
       };
 
       setChatHistory(prev => [...prev, botMessage]);
