@@ -57,10 +57,19 @@ public class BasicConversationHandler {
 
     // List of ambiguous health complaints that MUST be routed to medical workflow
     private static final List<String> AMBIGUOUS_HEALTH_SIGNALS = List.of(
-            "weird", "wrong", "don't feel right", "dont feel right", "not feeling right", "not feeling well",
-            "something is wrong", "feeling bad", "feeling weird", "feel bad", "feel weird", "feel sick",
+            "weird", "something is wrong", "feeling bad", "feeling weird", "feel bad", "feel weird", "feel sick",
             "feel strange", "uncomfortable", "not okay", "not ok", "something doesn't feel normal",
-            "something feels strange", "i'm not okay", "im not okay", "i am not okay"
+            "something feels strange", "i'm not okay", "im not okay", "i am not okay",
+            // Natural language health concern phrases (precise full-phrase matches)
+            "don't feel right", "dont feel right", "not feeling right", "not feeling well",
+            "don't feel normal", "dont feel normal", "not feeling normal", "not feeling good",
+            "don't feel good", "dont feel good", "i feel off", "feeling off",
+            "can't keep food", "cant keep food", "can not keep food",
+            "don't feel like myself", "dont feel like myself", "not myself today",
+            "something is off", "something feels off", "i feel strange",
+            "not well today", "feeling unwell", "feel unwell", "under the weather",
+            "body doesn't feel right", "body feels off", "i'm not well", "im not well",
+            "not feeling myself", "don't feel myself", "dont feel myself"
     );
 
     /**

@@ -155,6 +155,7 @@ public class GeminiAiService {
         String query = input.toLowerCase();
 
         boolean isAcute = query.contains("severe") || query.contains("acute") || query.contains("sudden") || query.contains("intense") || query.contains("sharp") || query.contains("crushing");
+        boolean isSevereBleed = query.contains("heavy bleed") || query.contains("won't stop bleeding") || query.contains("wont stop bleeding") || query.contains("bleeding badly") || query.contains("blood everywhere") || query.contains("deep cut") || query.contains("gash");
 
         String triageLevel = "Mild";
         String clinicalSummary;
@@ -260,12 +261,19 @@ public class GeminiAiService {
         }
 
         // --- 8. PULMONOLOGY & RESPIRATORY ---
-        else if (query.contains("cough") || query.contains("wheez") || query.contains("asthma") || query.contains("phlegm") || query.contains("bronchitis") || query.contains("pneumonia") || query.contains("shortness of breath")) {
-            triageLevel = query.contains("wheez") || query.contains("asthma") || query.contains("shortness") ? "Moderate" : "Mild";
+        else if (query.contains("cough") || query.contains("wheez") || query.contains("asthma") || query.contains("phlegm") || query.contains("bronchitis") || query.contains("pneumonia") || query.contains("shortness of breath") || query.contains("cant breathe") || query.contains("can't breathe") || query.contains("trouble breathing") || query.contains("difficulty breathing") || query.contains("breathless") || query.contains("breath")) {
+            boolean isBreathingEmergency = query.contains("cant breathe") || query.contains("can't breathe") || query.contains("trouble breathing") || query.contains("difficulty breathing") || query.contains("breathless") || query.contains("wheez") || query.contains("asthma");
+            triageLevel = isBreathingEmergency ? "Critical" : "Mild";
             recommendedSpecialty = "Pulmonology";
-            clinicalSummary = "VeloCura AI Clinical Assessment: Respiratory screening for symptoms (\"" + input + "\") signals bronchial smooth muscle narrowing, hyper-mucosal secretion, or pulmonary viral inflammation.";
-            differentialDiagnoses = List.of("Acute Bronchitis", "Asthma Bronchospasm", "Viral Pneumonitis");
-            immediatePrecautions = List.of("Stay in a smoke-free and dust-free environment", "Track oxygen saturation (SpO2) with pulse oximeter", "Avoid cold ambient air");
+            clinicalSummary = isBreathingEmergency
+                ? "VeloCura AI Clinical Assessment: Urgent respiratory evaluation for symptoms (\"" + input + "\"). Reported breathing difficulty signals potential bronchospasm, airway obstruction, or acute respiratory compromise requiring immediate medical attention."
+                : "VeloCura AI Clinical Assessment: Respiratory screening for symptoms (\"" + input + "\") signals bronchial smooth muscle narrowing, hyper-mucosal secretion, or pulmonary viral inflammation.";
+            differentialDiagnoses = isBreathingEmergency
+                ? List.of("Acute Asthma Attack / Bronchospasm", "Anaphylaxis (if allergic trigger)", "Pulmonary Embolism", "Viral Pneumonitis")
+                : List.of("Acute Bronchitis", "Asthma Bronchospasm", "Viral Pneumonitis");
+            immediatePrecautions = isBreathingEmergency
+                ? List.of("Sit upright immediately — do not lie flat", "If prescribed, use inhaler/nebulizer NOW", "Call emergency services (911/112) if breathing difficulty worsens")
+                : List.of("Stay in a smoke-free and dust-free environment", "Track oxygen saturation (SpO2) with pulse oximeter", "Avoid cold ambient air");
             homeRemedies = List.of("Steam inhalation with eucalyptus 2-3 times daily", "Warm ginger-honey tea", "Elevate head with pillows while sleeping");
             suggestedOtc = List.of("Dextromethorphan HBr Cough Syrup", "Guaifenesin 400mg Expectorant");
         }
@@ -303,13 +311,149 @@ public class GeminiAiService {
             suggestedOtc = List.of("Melatonin 3mg-5mg (short-term sleep aid)", "L-Theanine 200mg supplement");
         }
 
-        // --- 12. DYNAMIC GENERAL MEDICINE NLP SYNTHESIZER FOR ANY OTHER PROMPT ---
+        // --- 12. TRAUMA, WOUND, CUT & BLEEDING ---
+        else if (query.contains("cut") || query.contains("wound") || query.contains("bleed") || query.contains("bleeding") || query.contains("blood") ||
+                 query.contains("gash") || query.contains("laceration") || query.contains("stab") || query.contains("puncture") ||
+                 query.contains("scrape") || query.contains("bruise") || (query.contains("burn") && !query.contains("urin")) || query.contains("burnt")) {
+            boolean isCriticalBleeding = isSevereBleed || query.contains("stab") || query.contains("laceration");
+            triageLevel = isCriticalBleeding ? "Critical" : (query.contains("deep") || query.contains("severe") ? "Moderate" : "Mild");
+            recommendedSpecialty = isCriticalBleeding ? "Emergency Medicine / Surgery" : "General Surgery / First Aid";
+            clinicalSummary = "VeloCura AI Clinical Assessment: Traumatic wound evaluation for reported injury (\"" + input + "\"). " +
+                (isCriticalBleeding
+                    ? "Severe bleeding or deep laceration detected — immediate emergency wound care and haemostasis required. Seek emergency medical attention now."
+                    : "Minor to moderate soft tissue injury identified. Prompt first aid wound management, cleaning, and assessment for suturing needs is recommended.");
+            differentialDiagnoses = List.of("Soft Tissue Laceration / Abrasion", "Traumatic Skin Wound", "Superficial Burn Injury", "Puncture Wound (risk of infection)");
+            immediatePrecautions = List.of(
+                "Apply firm, clean pressure to the wound using sterile gauze or clean cloth",
+                "Elevate the injured limb above heart level to reduce bleeding",
+                "Do NOT remove embedded objects — stabilize and seek emergency care",
+                isCriticalBleeding ? "Call emergency services (911/112) immediately" : "Seek medical attention if bleeding does not stop within 10 minutes"
+            );
+            homeRemedies = List.of(
+                "Rinse minor wound thoroughly with clean running water for 5-10 minutes",
+                "Apply antiseptic solution (Povidone-Iodine or Chlorhexidine)",
+                "Cover with sterile adhesive bandage or wound dressing"
+            );
+            suggestedOtc = List.of(
+                "Povidone-Iodine 10% Wound Antiseptic Solution",
+                "Sterile Wound Dressing / Non-stick Gauze Pads",
+                "Paracetamol 650mg (for pain relief)"
+            );
+        }
+
+        // --- 13. FEVER, INFECTION & VIRAL ILLNESS ---
+        else if (query.contains("fever") || query.contains("temperature") || query.contains("bukhar") || query.contains("virus") ||
+                 query.contains("flu") || query.contains("covid") || query.contains("infection") || query.contains("cold") ||
+                 query.contains("sick") || query.contains("ill") || query.contains("unwell")) {
+            boolean isHighFever = query.contains("high fever") || query.contains("104") || query.contains("105") || query.contains("very high");
+            triageLevel = isHighFever ? "Moderate" : "Mild";
+            recommendedSpecialty = "General Medicine / Infectious Disease";
+            clinicalSummary = "VeloCura AI Clinical Assessment: Febrile illness evaluation for symptoms (\"" + input + "\"). " +
+                (isHighFever
+                    ? "Elevated temperature above normal threshold — viral or bacterial febrile illness requiring clinical evaluation and antipyretic management."
+                    : "Low-grade fever with systemic illness symptoms consistent with viral upper respiratory infection, seasonal flu, or early febrile response.");
+            differentialDiagnoses = List.of("Acute Viral Fever / Influenza", "Dengue Fever (if mosquito exposure)", "COVID-19 Infection", "Bacterial Pharyngitis / Tonsillitis");
+            immediatePrecautions = List.of(
+                "Monitor body temperature every 4 hours — seek emergency care if above 103°F (39.4°C)",
+                "Maintain strict hydration — drink 3+ liters of fluids daily",
+                "Rest completely — avoid physical exertion",
+                "Use a cold wet cloth on the forehead for comfort"
+            );
+            homeRemedies = List.of("Warm ginger-lemon-honey tea", "Cold wet forehead compress", "Light BRAT diet (Bananas, Rice, Applesauce, Toast)");
+            suggestedOtc = List.of(
+                "Paracetamol 650mg (every 6-8 hours for fever reduction — max 3g/day)",
+                "Oral Rehydration Salts (ORS) electrolyte solution",
+                "Ibuprofen 400mg (if no stomach issues — reduces fever and inflammation)"
+            );
+        }
+
+        // --- 14. FATIGUE, WEAKNESS & SYSTEMIC EXHAUSTION ---
+        else if (query.contains("weak") || query.contains("weakness") || query.contains("tired") || query.contains("exhausted") ||
+                 query.contains("fatigue") || query.contains("fatigue") || query.contains("lethargic") || query.contains("no energy") ||
+                 query.contains("can't move") || query.contains("cant move") || query.contains("can not move")) {
+            triageLevel = isAcute ? "Moderate" : "Mild";
+            recommendedSpecialty = "General Medicine / Internal Medicine";
+            clinicalSummary = "VeloCura AI Clinical Assessment: Systemic fatigue and weakness evaluation for symptoms (\"" + input + "\"). " +
+                "Presented features are consistent with anemia, vitamin/mineral deficiency, thyroid dysfunction, dehydration, or post-viral asthenic syndrome.";
+            differentialDiagnoses = List.of("Iron Deficiency Anemia", "Hypothyroidism", "Post-Viral Fatigue Syndrome", "Dehydration / Electrolyte Imbalance", "Vitamin B12 / D3 Deficiency");
+            immediatePrecautions = List.of(
+                "Rest immediately — avoid physical and mental overexertion",
+                "Ensure adequate fluid and electrolyte intake",
+                "Eat iron-rich and nutrient-dense foods (leafy greens, legumes, nuts)",
+                "Schedule a complete blood count (CBC) and thyroid panel if fatigue persists"
+            );
+            homeRemedies = List.of("Warm ashwagandha milk or herbal adaptogen tea", "Iron-rich diet (spinach, lentils, fortified cereals)", "Ensure 8-9 hours of quality sleep nightly");
+            suggestedOtc = List.of(
+                "Iron + Folic Acid supplement (consult before starting)",
+                "Vitamin B-Complex supplement (B1, B6, B12)",
+                "Oral Rehydration Salts (ORS) for electrolyte rebalancing"
+            );
+        }
+
+        // --- 15. VITALS — BLOOD PRESSURE, BLOOD SUGAR, PULSE ---
+        else if (query.contains("bp") || query.contains("blood pressure") || query.contains("pressure") || query.contains("sugar") ||
+                 query.contains("diabetes") || query.contains("diabetic") || query.contains("glucose") || query.contains("pulse") ||
+                 query.contains("heart rate") || query.contains("vitals") || query.contains("hba1c") || query.contains("hypertension")) {
+            boolean isHypertensive = query.contains("high bp") || query.contains("bp is high") || query.contains("hypertension") || query.contains("high blood pressure");
+            boolean isHypoglycemic = query.contains("low sugar") || query.contains("sugar is low") || query.contains("hypoglycemia");
+            boolean isDiabeticHigh = query.contains("high sugar") || query.contains("sugar is high") || query.contains("hyperglycemia") || query.contains("glucose high");
+            String vitalsTriageLevel = (isHypertensive || isDiabeticHigh || isHypoglycemic) ? "Moderate" : "Mild";
+            triageLevel = vitalsTriageLevel;
+            recommendedSpecialty = (query.contains("sugar") || query.contains("diabetes") || query.contains("glucose") || query.contains("hba1c"))
+                ? "Endocrinology / Diabetology" : "Cardiology / Internal Medicine";
+            clinicalSummary = isHypertensive
+                ? "VeloCura AI Clinical Assessment: Hypertension evaluation for symptoms (\"" + input + "\"). Elevated blood pressure readings require close monitoring, lifestyle modification, and possible pharmacological management to prevent cardiovascular complications."
+                : isHypoglycemic
+                    ? "VeloCura AI Clinical Assessment: Hypoglycemia alert for reported symptoms (\"" + input + "\"). Low blood glucose level requires immediate glucose correction to prevent neurological complications."
+                    : isDiabeticHigh
+                        ? "VeloCura AI Clinical Assessment: Hyperglycemia evaluation for symptoms (\"" + input + "\"). Elevated blood sugar levels indicate poor glycemic control requiring dietary management and medical review."
+                        : "VeloCura AI Clinical Assessment: Vital signs review for reported symptoms (\"" + input + "\"). Cardiovascular and metabolic parameters require clinical assessment for appropriate management.";
+            differentialDiagnoses = (query.contains("sugar") || query.contains("diabetes") || query.contains("glucose"))
+                ? List.of("Type 2 Diabetes Mellitus", "Hyperglycemia / Poor Glycemic Control", "Metabolic Syndrome")
+                : List.of("Essential Hypertension", "Secondary Hypertension", "Cardiovascular Disease Risk", "Metabolic Syndrome");
+            immediatePrecautions = isHypoglycemic
+                ? List.of("Consume 15g fast-acting carbohydrates immediately (glucose tablets, 4oz juice)", "Recheck blood sugar in 15 minutes", "Seek medical care if symptoms persist")
+                : List.of(
+                    "Monitor blood pressure / blood sugar daily and record readings",
+                    "Strictly reduce salt intake (below 2g sodium/day) for BP management",
+                    "Avoid sugary foods, refined carbohydrates, and trans fats",
+                    "Schedule clinical review with internist or endocrinologist"
+                );
+            homeRemedies = List.of("Low-sodium DASH diet for BP control", "Regular 30-minute walks", "Reduce stress through breathing exercises");
+            suggestedOtc = isHypoglycemic
+                ? List.of("Glucose tablets 15g (fast-acting)", "Orange juice or regular soda (short-term correction)")
+                : List.of("Consult physician before any OTC medication for BP/sugar management", "Magnesium supplement (for BP support — consult doctor)");
+        }
+
+        // --- 16. MEDICATION, PRESCRIPTION & DRUG QUERIES ---
+        else if (query.contains("medicine") || query.contains("medication") || query.contains("pill") || query.contains("tablet") ||
+                 query.contains("dose") || query.contains("drug") || query.contains("prescription") || query.contains("side effect") ||
+                 query.contains("effect") || query.contains("take this") || query.contains("can i take") || query.contains("can i use")) {
+            triageLevel = "Mild";
+            recommendedSpecialty = "Clinical Pharmacology / General Medicine";
+            clinicalSummary = "VeloCura AI Clinical Assessment: Medication inquiry for query (\"" + input + "\"). " +
+                "For accurate and safe medication guidance, including dosage, drug interactions, contraindications, and side effects, a licensed pharmacist or physician consultation is essential. " +
+                "Never self-medicate based on AI guidance alone.";
+            differentialDiagnoses = List.of("Drug Interaction Risk", "Dosage Compliance Concern", "Adverse Drug Reaction");
+            immediatePrecautions = List.of(
+                "Always consult your prescribing physician or licensed pharmacist before starting, stopping, or changing any medication",
+                "Read the medication package insert carefully for contraindications and warnings",
+                "Do not exceed recommended dosage — overdose risk is serious",
+                "Inform your doctor about ALL medications (including OTC and supplements) you are currently taking"
+            );
+            homeRemedies = List.of("Maintain a daily medication log to track doses and timing", "Use weekly pill organizers to prevent missed or double doses");
+            suggestedOtc = List.of("Consult your pharmacist or physician for personalized medication advice", "Carry a written medication list to all clinical appointments");
+        }
+
+        // --- 17. DYNAMIC GENERAL MEDICINE NLP SYNTHESIZER FOR ANY OTHER PROMPT ---
         else {
             triageLevel = isAcute ? "Moderate" : "Mild";
             recommendedSpecialty = "General Medicine";
-            clinicalSummary = "VeloCura AI Clinical Assessment: Specialized NLP evaluation performed for reported symptoms: \"" + input + "\". Analysis indicates non-emergency systemic response requiring fluid support, symptomatic rest, and clinical monitoring.";
+            clinicalSummary = "VeloCura AI Clinical Assessment: General medicine evaluation for reported symptoms: \"" + input + "\". " +
+                "Clinical analysis indicates a non-emergency systemic concern. Symptomatic monitoring, adequate rest, and hydration are advised. " +
+                "Seek clinical consultation if your symptoms worsen or persist beyond 48 hours for a formal diagnosis.";
             differentialDiagnoses = List.of("Systemic Inflammatory Response", "Viral Syndrome / Physical Strain", "Localized Non-specific Tissue Irritation");
-            immediatePrecautions = List.of("Maintain good fluid intake and rest", "Track body temperature every 6 hours", "Seek clinical consultation if symptoms worsen or persist past 48 hours");
+            immediatePrecautions = List.of("Maintain good fluid intake (2-3 liters daily) and rest", "Track body temperature every 6 hours", "Seek clinical consultation if symptoms worsen or persist past 48 hours");
             homeRemedies = List.of("Warm water fluids and herbal infusions", "Ensure 8 hours of restful sleep", "Nutrient-dense light diet");
             suggestedOtc = List.of("Paracetamol 650mg (for pain/fever - max 3g/day)", "Electrolyte Hydration Salts (ORS)");
         }
