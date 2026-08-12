@@ -22,12 +22,26 @@ import {
   BadgeCheck,
   Star,
   Users,
-  Clock
+  Clock,
+  Menu,
+  X
 } from 'lucide-react';
 
 export const LandingPage = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [mobileMenuOpen]);
 
   // AI Triage Demo States
   const [symptomInput, setSymptomInput] = useState('');
@@ -179,23 +193,112 @@ export const LandingPage = () => {
           <a href="#testimonials" className="hover:bg-[var(--surface2)] hover:text-[var(--text1)] px-2.5 py-1 rounded-[6px] transition-all">About</a>
         </nav>
 
-        {/* Right CTA */}
-        <div className="flex items-center gap-3">
-          {user ? (
-            <Button variant="primary" size="sm" onClick={redirectDashboard} icon={ArrowRight} iconPosition="right">
-              Workstation
-            </Button>
-          ) : (
-            <>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>
-                Sign in
+        {/* Right CTA / Hamburger button */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="hidden sm:flex items-center gap-3">
+            {user ? (
+              <Button variant="primary" size="sm" onClick={redirectDashboard} icon={ArrowRight}>
+                Workstation
               </Button>
-              <Button variant="primary" size="sm" onClick={() => navigate('/register')}>
-                Get started
-              </Button>
-            </>
-          )}
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>
+                  Sign in
+                </Button>
+                <Button variant="primary" size="sm" onClick={() => navigate('/register')}>
+                  Get started
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* Mobile Hamburger Toggle Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer min-w-[40px] min-h-[40px] flex items-center justify-center"
+            aria-label="Toggle navigation menu"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
+
+        {/* Mobile Navigation Drawer Dropdown */}
+        {mobileMenuOpen && (
+          <div className="md:hidden fixed inset-x-0 top-[56px] bg-slate-950/95 backdrop-blur-xl border-b border-slate-800 p-6 space-y-4 animate-fadeIn z-50">
+            <nav className="flex flex-col space-y-3 text-sm font-medium text-slate-300">
+              <a
+                href="#how-it-works"
+                onClick={() => setMobileMenuOpen(false)}
+                className="hover:text-cyan-400 p-2 rounded-lg hover:bg-slate-900 transition-colors"
+              >
+                How it works
+              </a>
+              <a
+                href="#trust"
+                onClick={() => setMobileMenuOpen(false)}
+                className="hover:text-cyan-400 p-2 rounded-lg hover:bg-slate-900 transition-colors"
+              >
+                Find a doctor
+              </a>
+              <a
+                href="#practitioners"
+                onClick={() => setMobileMenuOpen(false)}
+                className="hover:text-cyan-400 p-2 rounded-lg hover:bg-slate-900 transition-colors"
+              >
+                For practitioners
+              </a>
+              <a
+                href="#testimonials"
+                onClick={() => setMobileMenuOpen(false)}
+                className="hover:text-cyan-400 p-2 rounded-lg hover:bg-slate-900 transition-colors"
+              >
+                About
+              </a>
+            </nav>
+
+            <div className="pt-4 border-t border-slate-800 flex flex-col gap-2.5">
+              {user ? (
+                <Button
+                  variant="primary"
+                  size="md"
+                  className="w-full"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    redirectDashboard();
+                  }}
+                  icon={ArrowRight}
+                >
+                  Go to Workstation
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    className="w-full"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      navigate('/register');
+                    }}
+                  >
+                    Get started
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    className="w-full"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      navigate('/login');
+                    }}
+                  >
+                    Sign in
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
       {/* 2. HERO SECTION */}
@@ -215,13 +318,13 @@ export const LandingPage = () => {
           Talk to a verified doctor today — by video, in minutes, from anywhere in India. Describe your symptoms, get matched to the right specialist, and walk away with a real prescription. No waiting rooms. No repeating yourself.
         </p>
 
-        <div className="flex flex-wrap justify-center items-center gap-3">
-          <Button variant="primary" size="lg" icon={Bot} onClick={() => {
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-3 w-full sm:w-auto">
+          <Button variant="primary" size="lg" icon={Bot} className="w-full sm:w-auto" onClick={() => {
             document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' });
           }}>
             Check your symptoms
           </Button>
-          <Button variant="secondary" size="lg" icon={Stethoscope} onClick={() => navigate('/register')}>
+          <Button variant="secondary" size="lg" icon={Stethoscope} className="w-full sm:w-auto" onClick={() => navigate('/register')}>
             Find a specialist
           </Button>
         </div>

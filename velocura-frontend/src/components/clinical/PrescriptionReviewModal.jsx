@@ -81,8 +81,8 @@ export const PrescriptionReviewModal = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[var(--border-subtle)]">
-          <Button variant="ghost" size="sm" onClick={onClose} disabled={isLoading}>
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:space-x-3 pt-3 border-t border-[var(--border-subtle)]">
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={isLoading} className="w-full sm:w-auto">
             Edit Prescription
           </Button>
           <Button
@@ -91,6 +91,7 @@ export const PrescriptionReviewModal = ({
             onClick={onConfirm}
             isLoading={isLoading}
             icon={ShieldCheck}
+            className="w-full sm:w-auto"
           >
             Confirm & Issue Prescription
           </Button>

@@ -721,10 +721,10 @@ function LandingPage() {
 
       {/* Corporate Professional Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 pt-16 pb-12 relative z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 text-sm mb-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-12 text-sm mb-12">
           
           {/* Brand Info */}
-          <div className="flex flex-col space-y-4 col-span-2 md:col-span-1">
+          <div className="flex flex-col space-y-4">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-teal-500 flex items-center justify-center">
                 <svg className="w-5 h-5 text-slate-950 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -758,19 +758,6 @@ function LandingPage() {
             <Link to="/terms" className="text-xs text-slate-400 hover:text-white transition-colors duration-150">Terms of Clinical Service</Link>
             <Link to="/hipaa" className="text-xs text-slate-400 hover:text-white transition-colors duration-150">HIPAA Compliance Shield</Link>
             <Link to="/consent" className="text-xs text-slate-400 hover:text-white transition-colors duration-150">Consent for Care Procedures</Link>
-          </div>
-
-          {/* Corporate Headquarters */}
-          <div className="flex flex-col space-y-3">
-            <h5 className="font-bold text-white tracking-wide uppercase text-xs">Corporate Office</h5>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              VeloCura Health Technologies Inc.<br />
-              100 Digital Plaza Suite 450<br />
-              San Francisco, CA 94103
-            </p>
-            <p className="text-xs text-slate-500 pt-1 font-mono">
-              info@velocura.com
-            </p>
           </div>
 
         </div>
