@@ -22,8 +22,25 @@ public class GeminiAiService {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final BasicConversationHandler basicConversationHandler;
+
+    public GeminiAiService(BasicConversationHandler basicConversationHandler) {
+        this.basicConversationHandler = basicConversationHandler != null ? basicConversationHandler : new BasicConversationHandler();
+    }
+
+    public GeminiAiService() {
+        this.basicConversationHandler = new BasicConversationHandler();
+    }
 
     public TriageResponse callGeminiApi(String symptoms) {
+        // 0. Check for basic conversational inputs (greetings, casual questions, silly questions, goodbyes)
+        // If non-medical casual input, handle with health redirect.
+        // If medical signals or ambiguous health complaints present, handleBasicConversation returns Optional.empty() and proceeds to medical AI.
+        Optional<TriageResponse> basicResponse = basicConversationHandler.handleBasicConversation(symptoms);
+        if (basicResponse.isPresent()) {
+            return basicResponse.get();
+        }
+
         String cleanKey = apiKey != null ? apiKey.trim() : "";
         if (cleanKey.startsWith("${") && cleanKey.endsWith("}")) {
             cleanKey = "";
