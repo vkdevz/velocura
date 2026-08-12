@@ -13,6 +13,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import HipaaCompliance from './pages/HipaaCompliance';
 import ConsentProcedures from './pages/ConsentProcedures';
+import { VoiceDictationButton } from './components/clinical/VoiceDictationButton';
 
 function LandingPage() {
   const { user } = useContext(AuthContext);
@@ -412,20 +413,30 @@ function LandingPage() {
           </div>
 
           {/* Chat Input Console */}
-          <form onSubmit={handleTriageSubmit} className="flex gap-3">
-            <input
-              type="text"
-              required
-              className="flex-1 bg-slate-950 border border-slate-900 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
-              placeholder="Describe symptoms e.g., 'severe headache', 'chest pain', 'urinary burning'..."
-              value={symptomsInput}
-              disabled={chatLoading}
-              onChange={(e) => setSymptomsInput(e.target.value)}
-            />
+          <form onSubmit={handleTriageSubmit} className="flex gap-2 sm:gap-3 items-center">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                required
+                className="w-full bg-slate-950 border border-slate-900 rounded-xl pl-4 pr-12 py-3 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
+                placeholder="Describe symptoms e.g., 'severe headache', 'chest pain', 'urinary burning'..."
+                value={symptomsInput}
+                disabled={chatLoading}
+                onChange={(e) => setSymptomsInput(e.target.value)}
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
+                <VoiceDictationButton
+                  compact={true}
+                  onTranscript={(transcriptChunk) => {
+                    setSymptomsInput(prev => prev ? `${prev} ${transcriptChunk}` : transcriptChunk);
+                  }}
+                />
+              </div>
+            </div>
             <button
               type="submit"
               disabled={chatLoading}
-              className="bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-bold px-6 rounded-xl hover:shadow-lg hover:shadow-cyan-500/10 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-sm flex items-center justify-center cursor-pointer disabled:opacity-30 disabled:scale-100 disabled:shadow-none"
+              className="bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-bold px-5 sm:px-6 py-3 rounded-xl hover:shadow-lg hover:shadow-cyan-500/10 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-sm flex items-center justify-center cursor-pointer disabled:opacity-30 disabled:scale-100 shrink-0"
             >
               Analyze
             </button>
