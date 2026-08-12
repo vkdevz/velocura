@@ -171,7 +171,7 @@ const Login = () => {
         </div>
 
         {/* Card */}
-        <div className="glass-card rounded-3xl p-6 sm:p-8 shadow-2xl relative">
+        <div className="glass-card rounded-3xl p-8 shadow-2xl relative">
           
           {/* Notifications */}
           {expiredMsg && (

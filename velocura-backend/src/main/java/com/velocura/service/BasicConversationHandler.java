@@ -66,14 +66,8 @@ public class BasicConversationHandler {
             return Category.AMBIGUOUS;
         }
 
-        // 3. Check for clearly non-medical casual input
-        String cleanInput = normalized.replaceAll("[^a-z0-9\\s]", " ").replaceAll("\\s+", " ").trim();
-        if (isCasualInput(cleanInput, rawInput)) {
-            return Category.CASUAL;
-        }
-
-        // 4. Fail-safe default: If uncertain, return AMBIGUOUS so it safely routes into medical workflow
-        return Category.AMBIGUOUS;
+        // 3. Any non-medical, non-ambiguous input is treated as CASUAL
+        return Category.CASUAL;
     }
 
     /**
@@ -110,13 +104,33 @@ public class BasicConversationHandler {
         return false;
     }
 
-    private boolean isCasualInput(String cleanInput, String rawInput) {
-        return isGreeting(cleanInput) ||
-               isCasualOrIdentityQuestion(cleanInput) ||
-               isCapabilityQuestion(cleanInput) ||
-               isAcknowledgement(cleanInput) ||
-               isGoodbye(cleanInput) ||
-               isSillyQuestion(cleanInput, rawInput);
+    private TriageResponse generateCasualResponse(String userMessage) {
+        String normalized = userMessage.trim().toLowerCase();
+        String cleanInput = normalized.replaceAll("[^a-z0-9\\s]", " ").replaceAll("\\s+", " ").trim();
+
+        String messageText;
+
+        if (isSillyQuestion(cleanInput, userMessage)) {
+            messageText = getSillyQuestionResponse(cleanInput);
+        } else if (isGreeting(cleanInput)) {
+            messageText = getRandomGreetingResponse();
+        } else if (isCasualOrIdentityQuestion(cleanInput)) {
+            if (cleanInput.contains("how are u") || cleanInput.contains("how r u") || cleanInput.contains("how are you") || cleanInput.contains("kaise ho") || cleanInput.contains("kya haal")) {
+                messageText = "I'm doing great, thank you! 😊 I'm VeloCura AI, your digital health assistant. How can I help you with your health today?";
+            } else {
+                messageText = "I'm an AI health assistant built into VeloCura 🤖. I'm mainly here to help with health-related questions, symptom checking, and directing you toward proper care.";
+            }
+        } else if (isCapabilityQuestion(cleanInput)) {
+            messageText = "I am VeloCura AI! I can help analyze your symptoms, evaluate severity (Mild, Moderate, or Critical), provide immediate precautions & home remedies, and guide you to book consultations with verified doctors. Describe any symptoms you have to get started.";
+        } else if (isAcknowledgement(cleanInput)) {
+            messageText = "You're very welcome! 😊 Stay healthy, and feel free to reach out anytime if you have any health questions or symptoms.";
+        } else if (isGoodbye(cleanInput)) {
+            messageText = "Goodbye! 👋 Take care of your health. VeloCura AI is always here whenever you need medical guidance.";
+        } else {
+            messageText = "Hello! 👋 I'm VeloCura AI, your digital health assistant. Describe any health symptoms or questions you have today!";
+        }
+
+        return buildResponse(messageText);
     }
 
     private boolean isGreeting(String cleanInput) {
@@ -169,35 +183,6 @@ public class BasicConversationHandler {
                cleanInput.contains("favorite color") || cleanInput.contains("favourite color") ||
                cleanInput.contains("do you sleep") || cleanInput.contains("do u sleep") ||
                cleanInput.contains("can you dance") || cleanInput.contains("sing a song");
-    }
-
-    private TriageResponse generateCasualResponse(String userMessage) {
-        String normalized = userMessage.trim().toLowerCase();
-        String cleanInput = normalized.replaceAll("[^a-z0-9\\s]", " ").replaceAll("\\s+", " ").trim();
-
-        String messageText;
-
-        if (isSillyQuestion(cleanInput, userMessage)) {
-            messageText = getSillyQuestionResponse(cleanInput);
-        } else if (isGreeting(cleanInput)) {
-            messageText = getRandomGreetingResponse();
-        } else if (isCasualOrIdentityQuestion(cleanInput)) {
-            if (cleanInput.contains("how are u") || cleanInput.contains("how r u") || cleanInput.contains("how are you") || cleanInput.contains("kaise ho") || cleanInput.contains("kya haal")) {
-                messageText = "I'm doing great, thank you! 😊 I'm VeloCura AI, your digital health assistant. How can I help you with your health today?";
-            } else {
-                messageText = "I'm an AI health assistant built into VeloCura 🤖. I'm mainly here to help with health-related questions, symptom checking, and directing you toward proper care.";
-            }
-        } else if (isCapabilityQuestion(cleanInput)) {
-            messageText = "I am VeloCura AI! I can help analyze your symptoms, evaluate severity (Mild, Moderate, or Critical), provide immediate precautions & home remedies, and guide you to book consultations with verified doctors. Describe any symptoms you have to get started.";
-        } else if (isAcknowledgement(cleanInput)) {
-            messageText = "You're very welcome! 😊 Stay healthy, and feel free to reach out anytime if you have any health questions or symptoms.";
-        } else if (isGoodbye(cleanInput)) {
-            messageText = "Goodbye! 👋 Take care of your health. VeloCura AI is always here whenever you need medical guidance.";
-        } else {
-            messageText = "Hello! 👋 I'm VeloCura AI, your digital health assistant. How can I help you with your health today?";
-        }
-
-        return buildResponse(messageText);
     }
 
     private String getRandomGreetingResponse() {

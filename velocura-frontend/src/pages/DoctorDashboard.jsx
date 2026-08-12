@@ -295,7 +295,7 @@ const DoctorDashboard = () => {
           </div>
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-slate-900 border border-slate-800 gap-1.5 cursor-pointer"
+            className="flex flex-col items-center justify-center w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 gap-1.5 cursor-pointer"
             aria-label="Open navigation menu"
           >
             <span className="w-4 h-0.5 bg-slate-300" />
@@ -333,7 +333,7 @@ const DoctorDashboard = () => {
             {/* Mobile Close button */}
             <button
               onClick={() => setMobileMenuOpen(false)}
-              className="md:hidden min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 transition-colors cursor-pointer"
+              className="md:hidden w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 transition-colors cursor-pointer"
               aria-label="Close navigation menu"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -511,7 +511,7 @@ const DoctorDashboard = () => {
               
               {/* Consultation Pad Form Overlay */}
               {consultationAppt && (
-                <div className="glass-card rounded-2xl p-6 sm:p-8 border border-teal-500/20 shadow-xl">
+                <div className="glass-card rounded-2xl p-8 border border-teal-500/20 shadow-xl">
                   <div className="flex justify-between items-start mb-6 border-b border-slate-900 pb-4">
                     <div>
                       <h4 className="text-lg font-bold text-white">Clinical Consultation Workspace</h4>
@@ -634,7 +634,7 @@ const DoctorDashboard = () => {
                     </div>
 
                     {/* Right: Patient Health Passport */}
-                    <div className="lg:col-span-1 bg-slate-950/40 border border-slate-900 rounded-2xl p-6 space-y-6 self-start max-h-[300px] lg:max-h-[500px] overflow-y-auto custom-scrollbar">
+                    <div className="lg:col-span-1 bg-slate-950/40 border border-slate-900 rounded-2xl p-6 space-y-6 self-start max-h-[500px] overflow-y-auto custom-scrollbar">
                       <div>
                         <h4 className="text-xs font-bold uppercase tracking-wider text-teal-400 font-mono mb-3">⚠️ Allergies & Salt Sensitivities</h4>
                         <div className="flex flex-wrap gap-2">
@@ -713,20 +713,20 @@ const DoctorDashboard = () => {
                               {a.status === 'CONFIRMED' && (
                                 <button
                                   onClick={() => handleJoinVideoCall(a)}
-                                  className="flex-1 min-h-[44px] bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs px-3.5 py-2 rounded-xl transition-colors duration-200 cursor-pointer"
+                                  className="flex-1 min-h-[40px] bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs px-3.5 py-2 rounded-xl transition-colors duration-200 cursor-pointer"
                                 >
                                   Join Call
                                 </button>
                               )}
                               <button
                                 onClick={() => handleStartConsultation(a)}
-                                className="flex-1 min-h-[44px] bg-teal-500 text-slate-950 font-bold text-xs px-3.5 py-2 rounded-xl hover:bg-teal-400 transition-colors duration-200 cursor-pointer"
+                                className="flex-1 min-h-[40px] bg-teal-500 text-slate-950 font-bold text-xs px-3.5 py-2 rounded-xl hover:bg-teal-400 transition-colors duration-200 cursor-pointer"
                               >
                                 Consult
                               </button>
                               <button
                                 onClick={() => handleCancelAppointment(a.appointmentId)}
-                                className="min-h-[44px] bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs px-3 py-2 rounded-xl border border-red-500/20 transition-all duration-200 cursor-pointer"
+                                className="min-h-[40px] bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs px-3 py-2 rounded-xl border border-red-500/20 transition-all duration-200 cursor-pointer"
                               >
                                 Cancel
                               </button>

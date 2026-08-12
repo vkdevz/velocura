@@ -745,7 +745,7 @@ const PatientDashboard = () => {
           </div>
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-slate-900 border border-slate-800 gap-1.5 cursor-pointer"
+            className="flex flex-col items-center justify-center w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 gap-1.5 cursor-pointer"
             aria-label="Open navigation menu"
           >
             <span className="w-4 h-0.5 bg-slate-300" />
@@ -783,7 +783,7 @@ const PatientDashboard = () => {
               {/* Mobile Close button */}
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="md:hidden min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 transition-colors cursor-pointer"
+                className="md:hidden w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 transition-colors cursor-pointer"
                 aria-label="Close navigation menu"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
