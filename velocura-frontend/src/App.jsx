@@ -152,7 +152,7 @@ function LandingPage() {
             <button
               id="mobile-menu-toggle"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden flex flex-col items-center justify-center w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 gap-1.5 cursor-pointer hover:border-slate-700 transition-colors duration-200"
+              className="md:hidden flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-slate-900 border border-slate-800 gap-1.5 cursor-pointer hover:border-slate-700 transition-colors duration-200"
               aria-label="Toggle mobile menu"
             >
               <span className={`w-4 h-0.5 bg-slate-300 transition-all duration-300 ${mobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`} />
@@ -452,7 +452,7 @@ function LandingPage() {
       {/* CONVERSION BARRIER MODAL */}
       {showRegisterModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative text-center">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative text-center">
             
             {/* Center Lock icon decoration */}
             <div className="mx-auto w-14 h-14 bg-cyan-500/10 border border-cyan-500/25 rounded-2xl flex items-center justify-center mb-6 text-cyan-400">

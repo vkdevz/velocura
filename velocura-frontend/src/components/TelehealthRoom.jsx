@@ -16,7 +16,7 @@ const TelehealthRoom = ({ roomName, userName, onClose }) => {
           </div>
           <button
             onClick={onClose}
-            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs px-4 py-2 rounded-xl border border-red-500/20 transition-all duration-200 cursor-pointer"
+            className="min-h-[44px] bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs px-4 py-2 rounded-xl border border-red-500/20 transition-all duration-200 cursor-pointer"
           >
             Leave Consultation Room
           </button>

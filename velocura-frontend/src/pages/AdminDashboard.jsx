@@ -244,7 +244,7 @@ const AdminDashboard = () => {
           </div>
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center justify-center w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 gap-1.5 cursor-pointer"
+            className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-slate-900 border border-slate-800 gap-1.5 cursor-pointer"
             aria-label="Open navigation menu"
           >
             <span className="w-4 h-0.5 bg-slate-300" />
@@ -282,7 +282,7 @@ const AdminDashboard = () => {
             {/* Mobile Close button */}
             <button
               onClick={() => setMobileMenuOpen(false)}
-              className="md:hidden w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 transition-colors cursor-pointer"
+              className="md:hidden min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 transition-colors cursor-pointer"
               aria-label="Close navigation menu"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -506,7 +506,7 @@ const AdminDashboard = () => {
                           <button
                             onClick={() => handleVerifyDoctor(d.id)}
                             disabled={actionLoading}
-                            className="w-full min-h-[40px] bg-gradient-to-r from-purple-500 to-indigo-500 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl hover:shadow-lg hover:shadow-purple-500/10 transition-all duration-200 cursor-pointer disabled:opacity-40"
+                            className="w-full min-h-[44px] bg-gradient-to-r from-purple-500 to-indigo-500 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl hover:shadow-lg hover:shadow-purple-500/10 transition-all duration-200 cursor-pointer disabled:opacity-40"
                           >
                             Approve Credentials
                           </button>
@@ -613,7 +613,7 @@ const AdminDashboard = () => {
                                 <button
                                   onClick={() => handleToggleActive(u.id)}
                                   disabled={actionLoading}
-                                  className={`flex-1 min-h-[38px] px-3 py-2 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
+                                  className={`flex-1 min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
                                     u.active 
                                       ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/25'
                                       : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25'
@@ -624,7 +624,7 @@ const AdminDashboard = () => {
                                 <button
                                   onClick={() => handleDeleteUser(u.id)}
                                   disabled={actionLoading}
-                                  className="min-h-[38px] px-3 py-2 rounded-xl text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 transition-all duration-150 cursor-pointer"
+                                  className="min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 transition-all duration-150 cursor-pointer"
                                 >
                                   Delete
                                 </button>

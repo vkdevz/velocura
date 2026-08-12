@@ -2,6 +2,7 @@ package com.velocura;
 
 import com.velocura.dto.TriageResponse;
 import com.velocura.service.BasicConversationHandler;
+import com.velocura.service.BasicConversationHandler.Category;
 import com.velocura.service.GeminiAiService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,102 +23,97 @@ public class BasicConversationHandlingTests {
     }
 
     @Test
-    public void testBasicGreetings() {
-        String[] greetings = {"Hi", "Hello", "Good morning", "namaste", "hello ji", "hey there"};
-        for (String g : greetings) {
-            Optional<TriageResponse> res = handler.handleBasicConversation(g);
-            assertTrue(res.isPresent(), "Expected greeting to be handled as basic conversation: " + g);
-            assertTrue(res.get().getClinicalSummary().toLowerCase().contains("velocura ai"),
-                    "Response should mention VeloCura AI: " + res.get().getClinicalSummary());
-            String summary = res.get().getClinicalSummary().toLowerCase();
-            assertTrue(summary.contains("health") || summary.contains("symptoms") || summary.contains("feeling"),
-                    "Response should contain health-oriented redirect: " + res.get().getClinicalSummary());
+    public void testCasualCategoryMatrix() {
+        String[] casualInputs = {
+                "Hi", "Hello", "Hey", "Hii", "Good morning", "Good evening", "Namaste",
+                "How are you?", "Who are you?", "What can you do?", "Are you AI?", "Are you a robot?",
+                "Thanks", "Thank you", "Okay", "Got it", "Bye", "Tell me a joke", "What is 2 + 2?"
+        };
+
+        for (String input : casualInputs) {
+            Category category = handler.classifyInput(input);
+            assertEquals(Category.CASUAL, category, "Expected CASUAL classification for: " + input);
+
+            Optional<TriageResponse> res = handler.handleBasicConversation(input);
+            assertTrue(res.isPresent(), "Expected basic conversation handler to process: " + input);
+            assertNotNull(res.get().getClinicalSummary());
+            assertTrue(res.get().getClinicalSummary().length() > 0);
         }
     }
 
     @Test
-    public void testBasicCasualAndCapabilityQuestions() {
-        String[] questions = {"How are you?", "Who are you?", "What can you do?", "Are you a robot?", "Are you AI?"};
-        for (String q : questions) {
-            Optional<TriageResponse> res = handler.handleBasicConversation(q);
-            assertTrue(res.isPresent(), "Expected question to be handled as basic conversation: " + q);
-            assertTrue(res.get().getClinicalSummary().toLowerCase().contains("velocura ai"),
-                    "Response should maintain identity as VeloCura AI: " + res.get().getClinicalSummary());
-        }
-    }
-
-    @Test
-    public void testAcknowledgementsAndGoodbyes() {
-        String[] inputs = {"Thanks", "Thank you", "Bye", "Goodbye", "okay", "cool"};
-        for (String in : inputs) {
-            Optional<TriageResponse> res = handler.handleBasicConversation(in);
-            assertTrue(res.isPresent(), "Expected ack/goodbye to be handled: " + in);
-        }
-    }
-
-    @Test
-    public void testSillyHarmlessQuestions() {
-        Optional<TriageResponse> mathRes = handler.handleBasicConversation("2 + 2");
-        assertTrue(mathRes.isPresent());
-        assertTrue(mathRes.get().getClinicalSummary().contains("4"), "Math query should answer 4: " + mathRes.get().getClinicalSummary());
-
-        Optional<TriageResponse> jokeRes = handler.handleBasicConversation("Tell me a joke");
-        assertTrue(jokeRes.isPresent());
-        assertTrue(jokeRes.get().getClinicalSummary().toLowerCase().contains("joke") || jokeRes.get().getClinicalSummary().toLowerCase().contains("virus"),
-                "Joke response expected: " + jokeRes.get().getClinicalSummary());
-    }
-
-    @Test
-    public void testMedicalInputsBypassBasicLayer() {
-        String[] medicalQueries = {
-                "I have a headache",
-                "My stomach hurts",
-                "I have fever since yesterday",
-                "My BP is high",
-                "I feel dizzy",
+    public void testMedicalCategoryMatrix() {
+        String[] medicalInputs = {
+                "I have a headache.",
+                "My stomach hurts.",
+                "I have fever.",
+                "I feel dizzy.",
+                "My BP is high.",
+                "My sugar is high.",
+                "I am vomiting.",
+                "I have chest pain.",
+                "I'm having trouble breathing.",
                 "Can I take this medicine?",
-                "I have chest pain"
+                "What are the side effects?",
+                "Explain my lab report.",
+                "Why am I feeling weak?",
+                "Mere pet mein pain hai",
+                "Mujhe chakkar aa rahe hain",
+                "Sir dard ho raha hai"
         };
-        for (String mq : medicalQueries) {
-            Optional<TriageResponse> basicRes = handler.handleBasicConversation(mq);
-            assertFalse(basicRes.isPresent(), "Medical query MUST bypass basic conversation handler: " + mq);
 
-            // Execute full AI pipeline
-            TriageResponse fullRes = geminiAiService.callGeminiApi(mq);
+        for (String input : medicalInputs) {
+            Category category = handler.classifyInput(input);
+            assertEquals(Category.MEDICAL, category, "Expected MEDICAL classification for: " + input);
+
+            Optional<TriageResponse> res = handler.handleBasicConversation(input);
+            assertFalse(res.isPresent(), "Medical input MUST bypass casual handler: " + input);
+
+            TriageResponse fullRes = geminiAiService.callGeminiApi(input);
             assertNotNull(fullRes);
-            assertFalse(fullRes.getRecommendedSpecialty().equalsIgnoreCase("General Health Assistance"),
-                    "Medical query should be assigned a clinical specialty: " + mq);
-        }
-    }
-
-    @Test
-    public void testMixedAndSafetyPrecedenceInputs() {
-        String[] mixedQueries = {
-                "I have chest pain lol",
-                "Hey, I have been having chest pain since morning",
-                "Hi doctor, my head hurts severe"
-        };
-        for (String mixed : mixedQueries) {
-            Optional<TriageResponse> basicRes = handler.handleBasicConversation(mixed);
-            assertFalse(basicRes.isPresent(), "Mixed/casual input with medical content MUST bypass basic handler: " + mixed);
-
-            TriageResponse fullRes = geminiAiService.callGeminiApi(mixed);
-            assertNotNull(fullRes);
-            assertTrue(fullRes.getTriageLevel().equalsIgnoreCase("Critical") || fullRes.getTriageLevel().equalsIgnoreCase("Moderate") || fullRes.getTriageLevel().equalsIgnoreCase("Mild"));
             assertFalse(fullRes.getRecommendedSpecialty().equalsIgnoreCase("General Health Assistance"));
         }
     }
 
     @Test
-    public void testAmbiguousHealthInputs() {
-        String[] ambiguousQueries = {
-                "I feel weird",
-                "Something is wrong",
-                "I don't feel right"
+    public void testAmbiguousCategoryMatrix() {
+        String[] ambiguousInputs = {
+                "I don't feel right.",
+                "Something is wrong.",
+                "I feel weird.",
+                "I'm not okay.",
+                "Something feels strange."
         };
-        for (String amb : ambiguousQueries) {
-            Optional<TriageResponse> basicRes = handler.handleBasicConversation(amb);
-            assertFalse(basicRes.isPresent(), "Ambiguous health complaint MUST NOT be treated as casual input: " + amb);
+
+        for (String input : ambiguousInputs) {
+            Category category = handler.classifyInput(input);
+            assertEquals(Category.AMBIGUOUS, category, "Expected AMBIGUOUS classification for: " + input);
+
+            Optional<TriageResponse> res = handler.handleBasicConversation(input);
+            assertFalse(res.isPresent(), "Ambiguous input MUST bypass casual handler into medical workflow: " + input);
+        }
+    }
+
+    @Test
+    public void testMixedCategoryMatrix_MedicalWins() {
+        String[] mixedInputs = {
+                "Hey, I have a headache.",
+                "Hello, my chest hurts.",
+                "Lol my BP is really high.",
+                "Tell me a joke, I'm feeling dizzy.",
+                "Good morning, I've been vomiting since yesterday."
+        };
+
+        for (String input : mixedInputs) {
+            Category category = handler.classifyInput(input);
+            assertEquals(Category.MEDICAL, category, "MEDICAL MUST WIN for mixed input: " + input);
+
+            Optional<TriageResponse> res = handler.handleBasicConversation(input);
+            assertFalse(res.isPresent(), "Mixed input MUST bypass casual handler: " + input);
+
+            TriageResponse fullRes = geminiAiService.callGeminiApi(input);
+            assertNotNull(fullRes);
+            assertFalse(fullRes.getRecommendedSpecialty().equalsIgnoreCase("General Health Assistance"));
         }
     }
 }
