@@ -18,4 +18,5 @@ public class TriageResponse {
     private List<String> immediatePrecautions;
     private List<String> homeRemedies;
     private List<String> suggestedOtc;
+    private String routerVersion;
 }

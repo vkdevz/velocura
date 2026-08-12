@@ -164,6 +164,15 @@ public class AuthController {
                 .build());
     }
 
+    @GetMapping("/version")
+    public ResponseEntity<java.util.Map<String, String>> getSystemVersion() {
+        return ResponseEntity.ok(java.util.Map.of(
+            "routerVersion", "conversational-gatekeeper-v2",
+            "service", "velocura-backend",
+            "status", "UP"
+        ));
+    }
+
     @PostMapping("/triage")
     public ResponseEntity<com.velocura.dto.TriageResponse> anonymousTriage(@RequestBody com.velocura.dto.TriageRequest request) {
         String symptoms = request.getSymptoms() != null ? request.getSymptoms() : "";

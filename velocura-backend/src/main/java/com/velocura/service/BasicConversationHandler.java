@@ -1,6 +1,8 @@
 package com.velocura.service;
 
 import com.velocura.dto.TriageResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -10,6 +12,7 @@ import java.util.Random;
 @Service
 public class BasicConversationHandler {
 
+    private static final Logger logger = LoggerFactory.getLogger(BasicConversationHandler.class);
     private final Random random = new Random();
 
     public enum Category {
@@ -18,61 +21,86 @@ public class BasicConversationHandler {
         AMBIGUOUS
     }
 
-    // English & Hinglish medical terms, symptoms, body parts, medications, vitals, labs, and health indicators
+    // English & Hinglish medical terms, symptoms, injuries, body parts + issues, vitals, medications, and labs
     private static final List<String> MEDICAL_SIGNALS = List.of(
-            // English symptoms & medical terms
-            "pain", "hurt", "hurts", "ache", "aching", "headache", "migraine", "fever", "cough", "coughing",
-            "dizzy", "dizziness", "nausea", "vomit", "vomiting", "diarrhea", "stomach", "chest", "heart",
-            "blood", "bp", "pressure", "sugar", "diabetes", "breath", "breathless", "breathing", "wheez",
-            "asthma", "rash", "itch", "itching", "throat", "sore", "swelling", "swollen", "joint", "back",
-            "bone", "fracture", "sprain", "burn", "acid", "gerd", "ulcer", "allergy", "allergic", "seizure",
-            "numb", "numbness", "paralysis", "speech", "vision", "eye", "ear", "sinus", "infection", "virus",
-            "flu", "cold", "covid", "sick", "ill", "unwell", "weak", "weakness", "fatigue", "tired", "exhausted",
-            "faint", "fainting", "pulse", "vitals", "medicine", "medication", "pill", "tablet", "dose", "drug",
-            "prescription", "doctor", "physician", "appointment", "clinic", "hospital", "lab", "report", "test",
-            "symptom", "symptoms", "treatment", "cure", "diagnose", "diagnosis", "emergency", "911", "112", "urine",
-            "urinary", "kidney", "liver", "gout", "toe", "chest pain", "head hurts", "side effect", "side effects", "reaction", "effect",
+            // Injuries, Trauma, Wounds
+            "cut", "cuts", "wound", "wounds", "bleed", "bleeding", "blood", "gash", "laceration", "scrape",
+            "bruise", "burn", "burnt", "burning", "injury", "injured", "bite", "bitten", "fracture", "sprain",
+            "dislocated", "broken", "stab", "stabs", "puncture",
+
+            // Body Parts / Targeted Organs
+            "finger", "fingers", "thumb", "hand", "arm", "leg", "toe", "toes", "foot", "feet", "head", "brain",
+            "chest", "heart", "stomach", "belly", "abdomen", "back", "neck", "throat", "eye", "eyes", "ear", "ears",
+            "nose", "lip", "jaw", "tooth", "teeth", "tongue", "skin", "kidney", "liver", "lung", "lungs", "rib",
+            "spine", "joint", "knee", "elbow", "shoulder", "wrist", "ankle", "muscle", "vein", "artery",
+
+            // Symptoms & Pain Complaints
+            "pain", "pains", "painful", "hurt", "hurts", "hurting", "ache", "aches", "aching", "headache", "headaches",
+            "migraine", "fever", "temperature", "cough", "coughing", "dizzy", "dizziness", "nausea", "nauseous",
+            "vomit", "vomiting", "diarrhea", "diarrhoea", "cramps", "swelling", "swollen", "inflamed", "inflammation",
+            "rash", "itch", "itching", "itchy", "hives", "seizure", "seizures", "numb", "numbness", "paralysis",
+            "weak", "weakness", "fatigue", "tired", "exhausted", "faint", "fainting", "breath", "breathless",
+            "breathing", "wheeze", "wheezing", "shortness", "suffocating", "choking", "sore", "soreness",
+
+            // Vitals, Conditions, Medications, Labs
+            "bp", "pressure", "sugar", "diabetes", "diabetic", "pulse", "vitals", "medicine", "medication", "pill",
+            "tablet", "dose", "drug", "prescription", "doctor", "physician", "appointment", "clinic", "hospital",
+            "lab", "report", "test", "symptom", "symptoms", "treatment", "cure", "diagnose", "diagnosis", "emergency",
+            "911", "112", "urine", "urinary", "gout", "side effect", "side effects", "reaction", "effect", "gerd",
+            "acid", "ulcer", "allergy", "allergic", "infection", "virus", "flu", "cold", "covid", "sick", "ill",
+            "unwell", "jaundice", "stroke", "angina", "palpitation", "palpitations",
+
             // Hinglish medical symptoms
-            "dard", "sir dard", "pet dard", "pet mein pain", "chakkar", "chakkar aa", "bukhar", "khansi",
-            "ulti", "ultiya", "dast", "sujan", "khujli", "saans", "ghabrahat"
+            "dard", "sir dard", "sar dard", "pet dard", "pet mein pain", "chakkar", "chakkar aa", "bukhar", "khansi",
+            "ulti", "ultiya", "dast", "sujan", "khujli", "saans", "ghabrahat", "khoon", "chot"
     );
 
-    // List of ambiguous health complaints that MUST be routed to medical/clarification flow
+    // List of ambiguous health complaints that MUST be routed to medical workflow
     private static final List<String> AMBIGUOUS_HEALTH_SIGNALS = List.of(
-            "weird", "wrong", "don't feel right", "not feeling right", "not feeling well", "something is wrong",
-            "feeling bad", "feeling weird", "feel bad", "feel weird", "feel sick", "feel strange", "uncomfortable",
-            "not okay", "not ok", "something doesn't feel normal", "something feels strange"
+            "weird", "wrong", "don't feel right", "dont feel right", "not feeling right", "not feeling well",
+            "something is wrong", "feeling bad", "feeling weird", "feel bad", "feel weird", "feel sick",
+            "feel strange", "uncomfortable", "not okay", "not ok", "something doesn't feel normal",
+            "something feels strange", "i'm not okay", "im not okay", "i am not okay"
     );
 
     /**
      * Classifies a user message into CASUAL, MEDICAL, or AMBIGUOUS categories.
-     * Application code MUST control routing based on this classification.
+     * Safety Rule: CASUAL must mean "clearly and confidently non-medical".
+     * Any medical or ambiguous input routes to MEDICAL or AMBIGUOUS.
      */
     public Category classifyInput(String userMessage) {
         if (userMessage == null || userMessage.trim().isEmpty()) {
-            return Category.AMBIGUOUS;
+            return Category.AMBIGUOUS; // Safe fallback
         }
 
         String rawInput = userMessage.trim();
         String normalized = rawInput.toLowerCase();
+        String cleanWordsOnly = normalized.replaceAll("[^a-z0-9\\s]", " ").replaceAll("\\s+", " ").trim();
 
         // 1. SAFETY PRECEDENCE RULE: Check if input contains ANY medical signal (MEDICAL WINS)
-        if (containsMedicalSignal(normalized)) {
+        // Presence of greeting or casual words must NOT override medical content.
+        if (containsMedicalSignal(cleanWordsOnly, normalized)) {
             return Category.MEDICAL;
         }
 
         // 2. Check if input contains ANY ambiguous health signal
-        if (containsAmbiguousSignal(normalized)) {
+        if (containsAmbiguousSignal(cleanWordsOnly, normalized)) {
             return Category.AMBIGUOUS;
         }
 
-        // 3. Any non-medical, non-ambiguous input is treated as CASUAL
-        return Category.CASUAL;
+        // 3. Check if input is strictly casual conversation
+        if (isStrictlyCasual(cleanWordsOnly, rawInput)) {
+            return Category.CASUAL;
+        }
+
+        // 4. CRITICAL SAFETY FALLBACK: If uncertain or unclassified, DO NOT route to CASUAL.
+        // Route safely to AMBIGUOUS so existing medical workflow handles it.
+        return Category.AMBIGUOUS;
     }
 
     /**
-     * Inspects the input and returns a basic conversational TriageResponse if CASUAL.
-     * Returns Optional.empty() if MEDICAL or AMBIGUOUS, ensuring safe routing to medical AI.
+     * Inspects the input and returns a basic conversational TriageResponse ONLY if CASUAL.
+     * Returns Optional.empty() if MEDICAL or AMBIGUOUS (or any error), ensuring safe routing to medical AI.
      */
     public Optional<TriageResponse> handleBasicConversation(String userMessage) {
         Category category = classifyInput(userMessage);
@@ -86,51 +114,39 @@ public class BasicConversationHandler {
         return Optional.of(generateCasualResponse(userMessage));
     }
 
-    private boolean containsMedicalSignal(String normalized) {
+    private boolean containsMedicalSignal(String cleanWords, String normalized) {
         for (String signal : MEDICAL_SIGNALS) {
-            if (normalized.contains(signal)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean containsAmbiguousSignal(String normalized) {
-        for (String signal : AMBIGUOUS_HEALTH_SIGNALS) {
-            if (normalized.contains(signal)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private TriageResponse generateCasualResponse(String userMessage) {
-        String normalized = userMessage.trim().toLowerCase();
-        String cleanInput = normalized.replaceAll("[^a-z0-9\\s]", " ").replaceAll("\\s+", " ").trim();
-
-        String messageText;
-
-        if (isSillyQuestion(cleanInput, userMessage)) {
-            messageText = getSillyQuestionResponse(cleanInput);
-        } else if (isGreeting(cleanInput)) {
-            messageText = getRandomGreetingResponse();
-        } else if (isCasualOrIdentityQuestion(cleanInput)) {
-            if (cleanInput.contains("how are u") || cleanInput.contains("how r u") || cleanInput.contains("how are you") || cleanInput.contains("kaise ho") || cleanInput.contains("kya haal")) {
-                messageText = "I'm doing great, thank you! 😊 I'm VeloCura AI, your digital health assistant. How can I help you with your health today?";
+            // Check substring or word boundary match
+            if (signal.contains(" ")) {
+                if (normalized.contains(signal)) return true;
             } else {
-                messageText = "I'm an AI health assistant built into VeloCura 🤖. I'm mainly here to help with health-related questions, symptom checking, and directing you toward proper care.";
+                if (cleanWords.equals(signal) || cleanWords.startsWith(signal + " ") || 
+                    cleanWords.endsWith(" " + signal) || cleanWords.contains(" " + signal + " ")) {
+                    return true;
+                }
             }
-        } else if (isCapabilityQuestion(cleanInput)) {
-            messageText = "I am VeloCura AI! I can help analyze your symptoms, evaluate severity (Mild, Moderate, or Critical), provide immediate precautions & home remedies, and guide you to book consultations with verified doctors. Describe any symptoms you have to get started.";
-        } else if (isAcknowledgement(cleanInput)) {
-            messageText = "You're very welcome! 😊 Stay healthy, and feel free to reach out anytime if you have any health questions or symptoms.";
-        } else if (isGoodbye(cleanInput)) {
-            messageText = "Goodbye! 👋 Take care of your health. VeloCura AI is always here whenever you need medical guidance.";
-        } else {
-            messageText = "Hello! 👋 I'm VeloCura AI, your digital health assistant. Describe any health symptoms or questions you have today!";
         }
+        return false;
+    }
 
-        return buildResponse(messageText);
+    private boolean containsAmbiguousSignal(String cleanWords, String normalized) {
+        for (String signal : AMBIGUOUS_HEALTH_SIGNALS) {
+            if (normalized.contains(signal) || cleanWords.contains(signal)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isStrictlyCasual(String cleanInput, String rawInput) {
+        if (isGreeting(cleanInput)) return true;
+        if (isCasualOrIdentityQuestion(cleanInput)) return true;
+        if (isCapabilityQuestion(cleanInput)) return true;
+        if (isAcknowledgement(cleanInput)) return true;
+        if (isGoodbye(cleanInput)) return true;
+        if (isSillyQuestion(cleanInput, rawInput)) return true;
+
+        return false;
     }
 
     private boolean isGreeting(String cleanInput) {
@@ -185,6 +201,35 @@ public class BasicConversationHandler {
                cleanInput.contains("can you dance") || cleanInput.contains("sing a song");
     }
 
+    private TriageResponse generateCasualResponse(String userMessage) {
+        String normalized = userMessage.trim().toLowerCase();
+        String cleanInput = normalized.replaceAll("[^a-z0-9\\s]", " ").replaceAll("\\s+", " ").trim();
+
+        String messageText;
+
+        if (isSillyQuestion(cleanInput, userMessage)) {
+            messageText = getSillyQuestionResponse(cleanInput);
+        } else if (isGreeting(cleanInput)) {
+            messageText = getRandomGreetingResponse();
+        } else if (isCasualOrIdentityQuestion(cleanInput)) {
+            if (cleanInput.contains("how are u") || cleanInput.contains("how r u") || cleanInput.contains("how are you") || cleanInput.contains("kaise ho") || cleanInput.contains("kya haal")) {
+                messageText = "I'm doing great, thank you! 😊 I'm VeloCura AI, your digital health assistant. How can I help you with your health today?";
+            } else {
+                messageText = "I'm an AI health assistant built into VeloCura 🤖. I'm mainly here to help with health-related questions, symptom checking, and directing you toward proper care.";
+            }
+        } else if (isCapabilityQuestion(cleanInput)) {
+            messageText = "I am VeloCura AI! I can help analyze your symptoms, evaluate severity (Mild, Moderate, or Critical), provide immediate precautions & home remedies, and guide you to book consultations with verified doctors. Describe any symptoms you have to get started.";
+        } else if (isAcknowledgement(cleanInput)) {
+            messageText = "You're very welcome! 😊 Stay healthy, and feel free to reach out anytime if you have any health questions or symptoms.";
+        } else if (isGoodbye(cleanInput)) {
+            messageText = "Goodbye! 👋 Take care of your health. VeloCura AI is always here whenever you need medical guidance.";
+        } else {
+            messageText = "Hello! 👋 I'm VeloCura AI, your digital health assistant. Describe any health symptoms or questions you have today!";
+        }
+
+        return buildResponse(messageText);
+    }
+
     private String getRandomGreetingResponse() {
         String[] responses = {
                 "Hello! 👋 I'm VeloCura AI. How can I help you with your health today?",
@@ -220,6 +265,7 @@ public class BasicConversationHandler {
                 .immediatePrecautions(List.of("If you develop any symptoms, describe them here anytime"))
                 .homeRemedies(List.of())
                 .suggestedOtc(List.of())
+                .routerVersion("conversational-gatekeeper-v2")
                 .build();
     }
 }

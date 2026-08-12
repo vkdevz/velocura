@@ -44,19 +44,24 @@ public class BasicConversationHandlingTests {
     @Test
     public void testMedicalCategoryMatrix() {
         String[] medicalInputs = {
+                "finger got cut",
+                "cut finger",
+                "headache",
+                "my head hurts",
+                "stomach pain",
+                "fever",
+                "I feel dizzy",
+                "my BP is high",
+                "my sugar is high",
+                "I have chest pain",
+                "I am having trouble breathing",
+                "I feel weak",
                 "I have a headache.",
                 "My stomach hurts.",
-                "I have fever.",
-                "I feel dizzy.",
-                "My BP is high.",
-                "My sugar is high.",
                 "I am vomiting.",
-                "I have chest pain.",
-                "I'm having trouble breathing.",
                 "Can I take this medicine?",
                 "What are the side effects?",
                 "Explain my lab report.",
-                "Why am I feeling weak?",
                 "Mere pet mein pain hai",
                 "Mujhe chakkar aa rahe hain",
                 "Sir dard ho raha hai"
@@ -72,6 +77,7 @@ public class BasicConversationHandlingTests {
             TriageResponse fullRes = geminiAiService.callGeminiApi(input);
             assertNotNull(fullRes);
             assertFalse(fullRes.getRecommendedSpecialty().equalsIgnoreCase("General Health Assistance"));
+            assertEquals("conversational-gatekeeper-v2", fullRes.getRouterVersion());
         }
     }
 
@@ -97,6 +103,11 @@ public class BasicConversationHandlingTests {
     @Test
     public void testMixedCategoryMatrix_MedicalWins() {
         String[] mixedInputs = {
+                "hey, finger got cut",
+                "hello, I have headache",
+                "lol my chest hurts",
+                "good morning, my stomach hurts",
+                "tell me a joke, but I have fever",
                 "Hey, I have a headache.",
                 "Hello, my chest hurts.",
                 "Lol my BP is really high.",
@@ -114,6 +125,7 @@ public class BasicConversationHandlingTests {
             TriageResponse fullRes = geminiAiService.callGeminiApi(input);
             assertNotNull(fullRes);
             assertFalse(fullRes.getRecommendedSpecialty().equalsIgnoreCase("General Health Assistance"));
+            assertEquals("conversational-gatekeeper-v2", fullRes.getRouterVersion());
         }
     }
 }

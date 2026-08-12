@@ -33,12 +33,35 @@ public class GeminiAiService {
     }
 
     public TriageResponse callGeminiApi(String symptoms) {
-        // 0. Check for basic conversational inputs (greetings, casual questions, silly questions, goodbyes)
-        // If non-medical casual input, handle with health redirect.
-        // If medical signals or ambiguous health complaints present, handleBasicConversation returns Optional.empty() and proceeds to medical AI.
-        Optional<TriageResponse> basicResponse = basicConversationHandler.handleBasicConversation(symptoms);
-        if (basicResponse.isPresent()) {
-            return basicResponse.get();
+        String cleanSymptoms = symptoms != null ? symptoms.trim() : "";
+        String safeSnippet = cleanSymptoms.length() > 40 ? cleanSymptoms.substring(0, 40) + "..." : cleanSymptoms;
+
+        logger.info("[AI ROUTER] Received message length: {}", cleanSymptoms.length());
+
+        BasicConversationHandler.Category category;
+        try {
+            category = basicConversationHandler.classifyInput(cleanSymptoms);
+        } catch (Throwable t) {
+            logger.warn("[AI ROUTER] Classification error, fallback to AMBIGUOUS -> MEDICAL: {}", t.getMessage());
+            category = BasicConversationHandler.Category.AMBIGUOUS;
+        }
+
+        String selectedRoute = (category == BasicConversationHandler.Category.CASUAL) ? "GEMINI_CASUAL" : "EXISTING_MEDICAL_WORKFLOW";
+        boolean medicalWorkflowInvoked = (category != BasicConversationHandler.Category.CASUAL);
+
+        logger.info("[AI ROUTER] Classification result: {}", category);
+        logger.info("[AI ROUTER] Normalized category: {}", category);
+        logger.info("[AI ROUTER] Selected route: {}", selectedRoute);
+        logger.info("[AI ROUTER] Medical workflow invoked: {}", medicalWorkflowInvoked);
+
+        if (category == BasicConversationHandler.Category.CASUAL) {
+            Optional<TriageResponse> basicResponse = basicConversationHandler.handleBasicConversation(cleanSymptoms);
+            if (basicResponse.isPresent()) {
+                TriageResponse res = basicResponse.get();
+                res.setRouterVersion("conversational-gatekeeper-v2");
+                return res;
+            }
+            logger.warn("[AI ROUTER] Casual handler returned empty, routing to existing medical workflow.");
         }
 
         String cleanKey = apiKey != null ? apiKey.trim() : "";
@@ -67,7 +90,7 @@ public class GeminiAiService {
                         "Do NOT wrap the response in markdown blocks. Output ONLY the raw JSON string.";
 
                 Map<String, Object> contentsPart = HashMap.newHashMap(1);
-                contentsPart.put("text", "Symptoms description: \"" + symptoms + "\"\n\nProduce JSON response:");
+                contentsPart.put("text", "Symptoms description: \"" + cleanSymptoms + "\"\n\nProduce JSON response:");
 
                 Map<String, Object> parts = HashMap.newHashMap(1);
                 parts.put("parts", List.of(contentsPart));
@@ -88,7 +111,7 @@ public class GeminiAiService {
 
                 HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-                logger.info("Executing Google Gemini Generative API call for symptoms: {}", symptoms);
+                logger.info("Executing Google Gemini Generative API call for symptoms...");
                 ResponseEntity<String> responseEntity = restTemplate.postForEntity(url, entity, String.class);
 
                 if (responseEntity.getStatusCode() == HttpStatus.OK && responseEntity.getBody() != null) {
@@ -111,6 +134,7 @@ public class GeminiAiService {
                         jsonText = jsonText.trim();
 
                         TriageResponse triageResponse = objectMapper.readValue(jsonText, TriageResponse.class);
+                        triageResponse.setRouterVersion("conversational-gatekeeper-v2");
                         logger.info("Successfully received & parsed live Google Gemini API response. Triage Level: {}", triageResponse.getTriageLevel());
                         return triageResponse;
                     }
@@ -121,7 +145,9 @@ public class GeminiAiService {
         }
 
         // 2. High-Precision Clinical AI NLP Intelligence Engine
-        return executeClinicalNlpIntelligence(symptoms);
+        TriageResponse nlpResponse = executeClinicalNlpIntelligence(cleanSymptoms);
+        nlpResponse.setRouterVersion("conversational-gatekeeper-v2");
+        return nlpResponse;
     }
 
     private TriageResponse executeClinicalNlpIntelligence(String symptomsInput) {
