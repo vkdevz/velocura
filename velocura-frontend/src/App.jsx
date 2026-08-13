@@ -51,7 +51,7 @@ function LandingPage() {
     setChatHistory(prev => [...prev, { sender: 'user', text: userQuery, triageResult: null }]);
 
     try {
-      const res = await api.post('/api/auth/triage', { symptoms: userQuery });
+      const res = await api.post('/api/auth/triage', { symptoms: userQuery, history: chatHistory });
       const triage = res.data;
 
       // Increment count

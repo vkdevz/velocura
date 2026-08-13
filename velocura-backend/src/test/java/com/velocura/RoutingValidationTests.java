@@ -134,4 +134,21 @@ public class RoutingValidationTests {
         System.out.println("[INTENT-PASS] Who Are You: " + whoAreYou.substring(0, Math.min(60, whoAreYou.length())));
         System.out.println("[INTENT-PASS] Joke: " + joke.substring(0, Math.min(60, joke.length())));
     }
+
+    @Test
+    public void testMultiTurnContextPreservation() {
+        java.util.List<java.util.Map<String, String>> history = java.util.List.of(
+            java.util.Map.of("sender", "user", "text", "I have a headache."),
+            java.util.Map.of("sender", "ai", "text", "When did it start and what is the severity?")
+        );
+
+        TriageResponse followUpRes = geminiAiService.callGeminiApi("This morning, severity is 7", history);
+        assertNotNull(followUpRes);
+        assertTrue(followUpRes.getRecommendedSpecialty().toLowerCase().contains("neurology"),
+                "Follow-up input with history must retain Neurology specialty, got: " + followUpRes.getRecommendedSpecialty());
+        assertTrue(followUpRes.getClinicalSummary().toLowerCase().contains("headache") 
+                || followUpRes.getClinicalSummary().toLowerCase().contains("neurological"),
+                "Clinical summary must preserve headache context from history");
+        System.out.println("[MULTI-TURN-PASS] " + followUpRes.getRecommendedSpecialty() + " | " + followUpRes.getClinicalSummary());
+    }
 }

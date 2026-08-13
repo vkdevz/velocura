@@ -178,7 +178,7 @@ public class AuthController {
         String symptoms = request.getSymptoms() != null ? request.getSymptoms() : "";
         
         // Attempt advanced AI chat triage first
-        com.velocura.dto.TriageResponse aiResponse = geminiAiService.callGeminiApi(symptoms);
+        com.velocura.dto.TriageResponse aiResponse = geminiAiService.callGeminiApi(symptoms, request.getHistory());
         if (aiResponse != null) {
             return ResponseEntity.ok(aiResponse);
         }

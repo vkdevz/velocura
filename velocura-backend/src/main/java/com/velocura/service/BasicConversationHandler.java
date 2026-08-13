@@ -165,11 +165,26 @@ public class BasicConversationHandler {
                 "kya haal hai", "greetings"
         );
         for (String g : greetings) {
-            if (cleanInput.equals(g) || cleanInput.startsWith(g + " ")) {
+            if (cleanInput.equals(g)) {
                 return true;
+            }
+            if (cleanInput.startsWith(g + " ")) {
+                String remainder = cleanInput.substring(g.length()).trim();
+                if (isCasualAddressOrSuffix(remainder)) {
+                    return true;
+                }
             }
         }
         return false;
+    }
+
+    private boolean isCasualAddressOrSuffix(String remainder) {
+        if (remainder.isEmpty()) return true;
+        List<String> casualSuffixes = List.of(
+                "there", "velocura", "ai", "bot", "assistant", "doc", "doctor", "friend",
+                "team", "everyone", "there velocura", "velocura ai", "there ai"
+        );
+        return casualSuffixes.contains(remainder);
     }
 
     private boolean isCasualOrIdentityQuestion(String cleanInput) {
@@ -223,13 +238,21 @@ public class BasicConversationHandler {
         } else if (isCasualOrIdentityQuestion(cleanInput)) {
             if (cleanInput.contains("how are u") || cleanInput.contains("how r u") || cleanInput.contains("how are you") || cleanInput.contains("kaise ho") || cleanInput.contains("kya haal")) {
                 messageText = "I'm doing great, thank you! 😊 I'm VeloCura AI, your digital health assistant. How can I help you with your health today?";
+            } else if (cleanInput.contains("are you a robot") || cleanInput.contains("are you ai") || cleanInput.contains("are u ai")) {
+                messageText = "I'm an AI health assistant built into VeloCura 🤖. I'm mainly here to help with health-related questions.";
+            } else if (cleanInput.contains("who are you") || cleanInput.contains("who r u") || cleanInput.contains("what is velocura")) {
+                messageText = "I'm VeloCura AI, a digital health assistant. I can help you with health-related questions and guide you toward the right next step.";
             } else {
                 messageText = "I'm an AI health assistant built into VeloCura 🤖. I'm mainly here to help with health-related questions, symptom checking, and directing you toward proper care.";
             }
         } else if (isCapabilityQuestion(cleanInput)) {
             messageText = "I am VeloCura AI! I can help analyze your symptoms, evaluate severity (Mild, Moderate, or Critical), provide immediate precautions & home remedies, and guide you to book consultations with verified doctors. Describe any symptoms you have to get started.";
         } else if (isAcknowledgement(cleanInput)) {
-            messageText = "You're very welcome! 😊 Stay healthy, and feel free to reach out anytime if you have any health questions or symptoms.";
+            if (cleanInput.equals("thanks") || cleanInput.equals("thank you") || cleanInput.contains("thank")) {
+                messageText = "You're welcome! 😊 I'm here whenever you need help.";
+            } else {
+                messageText = "Got it! 😊 Feel free to reach out anytime if you have any health questions or symptoms.";
+            }
         } else if (isGoodbye(cleanInput)) {
             messageText = "Goodbye! 👋 Take care of your health. VeloCura AI is always here whenever you need medical guidance.";
         } else {

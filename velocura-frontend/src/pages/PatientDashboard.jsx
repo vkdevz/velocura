@@ -637,7 +637,7 @@ const PatientDashboard = () => {
     setChatLoading(true);
 
     try {
-      const res = await api.post('/api/auth/triage', { symptoms: userQuery });
+      const res = await api.post('/api/auth/triage', { symptoms: userQuery, history: chatHistory });
       const triage = res.data;
 
       const isBasic = triage.recommendedSpecialty === 'General Health Assistance' || (triage.differentialDiagnoses?.length === 0 && triage.immediatePrecautions?.length === 0);

@@ -33,6 +33,10 @@ public class GeminiAiService {
     }
 
     public TriageResponse callGeminiApi(String symptoms) {
+        return callGeminiApi(symptoms, null);
+    }
+
+    public TriageResponse callGeminiApi(String symptoms, List<Map<String, String>> history) {
         String cleanSymptoms = symptoms != null ? symptoms.trim() : "";
         String safeSnippet = cleanSymptoms.length() > 40 ? cleanSymptoms.substring(0, 40) + "..." : cleanSymptoms;
 
@@ -76,11 +80,13 @@ public class GeminiAiService {
 
                 String systemInstruction = "You are VeloCura AI, an advanced medical triage and symptom checker system. " +
                         "Analyze the patient's symptoms conversationally and determine the severity (Mild, Moderate, Critical). " +
+                        "Your clinical summary MUST be problem-specific. Acknowledge the exact complaint described (e.g. finger cut, headache, stomach pain, fever, high BP). " +
+                        "Provide specific clinical observations and include 1-2 relevant follow-up questions tailored to that specific problem (e.g. for cuts: depth/bleeding/numbness; for headache: onset/duration/severity/vision changes; for stomach pain: relation to meals/location/vomiting). " +
                         "Suggest common OTC salt guidelines (with safety warnings), home remedies, precautions, and recommend a specialist department. " +
                         "Format the response EXACTLY as a JSON object matching this schema:\n" +
                         "{\n" +
                         "  \"triageLevel\": \"Mild\" | \"Moderate\" | \"Critical\",\n" +
-                        "  \"clinicalSummary\": \"Clinical explanation of symptoms here\",\n" +
+                        "  \"clinicalSummary\": \"Problem-specific clinical explanation and relevant follow-up questions\",\n" +
                         "  \"recommendedSpecialty\": \"Specialist field\",\n" +
                         "  \"differentialDiagnoses\": [\"diagnosis 1\", \"diagnosis 2\"],\n" +
                         "  \"immediatePrecautions\": [\"precaution 1\", \"precaution 2\"],\n" +
@@ -89,8 +95,23 @@ public class GeminiAiService {
                         "}\n" +
                         "Do NOT wrap the response in markdown blocks. Output ONLY the raw JSON string.";
 
+                StringBuilder promptText = new StringBuilder();
+                if (history != null && !history.isEmpty()) {
+                    promptText.append("Previous Conversation Context:\n");
+                    for (Map<String, String> msg : history) {
+                        String sender = msg.getOrDefault("sender", "user");
+                        String text = msg.getOrDefault("text", "");
+                        if (!text.isBlank()) {
+                            promptText.append(sender).append(": ").append(text).append("\n");
+                        }
+                    }
+                    promptText.append("\nLatest patient message: \"").append(cleanSymptoms).append("\"\n\nProduce JSON response:");
+                } else {
+                    promptText.append("Symptoms description: \"").append(cleanSymptoms).append("\"\n\nProduce JSON response:");
+                }
+
                 Map<String, Object> contentsPart = HashMap.newHashMap(1);
-                contentsPart.put("text", "Symptoms description: \"" + cleanSymptoms + "\"\n\nProduce JSON response:");
+                contentsPart.put("text", promptText.toString());
 
                 Map<String, Object> parts = HashMap.newHashMap(1);
                 parts.put("parts", List.of(contentsPart));
@@ -145,14 +166,30 @@ public class GeminiAiService {
         }
 
         // 2. High-Precision Clinical AI NLP Intelligence Engine
-        TriageResponse nlpResponse = executeClinicalNlpIntelligence(cleanSymptoms);
+        TriageResponse nlpResponse = executeClinicalNlpIntelligence(cleanSymptoms, history);
         nlpResponse.setRouterVersion("conversational-gatekeeper-v2");
         return nlpResponse;
     }
 
     private TriageResponse executeClinicalNlpIntelligence(String symptomsInput) {
+        return executeClinicalNlpIntelligence(symptomsInput, null);
+    }
+
+    private TriageResponse executeClinicalNlpIntelligence(String symptomsInput, List<Map<String, String>> history) {
         String input = symptomsInput != null ? symptomsInput.trim() : "";
         String query = input.toLowerCase();
+
+        // Incorporate historical context if current message builds on previous medical complaints
+        if (history != null && !history.isEmpty()) {
+            StringBuilder combinedHistory = new StringBuilder();
+            for (Map<String, String> entry : history) {
+                String text = entry.getOrDefault("text", "");
+                if (text != null && !text.isBlank()) {
+                    combinedHistory.append(" ").append(text.toLowerCase());
+                }
+            }
+            query = (query + " " + combinedHistory).trim();
+        }
 
         boolean isAcute = query.contains("severe") || query.contains("acute") || query.contains("sudden") || query.contains("intense") || query.contains("sharp") || query.contains("crushing");
         boolean isSevereBleed = query.contains("heavy bleed") || query.contains("won't stop bleeding") || query.contains("wont stop bleeding") || query.contains("bleeding badly") || query.contains("blood everywhere") || query.contains("deep cut") || query.contains("gash");
@@ -169,7 +206,7 @@ public class GeminiAiService {
         if (query.contains("chest") || query.contains("heart") || query.contains("cardiac") || query.contains("angina") || query.contains("palpitation") || query.contains("pressure in chest") || query.contains("left arm pain")) {
             triageLevel = "Critical";
             recommendedSpecialty = "Cardiology";
-            clinicalSummary = "VeloCura AI Clinical Assessment: High-risk cardiovascular indicators detected for reported symptoms (\"" + input + "\"). Presenting features signal potential acute coronary syndrome, myocardial ischemia, or pericardial inflammation requiring immediate emergency triage.";
+            clinicalSummary = "VeloCura AI Clinical Assessment: High-risk cardiovascular indicators detected for reported symptoms (\"" + input + "\"). Presenting features signal potential acute coronary syndrome, myocardial ischemia, or pericardial inflammation requiring immediate emergency triage. Seek emergency medical services (911/112) immediately.";
             differentialDiagnoses = List.of("Acute Coronary Syndrome (ACS)", "Angina Pectoris", "Myocardial Ischemia", "Pericarditis / Costochondritis");
             immediatePrecautions = List.of("Cease physical exertion immediately and sit upright", "Do not drive yourself; request emergency ambulance services (911/112)", "Loosen tight clothing around throat and waist");
             homeRemedies = List.of("Maintain calm environment with slow deep diaphragmatic breathing", "Ensure continuous cool air circulation");
@@ -180,7 +217,7 @@ public class GeminiAiService {
         else if (query.contains("urina") || query.contains("urine") || query.contains("burn") && (query.contains("pee") || query.contains("urin")) || query.contains("kidney") || query.contains("flank pain") || query.contains("bladder") || query.contains("blood in urine") || query.contains("dysuria")) {
             triageLevel = query.contains("blood") || query.contains("flank") || query.contains("fever") ? "Moderate" : "Mild";
             recommendedSpecialty = "Urology / Nephrology";
-            clinicalSummary = "VeloCura AI Clinical Assessment: Urinary tract evaluation for symptoms (\"" + input + "\") indicates bacterial cystitis, lower urinary tract mucosal irritation, or potential nephrolithiasis (kidney stone passage).";
+            clinicalSummary = "VeloCura AI Clinical Assessment: Urinary tract evaluation for symptoms (\"" + input + "\") indicates bacterial cystitis, mucosal irritation, or potential kidney stone passage. Are you experiencing fever, chills, or pain radiating to your lower back?";
             differentialDiagnoses = List.of("Acute Bacterial Cystitis (UTI)", "Urethritis / Trigonitis", "Nephrolithiasis (Kidney Stones)", "Pyelonephritis (if fever present)");
             immediatePrecautions = List.of("Increase fluid intake immediately to flush urinary tract", "Do not delay micturition (empty bladder frequently)", "Avoid alcohol, caffeine, and acidic beverages");
             homeRemedies = List.of("Drink 2.5 to 3 Liters of water daily", "Unsweetened cranberry juice extract", "Warm heating pad on lower pelvic area");
@@ -194,7 +231,7 @@ public class GeminiAiService {
             recommendedSpecialty = "Gastroenterology / Hepatology";
             clinicalSummary = isGallbladderJaundice 
                 ? "VeloCura AI Clinical Assessment: Hepato-biliary screening for symptoms (\"" + input + "\") signals gallbladder inflammation (Cholecystitis), biliary colic, or hepatic dysfunction requiring ultrasound evaluation."
-                : "VeloCura AI Clinical Assessment: Gastrointestinal analysis for symptoms (\"" + input + "\") indicates hyper-gastric mucosal irritation, GERD reflux flare, or acute enteric viral gastroenteritis.";
+                : "VeloCura AI Clinical Assessment: Gastrointestinal analysis for reported complaint (\"" + input + "\"). Symptoms indicate gastric mucosal irritation, acid reflux flare, or viral gastroenteritis. To narrow this down: Is the pain sharp or cramping, did it start after eating, and are you experiencing nausea, vomiting, or fever?";
             differentialDiagnoses = isGallbladderJaundice
                 ? List.of("Acute Cholecystitis / Biliary Colic", "Choledocholithiasis", "Hepatic Parenchymal Inflammation")
                 : List.of("Acute Gastroenteritis", "GERD / Acid Reflux Flare", "Functional Dyspepsia", "Peptic Ulcer Disease");
