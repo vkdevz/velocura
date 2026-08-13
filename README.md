@@ -1,150 +1,128 @@
-# 🏥 VeloCura (MediNexa) - AI Digital Healthcare Platform
+# VeloCura — AI Digital Healthcare Platform
 
 [![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://jdk.java.net/21/)
-[![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.3.2-brightgreen.svg)](https://spring.io/projects/spring-boot)
-[![React 19](https://img.shields.io/badge/React-19.0-blue.svg)](https://react.dev/)
-[![Vite 8](https://img.shields.io/badge/Vite-8.2-purple.svg)](https://vitejs.dev/)
-[![Tailwind CSS 4](https://img.shields.io/badge/Tailwind-4.3-cyan.svg)](https://tailwindcss.com/)
+[![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.3-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![React 19](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-latest-purple.svg)](https://vitejs.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**VeloCura** (formerly MediNexa) is a modern, full-stack digital healthcare ecosystem combining **AI-driven symptom triage**, **telehealth video consultations**, **stateless JWT security**, **vitals tracking**, and **electronic health passport management**.
+**VeloCura** is a full-stack digital healthcare platform combining **AI-driven symptom triage**, **telehealth video consultations**, **vitals tracking**, **e-prescriptions**, and **electronic health passport management** — built for speed, security, and real clinical utility.
 
 ---
 
-## 📐 System Architecture & Directory Structure
+## Architecture
 
-```text
-medinexa/
-├── velocura-backend/             # Spring Boot 3 REST API Backend (Java 21)
-│   ├── src/main/java/com/velocura/
-│   │   ├── config/              # DatabaseSeeder, Security, Audit Config
-│   │   ├── controller/          # Auth, Patient, Doctor, Admin REST Endpoints
-│   │   ├── dto/                 # Request & Response Data Transfer Objects
-│   │   ├── model/               # JPA Entities (User, Patient, Doctor, Appointment, Vitals, Passport)
-│   │   ├── repository/          # Spring Data JPA Repositories
-│   │   ├── security/            # JWT Filter, JwtUtils, CustomUserDetailsService
-│   │   └── service/             # GeminiAiService, PatientService, DoctorService, AdminService
-│   ├── src/main/resources/
-│   │   └── application.yml      # System & Database Configuration Properties
-│   ├── Dockerfile               # Multi-stage Java 21 Alpine Container Build
-│   └── pom.xml                  # Maven Project Dependencies
-│
-├── velocura-frontend/            # React + Vite Frontend SPA
-│   ├── src/
-│   │   ├── assets/              # Branding & SVG Resources
-│   │   ├── components/          # TelehealthRoom, ProtectedRoute
-│   │   ├── context/             # AuthContext (JWT State Management)
-│   │   ├── pages/               # LandingPage, Login, Register, PatientDashboard, DoctorDashboard, AdminDashboard
-│   │   ├── api.js               # Axios Client with Automatic JWT Interceptors
-│   │   ├── App.jsx              # Application Router & Public Triage Interface
-│   │   └── index.css            # Design System & Tailwind Utility Directives
-│   ├── Dockerfile               # Multi-stage Nginx Static Web Serving Build
-│   ├── package.json             # Frontend Dependencies
-│   └── vite.config.js           # Vite Server & Proxy Configuration
-│
-├── docker-compose.yml           # Full Stack Containerization (MySQL 8.0, Backend, Frontend)
-├── run-backend.py               # Launcher script for Spring Boot Backend
-└── run-frontend.py              # Launcher script for Vite Frontend
+```
+velocura-backend/          Spring Boot 3 REST API (Java 21)
+├── controller/            Auth, Patient, Doctor, Admin endpoints
+├── service/               GeminiAiService, BasicConversationHandler, PatientService, ...
+├── model/                 JPA Entities — User, Appointment, Vitals, Passport
+├── security/              JWT Filter, JwtUtils
+└── dto/                   Request & Response objects
+
+velocura-frontend/         React + Vite SPA
+├── pages/                 LandingPage, PatientDashboard, DoctorDashboard, AdminDashboard
+├── components/            TelehealthRoom, ProtectedRoute, VoiceDictation
+├── context/               AuthContext (JWT state)
+└── api.js                 Axios client with auto JWT interceptors
 ```
 
 ---
 
-## ✨ Core Product Capabilities
+## Features
 
-### 🧠 1. AI Symptom Triage Engine
-- **Multi-System Clinical NLP**: Analyzes symptoms across 12 clinical specialties (Cardiology, Neurology, Pulmonology, Gastroenterology, Urology/Nephrology, Orthopedics, Dermatology, ENT, Psychiatry, Pediatrics, General Medicine).
-- **Severity Classification**: Tiered clinical risk levels (`Mild`, `Moderate`, `Critical`).
-- **Differential Diagnoses**: Ranked clinical condition possibilities.
-- **Immediate Precautions & Home Remedies**: Safety measures and evidence-based home remedies.
-- **Suggested OTC Salts**: Common salt guidelines with safety warnings.
-- **Google Gemini 2.0 Integration**: Live API support via `gemini-2.0-flash` with a built-in clinical AI fallback engine.
+### AI Symptom Triage
+- **Conversational Routing** — distinguishes casual chat (greetings, questions) from medical inputs
+- **17-Branch Clinical NLP Engine** — covers Cardiology, Neurology, Pulmonology, Gastroenterology, Urology, Orthopedics, Dermatology, ENT, Psychiatry, Pediatrics, Trauma/Wounds, Fever/Infection, Fatigue, Vitals (BP/Sugar), Medication Queries, and General Medicine
+- **Severity Levels** — `Mild`, `Moderate`, `Critical`
+- **Differential Diagnoses**, Immediate Precautions, Home Remedies, OTC Salt Suggestions
+- **Google Gemini 2.0 Flash** — live API integration with a built-in clinical fallback engine
 
-### 🔐 2. Security & Access Control
-- **Stateless JWT Authentication**: Secure 24-hour token issuance with role-based claim authorization.
-- **Role-Based Portals**: Scoped REST API endpoints for `PATIENT`, `DOCTOR`, and `ADMIN`.
+### Security
+- Stateless JWT authentication (role-based: `PATIENT`, `DOCTOR`, `ADMIN`)
+- Scoped REST endpoints per role
 
-### 🩺 3. Patient Portal
-- **Health Passport**: Medical timeline logging, allergy tracking, and clinical history export.
-- **Vitals Logger**: Daily blood pressure (systolic/diastolic), heart rate, and blood sugar tracking.
-- **Consultation Scheduling**: Real-time doctor selection with conflict-free slot booking.
-- **WebRTC Video Rooms**: Peer-to-peer virtual consultation rooms.
-- **E-Prescriptions**: View and download digital prescriptions issued by verified doctors.
+### Patient Portal
+- AI Symptom Checker with real-time chat
+- Health Passport (medical history, allergies, timeline)
+- Vitals Logger (BP, heart rate, blood sugar)
+- Appointment Booking with doctor selection
+- WebRTC Video Consultations
+- E-Prescription viewer
 
-### 👨‍⚕️ 4. Doctor Portal
-- **Patient Queue**: View upcoming scheduled consultations.
-- **E-Rx Writer**: Issue digital prescriptions with dosage, frequency, and instructions.
-- **Vitals Review**: Inspect historical vitals charts before entering video calls.
+### Doctor Portal
+- Patient queue & upcoming appointments
+- E-Prescription writer (dosage, frequency, instructions)
+- Vitals history review
 
-### 🛡️ 5. Admin Console
-- **Provider Verification**: Review and approve doctor license credentials.
-- **Platform Analytics**: Total users, appointments, verified clinicians, and system metrics.
-
----
-
-## 🛠️ Environment Configuration
-
-Set these environment variables in your environment or in `velocura-backend/src/main/resources/application.yml`:
-
-| Environment Variable | Default Value | Description |
-|----------------------|---------------|-------------|
-| `GEMINI_API_KEY` | *(Built-in AI Fallback)* | Google Gemini AI Studio API key (`AIzaSy...`) |
-| `JWT_SECRET` | `404E6352...` | HMAC-SHA512 Secret Key for JWT signature verification |
-| `JWT_EXPIRATION_MS` | `86400000` (24 Hours) | Token validity duration in milliseconds |
-| `DB_URL` | `jdbc:h2:mem:velocura_db` | Database connection URL |
-| `DB_USERNAME` | `sa` | Database username |
-| `DB_PASSWORD` | `""` | Database password |
+### Admin Console
+- Doctor license verification & approval
+- Platform analytics (users, appointments, clinician count)
 
 ---
 
-## 🚀 Running Locally
+## Running Locally
 
-### Prerequisites
-- **Java 21 JDK**
-- **Node.js v20+ / v22+**
-- **Python 3.x**
+**Prerequisites:** Java 21, Node.js 20+
 
-### Step 1: Start the Backend Server
 ```bash
-python3 run-backend.py
-```
-*The Spring Boot server will start on **`http://localhost:8080`**.*
+# Backend (Terminal 1)
+cd velocura-backend
+./mvnw spring-boot:run
 
-### Step 2: Start the Frontend Server
-In a second terminal window:
-```bash
-python3 run-frontend.py
+# Frontend (Terminal 2)
+cd velocura-frontend
+npm install
+npm run dev
 ```
-*The Vite React application will start on **`http://localhost:5173`**.*
+
+- Backend: `http://localhost:8080`
+- Frontend: `http://localhost:5173`
 
 ---
 
-## 🐳 Docker Deployment
-
-To launch the complete application stack (MySQL 8.0, Spring Boot, and Nginx Frontend) in containerized mode:
+## Docker
 
 ```bash
 docker-compose up --build -d
 ```
 
-### Container Endpoints:
-- **Frontend App**: `http://localhost:3000`
-- **Backend API**: `http://localhost:8080`
-- **MySQL Database**: `localhost:3306`
+| Service | URL |
+|---------|-----|
+| Frontend | `http://localhost:3000` |
+| Backend API | `http://localhost:8080` |
 
 ---
 
-## 🔑 Pre-Seeded Test Credentials
+## Environment Variables
 
-The database automatically seeds default administrative accounts on first launch:
+Configure in your deployment environment or `application.yml`:
 
-| Role | Email | Password |
-|------|-------|----------|
-| **Admin** | `admin@velocura.com` | `admin_password` |
-| **Admin** | `admin@medinexa.com` | `admin_password` |
-
-*New Patients and Doctors can register directly using the web interface at `/register`.*
+| Variable | Description |
+|----------|-------------|
+| `GEMINI_API_KEY` | Google Gemini AI Studio API key — optional, fallback engine runs without it |
+| `JWT_SECRET` | HMAC-SHA512 secret for JWT signing |
+| `JWT_EXPIRATION_MS` | Token validity in ms (default: 24 hours) |
+| `DB_URL` | Database connection URL |
+| `DB_USERNAME` | Database user |
+| `DB_PASSWORD` | Database password |
 
 ---
 
-## 📜 License
-Distributed under the **MIT License**. See `LICENSE` for more information.
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Java 21, Spring Boot 3, Spring Security, JPA/Hibernate |
+| Frontend | React 19, Vite, Axios |
+| Database | H2 (dev), PostgreSQL (prod) |
+| AI | Google Gemini 2.0 Flash + custom clinical NLP engine |
+| Auth | Stateless JWT (HMAC-SHA512) |
+| Video | WebRTC peer-to-peer |
+| Deployment | Docker, Render |
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
