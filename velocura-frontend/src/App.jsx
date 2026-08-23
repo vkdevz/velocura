@@ -14,8 +14,12 @@ import TermsOfService from './pages/TermsOfService';
 import HipaaCompliance from './pages/HipaaCompliance';
 import ConsentProcedures from './pages/ConsentProcedures';
 import { VoiceDictationButton } from './components/clinical/VoiceDictationButton';
+import CommandPalette from './components/ui/CommandPalette';
+import InteractiveBodyMap from './components/clinical/InteractiveBodyMap';
+import SymptomQuickChips from './components/clinical/SymptomQuickChips';
+import { Search, Sparkles } from 'lucide-react';
 
-function LandingPage() {
+function LandingPage({ onOpenCommandPalette }) {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -123,7 +127,16 @@ function LandingPage() {
             <a href="#pricing" className="hover:text-white transition-colors duration-200">Care Plans</a>
           </nav>
 
-          <div className="flex items-center space-x-2 sm:space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <button
+              onClick={onOpenCommandPalette}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/30 text-slate-400 hover:text-slate-200 transition-all text-xs cursor-pointer"
+              title="Search commands (Cmd+K / Ctrl+K)"
+            >
+              <Search className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">Search</span>
+              <kbd className="hidden sm:inline-block px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] text-slate-400 font-mono">⌘K</kbd>
+            </button>
             <ThemeToggle />
             {user ? (
               <>
@@ -414,6 +427,13 @@ function LandingPage() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Quick Symptom Chips & Interactive Body Map Integration */}
+          <div className="space-y-3 pt-2">
+            <SymptomQuickChips onSelectChip={(query) => setSymptomsInput(query)} />
+            
+            <InteractiveBodyMap onSelectSymptom={(sym) => setSymptomsInput(sym)} />
           </div>
 
           {/* Chat Input Console */}
@@ -793,39 +813,58 @@ function LandingPage() {
 }
 
 function App() {
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/privacy" element={<PrivacyPolicy />} />
-      <Route path="/terms" element={<TermsOfService />} />
-      <Route path="/hipaa" element={<HipaaCompliance />} />
-      <Route path="/consent" element={<ConsentProcedures />} />
-      
-      {/* SECURED PATIENT ROUTE GROUP */}
-      <Route element={<ProtectedRoute allowedRoles={['PATIENT']} />}>
-        <Route path="/patient/dashboard" element={<PatientDashboard />} />
-      </Route>
+    <>
+      <CommandPalette 
+        isOpen={commandPaletteOpen} 
+        onClose={() => setCommandPaletteOpen(false)} 
+      />
+      <Routes>
+        <Route path="/" element={<LandingPage onOpenCommandPalette={() => setCommandPaletteOpen(true)} />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/hipaa" element={<HipaaCompliance />} />
+        <Route path="/consent" element={<ConsentProcedures />} />
+        
+        {/* SECURED PATIENT ROUTE GROUP */}
+        <Route element={<ProtectedRoute allowedRoles={['PATIENT']} />}>
+          <Route path="/patient/dashboard" element={<PatientDashboard />} />
+        </Route>
 
-      {/* DOCTOR PORTAL DASHBOARD */}
-      <Route element={<ProtectedRoute allowedRoles={['DOCTOR']} />}>
-        <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
-      </Route>
+        {/* DOCTOR PORTAL DASHBOARD */}
+        <Route element={<ProtectedRoute allowedRoles={['DOCTOR']} />}>
+          <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
+        </Route>
 
-      {/* ADMIN CONSOLE DASHBOARD */}
-      <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-      </Route>
-      
-      {/* 404 Route */}
-      <Route path="*" element={
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
-          <h2 className="text-2xl font-bold text-white font-mono">404 - Page Not Found</h2>
-          <Link to="/" className="text-cyan-400 hover:underline text-sm font-mono">Back to safety</Link>
-        </div>
-      } />
-    </Routes>
+        {/* ADMIN CONSOLE DASHBOARD */}
+        <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        </Route>
+        
+        {/* 404 Route */}
+        <Route path="*" element={
+          <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
+            <h2 className="text-2xl font-bold text-white font-mono">404 - Page Not Found</h2>
+            <Link to="/" className="text-cyan-400 hover:underline text-sm font-mono">Back to safety</Link>
+          </div>
+        } />
+      </Routes>
+    </>
   );
 }
 

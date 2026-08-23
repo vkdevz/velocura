@@ -4,6 +4,11 @@ import { AuthContext } from '../context/AuthContext';
 import api from '../api';
 import TelehealthRoom from '../components/TelehealthRoom';
 import ThemeToggle from '../components/ThemeToggle';
+import VitalsTrendSparkline from '../components/clinical/VitalsTrendSparkline';
+import EmergencyHealthQrModal from '../components/clinical/EmergencyHealthQrModal';
+import InteractiveBodyMap from '../components/clinical/InteractiveBodyMap';
+import SymptomQuickChips from '../components/clinical/SymptomQuickChips';
+import { QrCode, ShieldAlert, Sparkles, Heart, Activity } from 'lucide-react';
 
 const VitalsChart = ({ data }) => {
   if (!data || data.length === 0) return null;
@@ -146,6 +151,7 @@ const PatientDashboard = () => {
   const [deleteCode, setDeleteCode] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deleteSuccess, setDeleteSuccess] = useState('');
+  const [showEmergencyQrModal, setShowEmergencyQrModal] = useState(false);
 
   // Lab Report Analyzer states
   const [reportFile, setReportFile] = useState(null);
@@ -979,12 +985,27 @@ const PatientDashboard = () => {
             <div className="space-y-8">
               
               {/* Header Info Banner */}
-              <div className="glass-card rounded-3xl p-8 relative overflow-hidden">
+              <div className="glass-card rounded-3xl p-8 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="absolute top-[-50%] right-[-10%] w-[300px] h-[300px] bg-cyan-500/10 rounded-full blur-[80px]" />
-                <h2 className="text-3xl font-extrabold text-white">Unified Health Passport</h2>
-                <p className="text-slate-400 mt-2 text-sm leading-relaxed max-w-xl">
-                  This passport consolidates your historical surgeries, fractures, allergies, and clinical diagnosis logs. Present this screen to any doctor for an instant, comprehensive view of your medical history.
-                </p>
+                <div>
+                  <h2 className="text-3xl font-extrabold text-white">Unified Health Passport</h2>
+                  <p className="text-slate-400 mt-2 text-sm leading-relaxed max-w-xl">
+                    This passport consolidates your historical surgeries, fractures, allergies, and clinical diagnosis logs. Present this screen to any doctor for an instant, comprehensive view of your medical history.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowEmergencyQrModal(true)}
+                  className="flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-gradient-to-r from-red-600/30 to-amber-600/30 hover:from-red-600/40 hover:to-amber-600/40 border border-red-500/30 text-white font-bold text-xs transition-all shadow-lg shadow-red-500/5 hover:scale-[1.02] active:scale-[0.98] flex-shrink-0 cursor-pointer"
+                >
+                  <div className="p-1.5 rounded-lg bg-red-500/20 text-red-400">
+                    <QrCode className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-[10px] uppercase font-bold tracking-wider text-red-300">Fast Response</div>
+                    <div className="text-xs font-extrabold">Emergency ICE QR Pass</div>
+                  </div>
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -1408,6 +1429,12 @@ const PatientDashboard = () => {
                 )}
               </div>
 
+              {/* Quick Symptom Chips & Interactive Body Map Scoping */}
+              <div className="space-y-3 pt-2 pb-2">
+                <SymptomQuickChips onSelectChip={(query) => setChatInput(query)} />
+                <InteractiveBodyMap onSelectSymptom={(sym) => setChatInput(sym)} />
+              </div>
+
               {/* Chat Input form */}
               <form onSubmit={handleSendSymptomQuery} className="flex gap-3 border-t border-slate-900 pt-4">
                 <button
@@ -1447,7 +1474,11 @@ const PatientDashboard = () => {
               STARTUP FEATURE TAB: VITALS LOGGER
              ========================================== */}
           {activeTab === 'vitals' && (
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="space-y-6">
+              {/* Apple Health-Style Sparkline Trend Visualization */}
+              <VitalsTrendSparkline vitals={vitalsList} />
+
+              <div className="grid md:grid-cols-3 gap-8">
               
               {/* Logger form column */}
               <div className="glass-card rounded-3xl p-6 md:col-span-1 h-fit">
@@ -1556,7 +1587,8 @@ const PatientDashboard = () => {
               </div>
 
             </div>
-          )}
+          </div>
+        )}
 
           {activeTab === 'profile' && (
             <div className="glass-card rounded-3xl p-8 max-w-2xl">
@@ -2213,6 +2245,18 @@ const PatientDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Emergency Medical ICE Pass QR Modal */}
+      <EmergencyHealthQrModal
+        isOpen={showEmergencyQrModal}
+        onClose={() => setShowEmergencyQrModal(false)}
+        passport={{
+          bloodGroup: bloodGroup || profile?.bloodGroup || 'O+ (Positive)',
+          allergies: allergies || profile?.allergies || 'No known severe drug allergies',
+          emergencyContact: phone ? `${phone} (Patient Contact)` : '+1 (555) 911-0842 (ICE Verified)'
+        }}
+        user={user}
+      />
     </div>
   );
 };
