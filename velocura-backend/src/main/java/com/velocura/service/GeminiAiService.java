@@ -23,13 +23,20 @@ public class GeminiAiService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final BasicConversationHandler basicConversationHandler;
+    private final com.velocura.security.ai.PhiDeidentifier phiDeidentifier;
+
+    public GeminiAiService(BasicConversationHandler basicConversationHandler, com.velocura.security.ai.PhiDeidentifier phiDeidentifier) {
+        this.basicConversationHandler = basicConversationHandler != null ? basicConversationHandler : new BasicConversationHandler();
+        this.phiDeidentifier = phiDeidentifier != null ? phiDeidentifier : new com.velocura.security.ai.PhiDeidentifier();
+    }
 
     public GeminiAiService(BasicConversationHandler basicConversationHandler) {
-        this.basicConversationHandler = basicConversationHandler != null ? basicConversationHandler : new BasicConversationHandler();
+        this(basicConversationHandler, new com.velocura.security.ai.PhiDeidentifier());
     }
 
     public GeminiAiService() {
         this.basicConversationHandler = new BasicConversationHandler();
+        this.phiDeidentifier = new com.velocura.security.ai.PhiDeidentifier();
     }
 
     public TriageResponse callGeminiApi(String symptoms) {
@@ -37,7 +44,7 @@ public class GeminiAiService {
     }
 
     public TriageResponse callGeminiApi(String symptoms, List<Map<String, String>> history) {
-        String cleanSymptoms = symptoms != null ? symptoms.trim() : "";
+        String cleanSymptoms = phiDeidentifier.sanitizeForAi(symptoms != null ? symptoms.trim() : "");
         String safeSnippet = cleanSymptoms.length() > 40 ? cleanSymptoms.substring(0, 40) + "..." : cleanSymptoms;
 
         logger.info("[AI ROUTER] Received message length: {}", cleanSymptoms.length());

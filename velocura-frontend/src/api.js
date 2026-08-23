@@ -28,7 +28,7 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to catch token expirations / unauthorized errors
+// Response interceptor to catch token expirations / unauthorized / rate limit errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -45,6 +45,9 @@ api.interceptors.response.use(
       if (path !== '/login' && path !== '/register' && path !== '/') {
         window.location.href = '/login?expired=true';
       }
+    } else if (error.response && error.response.status === 429) {
+      const retryAfter = error.response.headers['retry-after'] || error.response.data?.retryAfterSeconds || 60;
+      console.warn(`[Security Rate Limiter] Request throttled. Please retry after ${retryAfter}s.`);
     }
     return Promise.reject(error);
   }

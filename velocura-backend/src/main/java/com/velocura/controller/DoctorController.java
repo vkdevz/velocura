@@ -18,11 +18,13 @@ public class DoctorController {
 
     private final DoctorService doctorService;
     private final PatientService patientService;
+    private final com.velocura.service.AuditService auditService;
 
     @Autowired
-    public DoctorController(DoctorService doctorService, PatientService patientService) {
+    public DoctorController(DoctorService doctorService, PatientService patientService, com.velocura.service.AuditService auditService) {
         this.doctorService = doctorService;
         this.patientService = patientService;
+        this.auditService = auditService;
     }
 
     @GetMapping("/profile")
@@ -34,7 +36,9 @@ public class DoctorController {
     public ResponseEntity<DoctorProfileResponse> updateProfile(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody UpdateDoctorProfileRequest request) {
-        return ResponseEntity.ok(doctorService.updateDoctorProfile(userDetails.getUsername(), request));
+        DoctorProfileResponse response = doctorService.updateDoctorProfile(userDetails.getUsername(), request);
+        auditService.logSuccess("UPDATE_PROFILE", "Doctor", userDetails.getUsername(), "Doctor updated profile");
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/appointments")
@@ -47,6 +51,7 @@ public class DoctorController {
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody CreatePrescriptionRequest request) {
         doctorService.issuePrescription(userDetails.getUsername(), request);
+        auditService.logSuccess("ISSUE_PRESCRIPTION", "Prescription", String.valueOf(request.getAppointmentId()), "Doctor issued e-prescription for appointment");
         return ResponseEntity.ok("Prescription issued successfully!");
     }
 
@@ -55,11 +60,14 @@ public class DoctorController {
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody AddMedicalHistoryRequest request) {
         doctorService.addMedicalHistory(userDetails.getUsername(), request);
+        auditService.logSuccess("ADD_MEDICAL_HISTORY", "MedicalHistory", String.valueOf(request.getPatientId()), "Doctor added clinical history record");
         return ResponseEntity.ok("Medical history record added successfully!");
     }
 
     @GetMapping("/patient-passport/{patientId}")
     public ResponseEntity<com.velocura.dto.PatientPassportDto> getPatientPassport(@PathVariable Long patientId) {
-        return ResponseEntity.ok(patientService.getPatientPassportById(patientId));
+        com.velocura.dto.PatientPassportDto passport = patientService.getPatientPassportById(patientId);
+        auditService.logSuccess("DOCTOR_VIEW_PASSPORT", "PatientPassport", String.valueOf(patientId), "Doctor reviewed patient health passport");
+        return ResponseEntity.ok(passport);
     }
 }

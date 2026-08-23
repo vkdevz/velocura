@@ -20,11 +20,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;
     private final CustomUserDetailsService userDetailsService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Autowired
-    public JwtAuthenticationFilter(JwtUtils jwtUtils, CustomUserDetailsService userDetailsService) {
+    public JwtAuthenticationFilter(JwtUtils jwtUtils, 
+                                   CustomUserDetailsService userDetailsService,
+                                   @Autowired(required = false) TokenBlacklistService tokenBlacklistService) {
         this.jwtUtils = jwtUtils;
         this.userDetailsService = userDetailsService;
+        this.tokenBlacklistService = tokenBlacklistService != null ? tokenBlacklistService : new TokenBlacklistService();
     }
 
     @Override
@@ -32,7 +36,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         try {
             String jwt = parseJwt(request);
-            if (jwt != null && jwtUtils.validateToken(jwt)) {
+            if (jwt != null && !tokenBlacklistService.isBlacklisted(jwt) && jwtUtils.validateToken(jwt)) {
                 String email = jwtUtils.getEmailFromToken(jwt);
 
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);

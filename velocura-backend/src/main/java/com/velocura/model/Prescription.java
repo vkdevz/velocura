@@ -39,13 +39,16 @@ public class Prescription {
 
     @NotBlank(message = "Medication list is required")
     @Column(columnDefinition = "TEXT", nullable = false)
+    @Convert(converter = com.velocura.security.crypto.EncryptedStringConverter.class)
     private String medication;
 
     @NotBlank(message = "Dosage details are required")
     @Column(nullable = false)
+    @Convert(converter = com.velocura.security.crypto.EncryptedStringConverter.class)
     private String dosage;
 
     @Column(columnDefinition = "TEXT")
+    @Convert(converter = com.velocura.security.crypto.EncryptedStringConverter.class)
     private String instructions;
 
     @CreatedDate

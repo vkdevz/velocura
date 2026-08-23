@@ -11,6 +11,9 @@ import com.velocura.repository.DoctorRepository;
 import com.velocura.repository.PatientRepository;
 import com.velocura.repository.UserRepository;
 import com.velocura.security.JwtUtils;
+import com.velocura.security.TokenBlacklistService;
+import com.velocura.dto.GoogleAuthRequest;
+import com.velocura.service.GoogleAuthService;
 import com.velocura.service.NotificationService;
 import com.velocura.service.GeminiAiService;
 import jakarta.validation.Valid;
@@ -39,6 +42,12 @@ public class AuthController {
     private final NotificationService notificationService;
     private final GeminiAiService geminiAiService;
 
+    private final TokenBlacklistService tokenBlacklistService;
+    private final com.velocura.service.AuditService auditService;
+
+    @Autowired
+    private GoogleAuthService googleAuthService;
+
     @Autowired
     private com.velocura.service.AdminService adminService;
 
@@ -51,7 +60,9 @@ public class AuthController {
             AuthenticationManager authenticationManager,
             JwtUtils jwtUtils,
             NotificationService notificationService,
-            GeminiAiService geminiAiService) {
+            GeminiAiService geminiAiService,
+            TokenBlacklistService tokenBlacklistService,
+            com.velocura.service.AuditService auditService) {
         this.userRepository = userRepository;
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
@@ -60,6 +71,8 @@ public class AuthController {
         this.jwtUtils = jwtUtils;
         this.notificationService = notificationService;
         this.geminiAiService = geminiAiService;
+        this.tokenBlacklistService = tokenBlacklistService;
+        this.auditService = auditService;
     }
 
     @PostMapping("/register")
@@ -128,6 +141,8 @@ public class AuthController {
         // Generate JWT token for seamless auto-login
         String jwt = jwtUtils.generateToken(user.getEmail(), user.getRole().name());
 
+        auditService.logEvent(user.getId(), user.getEmail(), user.getRole().name(), "REGISTER", "User", String.valueOf(user.getId()), "CLIENT", "SUCCESS", "New user registered");
+
         return ResponseEntity.ok(AuthResponse.builder()
                 .token(jwt)
                 .email(user.getEmail())
@@ -146,6 +161,7 @@ public class AuthController {
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (org.springframework.security.core.AuthenticationException e) {
+            auditService.logEvent(null, loginRequest.getEmail(), "ANONYMOUS", "LOGIN_FAILED", "User", null, "CLIENT", "DENIED", "Invalid credentials");
             return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
                     .body("Error: Invalid email or password");
         }
@@ -155,6 +171,8 @@ public class AuthController {
 
         String jwt = jwtUtils.generateToken(user.getEmail(), user.getRole().name());
 
+        auditService.logEvent(user.getId(), user.getEmail(), user.getRole().name(), "LOGIN_SUCCESS", "User", String.valueOf(user.getId()), "CLIENT", "SUCCESS", "User logged in");
+
         return ResponseEntity.ok(AuthResponse.builder()
                 .token(jwt)
                 .email(user.getEmail())
@@ -162,6 +180,37 @@ public class AuthController {
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .build());
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logoutUser(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String jwt = authHeader.substring(7);
+            try {
+                java.util.Date expiry = jwtUtils.getExpirationFromToken(jwt);
+                tokenBlacklistService.blacklistToken(jwt, expiry != null ? expiry.getTime() : System.currentTimeMillis() + 86400000);
+            } catch (Exception e) {
+                // If token malformed or already expired, still blacklist string
+                tokenBlacklistService.blacklistToken(jwt, System.currentTimeMillis() + 3600000);
+            }
+        }
+        SecurityContextHolder.clearContext();
+        auditService.logSuccess("LOGOUT", "User", null, "User logged out and token invalidated");
+        return ResponseEntity.ok(java.util.Map.of("message", "User logged out successfully and session terminated."));
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<?> authenticateWithGoogle(@RequestBody GoogleAuthRequest googleAuthRequest) {
+        try {
+            AuthResponse response = googleAuthService.authenticateWithGoogle(googleAuthRequest);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Google Auth Exception: " + e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error: Unable to complete Google authentication. " + e.getMessage());
+        }
     }
 
     @GetMapping("/version")

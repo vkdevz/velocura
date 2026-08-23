@@ -31,12 +31,15 @@ public class MedicalHistory {
 
     @NotBlank(message = "Diagnosis is required")
     @Column(nullable = false)
+    @Convert(converter = com.velocura.security.crypto.EncryptedStringConverter.class)
     private String diagnosis;
 
     @Column(columnDefinition = "TEXT")
+    @Convert(converter = com.velocura.security.crypto.EncryptedStringConverter.class)
     private String symptoms;
 
     @Column(columnDefinition = "TEXT")
+    @Convert(converter = com.velocura.security.crypto.EncryptedStringConverter.class)
     private String treatment;
 
     @NotNull(message = "Recorded date is required")

@@ -19,8 +19,8 @@ logs/
 query.sql
 
 # Editor & OS files
-.vscode/*
-!.vscode/extensions.json
+.vscode/
+**/.vscode/
 .idea/
 .DS_Store
 *.suo

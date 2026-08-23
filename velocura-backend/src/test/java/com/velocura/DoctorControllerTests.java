@@ -45,6 +45,9 @@ class DoctorControllerTests {
     private DoctorService doctorService;
 
     @MockBean
+    private com.velocura.service.AuditService auditService;
+
+    @MockBean
     private CustomUserDetailsService customUserDetailsService;
 
     @MockBean

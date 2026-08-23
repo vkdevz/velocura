@@ -1,4 +1,5 @@
 import { createContext, useState, useEffect } from 'react';
+import api from '../api';
 
 export const AuthContext = createContext(null);
 
@@ -30,7 +31,12 @@ export const AuthProvider = ({ children }) => {
     setUser({ token, role, email, firstName, lastName });
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.post('/api/auth/logout');
+    } catch (e) {
+      console.debug('Backend logout notify finished or session already closed');
+    }
     localStorage.removeItem('token');
     localStorage.removeItem('role');
     localStorage.removeItem('email');

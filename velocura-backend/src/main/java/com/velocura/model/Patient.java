@@ -38,8 +38,10 @@ public class Patient {
     private String address;
 
     @Column(columnDefinition = "TEXT")
+    @Convert(converter = com.velocura.security.crypto.EncryptedStringConverter.class)
     private String allergies;
 
     @Column(name = "medical_history_timeline", columnDefinition = "TEXT")
+    @Convert(converter = com.velocura.security.crypto.EncryptedStringConverter.class)
     private String medicalHistoryTimeline;
 }
