@@ -218,7 +218,7 @@ public class GeminiAiService {
     }
 
     private String generateLocalOfflineMock(Map<String, Object> body) {
-        // Evaluate input for realistic offline triage when key is unset
+        // Evaluate input for realistic offline responses when key is unset
         String prompt = "";
         try {
             List<Map<String, Object>> contents = (List<Map<String, Object>>) body.get("contents");
@@ -229,6 +229,24 @@ public class GeminiAiService {
         } catch (Exception ignored) {}
 
         String norm = prompt.toLowerCase();
+
+        // 1. Casual conversational greeting check
+        if (norm.contains("friendly health platform assistant") || norm.startsWith("hi") || norm.startsWith("hello") || norm.equals("hey")) {
+            return "Hello! I am VeloCura AI, your digital health and triage assistant. How can I help you today? Feel free to describe any symptoms you are experiencing or ask medical questions.";
+        }
+
+        // 2. Medical Q&A check
+        if (norm.contains("medical information assistant") || norm.contains("question:") || norm.contains("can i take") || norm.contains("paracetamol with amoxicillin")) {
+            if (norm.contains("paracetamol") && norm.contains("amoxicillin")) {
+                return "Yes, Paracetamol (acetaminophen) and Amoxicillin can generally be taken together safely. They are different classes of medications with distinct mechanisms of action—Paracetamol provides pain relief and reduces fever, while Amoxicillin is an antibiotic prescribed to treat bacterial infections. Always adhere to prescribed dosages and consult your healthcare provider or pharmacist if you have pre-existing liver or kidney conditions.";
+            } else if (norm.contains("blood pressure") || norm.contains("138/88")) {
+                return "A blood pressure reading of 138/88 mmHg is classified as Prehypertension (or Stage 1 Hypertension under AHA/ACC guidelines). The systolic reading (138) and diastolic reading (88) are mildly elevated. Recommended measures include routine BP tracking, limiting dietary sodium intake, maintaining hydration, and discussing this reading with your physician.";
+            } else {
+                return "Based on clinical pharmacological guidelines, this inquiry involves assessing dosage schedules, patient history, and potential contraindications. For personalized health advice, please consult your primary physician or schedule a telehealth visit with one of our specialists.";
+            }
+        }
+
+        // 3. Clinical Symptom Triage Checks
         if (norm.contains("chest") && (norm.contains("pain") || norm.contains("pressure") || norm.contains("arm"))) {
             return """
             {
