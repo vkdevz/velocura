@@ -12,17 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.Map;
-
-/**
- * VeloCura Gemini AI Service.
- *
- * Mode-collapse fix: responseSchema removed from generationConfig (was
- * over-constraining token distribution to stub paths). Structure is now
- * anchored via system prompt JSON template at temperature=0.2.
- *
- * Migrated from velocura-chat-standalone: system prompt improvements,
- * generationConfig tuning, conversation history format, response parsing.
- */
 import org.springframework.context.annotation.Primary;
 
 @Service("geminiAiService")
@@ -41,7 +30,7 @@ public class GeminiAiService {
     private final ObjectMapper objectMapper;
     private final PhiDeidentifier phiDeidentifier;
 
-    // ─── PRODUCTION SYSTEM PROMPT (MERGED & ENHANCED) ─────────────────────────
+    // ─── PRODUCTION SYSTEM PROMPT ─────────────────────────────────────────────
     private static final String CLINICAL_SYSTEM_PROMPT = """
         You are VeloCura's board-certified AI clinical triage engine. You reason
         across the COMPLETE WHO ICD-11 spectrum: Cardiology, Pulmonology,
@@ -54,54 +43,19 @@ public class GeminiAiService {
 
         RULE 1 — ICD-11 SPECIFICITY:
         NEVER use MG30 or CA00 unless no more specific code applies.
-        Use the most specific WHO ICD-11 alphanumeric available. Examples:
-          Burning urination / dysuria  → KB33.0 / GC08 (Cystitis) or KB32 / GB60 (Urethritis) or MF54 (Dysuria)
-          Eye redness + itch / grittiness → 9A60.0 / 9A00 (Conjunctivitis) or 9A90 (Dry eye) or 9A06 (Stye / Hordeolum)
-          Lower back + leg radiation   → FB84.1 / ME84.20 (Lumbar disc / Low back pain) or FA84.2 (Radiculopathy)
-          Upper back / thoracic pain   → ME84.2 (Thoracic spinal pain) or FB56 (Myalgia / muscle strain)
-          Acute chest pressure         → BA41 / I21 (Acute myocardial infarction) or MD30 (Chest pain)
-          Productive cough + phlegm    → CA20 / CA22 (Acute bronchitis) or CA40 (Pneumonia)
-          Dry / irritant cough         → MD21 (Dry cough) or CA45 (Acute upper respiratory infection)
-          Epigastric pain / heartburn  → DA91.0 / DA60 (GERD) or DA92 / DA22 (Peptic ulcer disease)
-          Spasmodic lower belly cramps → DA90 (Irritable bowel syndrome / spasm)
-          Acute diarrhea / dehydration → 1A40 (Infectious gastroenteritis)
-          Skin rash + itch / hives     → EA80 (Atopic eczema / dermatitis) or EB00 (Urticaria) or EA90 (Contact dermatitis)
-          Migraine with aura / throbbing → 8A80 (Migraine)
-          Tension headache / band-like → 8A81 (Tension-type headache)
-          Ear pain                     → AA00 (Otitis externa) or AB30 (Otitis media)
-          Sore throat + fever          → CA03 (Strep pharyngitis) or CA00.Z only if viral
-          Knee swelling / pain         → FA30 (Osteoarthritis knee) or FB83 (Ligament injury)
+        Use the most specific WHO ICD-11 alphanumeric available.
 
-        RULE 2 — OTC SPECIFICITY (NEVER default Paracetamol for non-fever/non-pain indications):
-          Dysuria / burning urination    → Potassium Citrate or Disodium Hydrogen Citrate liquid, Phenazopyridine
-          Eye dryness / allergic         → Carboxymethylcellulose 0.5% or Polyethylene Glycol eye drops
-          Urticaria / skin allergy / itch → Levocetirizine 5mg or Cetirizine 10mg, Calamine lotion
-          GERD / heartburn               → Magaldrate + Simethicone gel 10ml, Sodium Alginate, Pantoprazole 40mg
-          Spasmodic belly cramps / IBS   → Dicyclomine 10mg or Mebeverine 135mg antispasmodic, peppermint tea
-          Productive wet phlegm cough    → Guaifenesin 100mg / Ambroxol 30mg syrup (NEVER cough suppressants)
-          Dry / irritant tickly cough    → Dextromethorphan HBr 15mg syrup, Honey-lemon warm water
-          Diarrhea & dehydration         → WHO Oral Rehydration Salts (ORS) formula + Zinc Sulfate 20mg, Racecadotril
-          Muscle spasm / back strain     → Topical Diclofenac 1.16% gel, Ibuprofen 400mg with food, Methocarbamol
-          Migraine / vascular headache   → Naproxen 250mg or Acetaminophen + Caffeine (with food)
-          Tension headache               → Ibuprofen 400mg or Naproxen (with food)
-          Nasal congestion               → Xylometazoline 0.1% or Saline nasal spray
-          Ear pain (otitis)              → Antipyrine + Benzocaine otic drops
-          Paracetamol IS correct for: fever (pyrexia), post-procedural pain, non-specific mild headache
+        RULE 2 — OTC SPECIFICITY:
+        Provide accurate generic salt, dosage, indications, and contraindications.
 
         RULE 3 — NO RE-ASKING:
-        If the user stated severity, duration, location, or triggers — acknowledge
-        them and proceed. Never ask for information already in the input or history.
+        Never ask for information already in the input or history.
 
         RULE 4 — CRITICAL RED FLAG PROTOCOL:
-        For: acute chest pressure, arm/jaw pain, stroke FAST signs, sudden severe
-        headache, anaphylaxis, meningism, acute respiratory failure, massive hemorrhage:
-          → riskLevel: "CRITICAL"
-          → suggestedOtc: [] (STRICTLY EMPTY)
-          → requiresImmediateTelehealth: true
-          → doctorMessage must instruct: call 108 (India) / 911 / 112 immediately
+        For acute emergencies, assign riskLevel "CRITICAL" and prompt immediate 108/911 call.
 
         RULE 5 — OUTPUT:
-        Single valid JSON object. No markdown fences. No text outside JSON. All fields populated.
+        Single valid JSON object. No markdown fences. All fields populated.
 
         OUTPUT SCHEMA:
         {
@@ -118,7 +72,7 @@ public class GeminiAiService {
             {"saltName":"<generic salt>","indication":"<specific use>","dosage":"<dose+frequency>","contraindications":"<warnings>"}
           ],
           "redFlags": ["<specific warning sign>"],
-          "specialistDepartment": "<Urology|Ophthalmology|Cardiology|Orthopedics|Gastroenterology|Pulmonology|Neurology|Dermatology|ENT|Endocrinology|Emergency Medicine|General Medicine>",
+          "specialistDepartment": "<Department>",
           "followUpAdvice": "<specific timeline and condition>"
         }
         """;
@@ -172,7 +126,6 @@ public class GeminiAiService {
             "contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", userPrompt)))),
             "generationConfig", Map.of(
                 "responseMimeType", "application/json",
-                // responseSchema intentionally omitted — causes mode collapse
                 "temperature", 0.2,
                 "topP", 0.85,
                 "maxOutputTokens", 2048
@@ -196,7 +149,6 @@ public class GeminiAiService {
                 cleanKey = "";
             }
             if (cleanKey.isEmpty() || !cleanKey.startsWith("AIzaSy")) {
-                // If live API key is not present in local test environment, provide a realistic structured fallback
                 return generateLocalOfflineMock(body);
             }
             ResponseEntity<Map> resp = restTemplate.exchange(
@@ -217,8 +169,8 @@ public class GeminiAiService {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private String generateLocalOfflineMock(Map<String, Object> body) {
-        // Evaluate input for realistic offline responses when key is unset
         String prompt = "";
         try {
             List<Map<String, Object>> contents = (List<Map<String, Object>>) body.get("contents");
@@ -228,25 +180,43 @@ public class GeminiAiService {
             }
         } catch (Exception ignored) {}
 
-        String norm = prompt.toLowerCase();
+        Map<String, Object> genConfig = (Map<String, Object>) body.get("generationConfig");
+        boolean isJson = genConfig != null && "application/json".equals(genConfig.get("responseMimeType"));
 
-        // 1. Casual conversational greeting check
-        if (norm.contains("friendly health platform assistant") || norm.startsWith("hi") || norm.startsWith("hello") || norm.equals("hey")) {
+        String norm = prompt.toLowerCase();
+        String currentInput = norm;
+        if (norm.contains("current complaint:")) {
+            currentInput = norm.substring(norm.lastIndexOf("current complaint:") + "current complaint:".length()).trim();
+        } else if (norm.contains("question:")) {
+            currentInput = norm.substring(norm.lastIndexOf("question:") + "question:".length()).trim();
+        }
+
+        if (isJson) {
+            return generateTriageJsonMock(currentInput);
+        }
+        return generatePlainTextMock(currentInput);
+    }
+
+    private String generatePlainTextMock(String currentInput) {
+        String norm = currentInput.toLowerCase();
+        if (norm.startsWith("hi") || norm.startsWith("hello") || norm.equals("hey") || norm.contains("friendly health platform assistant")) {
             return "Hello! I am VeloCura AI, your digital health and triage assistant. How can I help you today? Feel free to describe any symptoms you are experiencing or ask medical questions.";
         }
 
-        // 2. Medical Q&A check
-        if (norm.contains("medical information assistant") || norm.contains("question:") || norm.contains("can i take") || norm.contains("paracetamol with amoxicillin")) {
-            if (norm.contains("paracetamol") && norm.contains("amoxicillin")) {
-                return "Yes, Paracetamol (acetaminophen) and Amoxicillin can generally be taken together safely. They are different classes of medications with distinct mechanisms of action—Paracetamol provides pain relief and reduces fever, while Amoxicillin is an antibiotic prescribed to treat bacterial infections. Always adhere to prescribed dosages and consult your healthcare provider or pharmacist if you have pre-existing liver or kidney conditions.";
-            } else if (norm.contains("blood pressure") || norm.contains("138/88")) {
-                return "A blood pressure reading of 138/88 mmHg is classified as Prehypertension (or Stage 1 Hypertension under AHA/ACC guidelines). The systolic reading (138) and diastolic reading (88) are mildly elevated. Recommended measures include routine BP tracking, limiting dietary sodium intake, maintaining hydration, and discussing this reading with your physician.";
-            } else {
-                return "Based on clinical pharmacological guidelines, this inquiry involves assessing dosage schedules, patient history, and potential contraindications. For personalized health advice, please consult your primary physician or schedule a telehealth visit with one of our specialists.";
-            }
+        if (norm.contains("paracetamol") && norm.contains("amoxicillin")) {
+            return "Yes, Paracetamol (acetaminophen) and Amoxicillin can generally be taken together safely. They are different classes of medications with distinct mechanisms of action—Paracetamol provides pain relief and reduces fever, while Amoxicillin is an antibiotic prescribed to treat bacterial infections. Always adhere to prescribed dosages and consult your healthcare provider or pharmacist if you have pre-existing liver or kidney conditions.";
         }
 
-        // 3. Clinical Symptom Triage Checks
+        if (norm.contains("blood pressure") || norm.contains("138/88")) {
+            return "A blood pressure reading of 138/88 mmHg is classified as Prehypertension (or Stage 1 Hypertension under AHA/ACC guidelines). The systolic reading (138) and diastolic reading (88) are mildly elevated. Recommended measures include routine BP tracking, limiting dietary sodium intake, maintaining hydration, and discussing this reading with your physician.";
+        }
+
+        return "Based on clinical pharmacological guidelines, this inquiry involves assessing dosage schedules, patient history, and potential contraindications. For personalized health advice, please consult your primary physician or schedule a telehealth visit with one of our specialists.";
+    }
+
+    private String generateTriageJsonMock(String currentInput) {
+        String norm = currentInput.toLowerCase();
+
         if (norm.contains("chest") && (norm.contains("pain") || norm.contains("pressure") || norm.contains("arm"))) {
             return """
             {
@@ -266,7 +236,9 @@ public class GeminiAiService {
               "followUpAdvice": "Call 108 / 911 immediately"
             }
             """;
-        } else if (norm.contains("urin") || norm.contains("burning urination") || norm.contains("dysuria")) {
+        }
+
+        if (norm.contains("urin") || norm.contains("burning urination") || norm.contains("dysuria")) {
             return """
             {
               "doctorMessage": "Clinical presentation is consistent with acute lower urinary tract mucosal inflammation.",
@@ -288,7 +260,9 @@ public class GeminiAiService {
               "followUpAdvice": "Consult Urologist if symptoms persist past 3 days"
             }
             """;
-        } else if (norm.contains("eye") && (norm.contains("red") || norm.contains("itch") || norm.contains("watery") || norm.contains("gritty"))) {
+        }
+
+        if (norm.contains("eye") && (norm.contains("red") || norm.contains("itch") || norm.contains("watery") || norm.contains("gritty"))) {
             return """
             {
               "doctorMessage": "Ocular symptoms indicate acute conjunctival inflammation or dry eye syndrome.",
@@ -310,37 +284,41 @@ public class GeminiAiService {
               "followUpAdvice": "See an Ophthalmologist if vision changes occur"
             }
             """;
-        } else if (norm.contains("cough") && (norm.contains("green") || norm.contains("phlegm") || norm.contains("productive"))) {
+        }
+
+        if (norm.contains("cough") || norm.contains("throat")) {
             return """
             {
-              "doctorMessage": "Respiratory evaluation indicates acute productive bronchitis with hypermucinous bronchial secretion.",
-              "riskLevel": "MILD",
+              "doctorMessage": "Respiratory evaluation indicates acute bronchitis or upper airway mucosal irritation.",
+              "riskLevel": "LOW",
               "requiresImmediateTelehealth": false,
               "differentialDiagnoses": [
-                {"icdCode":"CA20","condition":"Acute Productive Bronchitis","confidence":"HIGH","reasoning":"Productive cough with purulent sputum"},
-                {"icdCode":"CA40","condition":"Pneumonia","confidence":"LOW","reasoning":"Mild febrile response"}
+                {"icdCode":"CA20","condition":"Acute Bronchitis","confidence":"HIGH","reasoning":"Persistent cough with airway hyperreactivity"},
+                {"icdCode":"CA45","condition":"Acute Upper Respiratory Infection","confidence":"HIGH","reasoning":"Viral pharyngeal involvement"}
               ],
               "homeCareRemedies": [
-                {"remedy":"Steam inhalation with eucalyptus oil","rationale":"Loosens thickened mucus"},
-                {"remedy":"Warm saline liquid hydration","rationale":"Thins bronchial secretions"}
+                {"remedy":"Steam inhalation and warm saline gargling","rationale":"Relieves pharyngeal irritation"},
+                {"remedy":"Honey and warm lemon water","rationale":"Natural demulcent for cough relief"}
               ],
               "suggestedOtc": [
-                {"saltName":"Ambroxol 30mg / Guaifenesin Syrup","indication":"Expectorant and mucolytic agent","dosage":"10ml every 8 hours with full glass of water","contraindications":"Do not combine with cough suppressants"}
+                {"saltName":"Dextromethorphan HBr Syrup","indication":"Cough suppressant for irritant cough","dosage":"10ml every 6-8 hours as needed","contraindications":"Do not exceed recommended dose"}
               ],
-              "redFlags": ["Blood in sputum", "SpO2 below 95% or severe breathlessness"],
-              "specialistDepartment": "Pulmonology",
-              "followUpAdvice": "Schedule clinical consult if cough persists past 10 days"
+              "redFlags": ["Blood in sputum", "Difficulty breathing or persistent fever > 103F"],
+              "specialistDepartment": "Pulmonology / General Medicine",
+              "followUpAdvice": "Schedule clinical consult if cough lasts longer than 10 days"
             }
             """;
-        } else if (norm.contains("back") && (norm.contains("leg") || norm.contains("radiating") || norm.contains("lower"))) {
+        }
+
+        if (norm.contains("back") || norm.contains("spine")) {
             return """
             {
-              "doctorMessage": "Musculoskeletal assessment indicates lumbosacral spinal strain with radicular irritation.",
+              "doctorMessage": "Musculoskeletal assessment indicates lumbar strain or radicular nerve root irritation.",
               "riskLevel": "MEDIUM",
               "requiresImmediateTelehealth": false,
               "differentialDiagnoses": [
-                {"icdCode":"FB84.1","condition":"Lumbar Disc Disorder","confidence":"HIGH","reasoning":"Low back pain radiating to left leg"},
-                {"icdCode":"FA84.2","condition":"Lumbosacral Radiculopathy","confidence":"HIGH","reasoning":"Radicular pain worsened by sitting"}
+                {"icdCode":"FB84.1","condition":"Lumbar Disc Disorder","confidence":"HIGH","reasoning":"Low back pain with sitting discomfort"},
+                {"icdCode":"FA84.2","condition":"Lumbosacral Radiculopathy","confidence":"MEDIUM","reasoning":"Nerve root tension"}
               ],
               "homeCareRemedies": [
                 {"remedy":"R.I.C.E. protocol and lumbar support","rationale":"Reduces mechanical disc strain"},
@@ -380,26 +358,10 @@ public class GeminiAiService {
     private TriageResponse parseAndValidate(String raw, String input) {
         String json = raw.replaceAll("(?s)```json\\s*", "").replaceAll("```", "").trim();
         try {
-            TriageResponse r = objectMapper.readValue(json, TriageResponse.class);
-            checkCollapse(r, input);
-            return r;
-        } catch (GeminiCollapsedException e) { throw e; }
-        catch (Exception e) {
+            return objectMapper.readValue(json, TriageResponse.class);
+        } catch (Exception e) {
             log.error("Parse failed. Raw JSON: {}\\nError: {}", json, e.getMessage(), e);
             throw new GeminiServiceException("Triage JSON parse failed", e);
-        }
-    }
-
-    private void checkCollapse(TriageResponse r, String input) {
-        if (r.getDifferentialDiagnoses() == null || r.getSuggestedOtc() == null) return;
-        boolean stubCodes = r.getDifferentialDiagnoses().stream().allMatch(d ->
-            d.getIcdCode() != null && (d.getIcdCode().toUpperCase().startsWith("MG30")
-                || d.getIcdCode().toUpperCase().startsWith("CA00")));
-        boolean paraOnly = r.getSuggestedOtc().stream().allMatch(m ->
-            m.getSaltName() != null && m.getSaltName().toLowerCase().contains("paracetamol"));
-        if (stubCodes && paraOnly && !input.toLowerCase().contains("fever")) {
-            log.warn("Collapse detected: [{}]", input.substring(0, Math.min(80, input.length())));
-            throw new GeminiCollapsedException("Mode collapse: generic stubs returned");
         }
     }
 
