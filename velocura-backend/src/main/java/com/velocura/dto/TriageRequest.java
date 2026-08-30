@@ -14,5 +14,5 @@ import java.util.Map;
 @Builder
 public class TriageRequest {
     private String symptoms;
-    private List<Map<String, String>> history;
+    private List<Map<String, Object>> history;
 }

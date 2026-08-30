@@ -45,9 +45,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(List.of(
-                "http://localhost:5173",
-                "http://localhost:3000",
-                "http://localhost:8080",
+                "http://localhost:*",
                 "http://127.0.0.1:*",
                 "https://*.vercel.app",
                 "https://velocura.vercel.app",
@@ -90,7 +88,7 @@ public class SecurityConfig {
                 })
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/favicon.ico", "/").permitAll()
+                .requestMatchers("/api/auth/**", "/api/chat/**", "/api/health", "/favicon.ico", "/").permitAll()
                 .requestMatchers("/api/admin/audit-logs/**").hasRole("ADMIN")
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/patient/**").hasRole("PATIENT")

@@ -1,0 +1,45 @@
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--space-2); font-family: var(--font-sans);
+  font-weight: var(--weight-medium); border-radius: var(--radius-full);
+  border: none; cursor: pointer; white-space: nowrap; user-select: none;
+  transition:
+    background  var(--dur-fast) var(--ease-apple),
+    opacity     var(--dur-fast) var(--ease-apple),
+    transform   var(--dur-fast) var(--ease-apple),
+    box-shadow  var(--dur-fast) var(--ease-apple);
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active:not(:disabled) { transform: scale(0.97); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn:focus-visible { outline: 3px solid rgba(10,132,255,0.5); outline-offset: 2px; }
+
+.sm  { font-size: var(--text-sm);  padding: var(--space-1) var(--space-3);  min-height: 28px; }
+.md  { font-size: var(--text-md);  padding: var(--space-2) var(--space-5);  min-height: 36px; }
+.lg  { font-size: var(--text-lg);  padding: var(--space-3) var(--space-6);  min-height: 44px; }
+
+.primary     { background: var(--accent); color: #fff;
+               box-shadow: 0 1px 3px rgba(10,132,255,0.4); }
+.primary:hover:not(:disabled)  { background: #0071e3;
+                                  box-shadow: 0 4px 12px rgba(10,132,255,0.45); }
+
+.secondary   { background: var(--fill-tertiary); color: var(--label-primary);
+               border: 1px solid var(--separator); }
+.secondary:hover:not(:disabled) { background: var(--fill-secondary); }
+
+.ghost       { background: transparent; color: var(--accent); }
+.ghost:hover:not(:disabled) { background: var(--fill-quaternary); }
+
+.destructive { background: var(--critical); color: #fff; }
+.destructive:hover:not(:disabled) { opacity: 0.88; }
+
+.tinted      { background: rgba(10,132,255,0.15); color: var(--accent); }
+.tinted:hover:not(:disabled) { background: rgba(10,132,255,0.22); }
+
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin 0.7s linear infinite; display: inline-block;
+}
+.dimmed { opacity: 0.7; }

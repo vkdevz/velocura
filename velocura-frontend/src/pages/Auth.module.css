@@ -1,0 +1,124 @@
+.authPage {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+  background: var(--bg-base);
+}
+
+.authCard {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.authHeader {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.brandWordmark {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  color: var(--label-primary);
+  letter-spacing: var(--tracking-tight);
+}
+
+.authTitle {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-medium);
+  color: var(--label-primary);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.roleToggle {
+  display: flex;
+  background: var(--fill-tertiary);
+  border-radius: var(--radius-lg);
+  padding: 3px;
+  border: 1px solid var(--separator);
+}
+
+.roleBtn {
+  flex: 1;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  border-radius: var(--radius-md);
+  color: var(--label-secondary);
+  transition: background var(--dur-fast) var(--ease-apple),
+              color var(--dur-fast) var(--ease-apple);
+}
+
+.roleBtnActive {
+  background: var(--bg-elevated);
+  color: var(--label-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.fullWidthBtn {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.errorBanner {
+  font-size: var(--text-xs);
+  color: var(--critical);
+  background: rgba(255, 69, 58, 0.1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+}
+
+.successBanner {
+  font-size: var(--text-xs);
+  color: var(--safe);
+  background: rgba(48, 209, 88, 0.1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+}
+
+.authFooter {
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--label-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.authLink {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.authLink:hover {
+  text-decoration: underline;
+}
+
+.forgotBtn {
+  font-size: var(--text-xs);
+  color: var(--label-tertiary);
+  text-align: right;
+  align-self: flex-end;
+  margin-top: -8px;
+  cursor: pointer;
+}
+
+.forgotBtn:hover {
+  color: var(--label-secondary);
+}

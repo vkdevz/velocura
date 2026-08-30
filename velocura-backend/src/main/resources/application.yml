@@ -41,6 +41,11 @@ velocura:
     email: ${ADMIN_EMAIL:admin@velocura.com}
     password: ${ADMIN_PASSWORD:VeloCuraAdmin_#2026_SecureKey}
 
+gemini:
+  api:
+    key: ${GEMINI_API_KEY:}
+    url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent}
+
 app:
   jwt:
     secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}

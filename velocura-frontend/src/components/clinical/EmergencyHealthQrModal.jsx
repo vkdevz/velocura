@@ -1,156 +1,250 @@
-import React from 'react';
-import { 
-  ShieldAlert, 
-  X, 
-  QrCode, 
-  Heart, 
-  AlertTriangle, 
-  Phone, 
-  User, 
-  CheckCircle, 
-  Printer 
-} from 'lucide-react';
+import React from "react";
+import {
+  ShieldAlert,
+  X,
+  QrCode,
+  Heart,
+  AlertTriangle,
+  Phone,
+  User,
+  CheckCircle2,
+  Printer
+} from "lucide-react";
+import Button from "../ui/Button";
+import Badge from "../ui/Badge";
 
 export default function EmergencyHealthQrModal({ isOpen, onClose, passport, user }) {
   if (!isOpen) return null;
 
-  const bloodGroup = passport?.bloodGroup || user?.bloodGroup || 'O+ (Positive)';
-  const allergies = passport?.allergies || 'No known severe drug allergies';
-  const emergencyContact = passport?.emergencyContact || '+1 (555) 911-0842 (Next of Kin)';
-  const fullName = `${user?.firstName || 'Valued'} ${user?.lastName || 'Patient'}`;
+  const bloodGroup = passport?.bloodGroup || user?.bloodGroup || "O+ (Positive)";
+  const allergies = passport?.allergies || "No known severe drug allergies";
+  const emergencyContact = passport?.emergencyContact || "+1 (555) 911-0842 (Next of Kin)";
+  const fullName = `${user?.firstName || "Valued"} ${user?.lastName || "Patient"}`.trim();
 
   // Encoded emergency pass data payload
   const qrDataPayload = encodeURIComponent(
     `VELOCURA_ICE_PASS|NAME:${fullName}|BLOOD:${bloodGroup}|ALLERGIES:${allergies}|EMERGENCY:${emergencyContact}`
   );
 
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${qrDataPayload}&bgcolor=0f172a&color=06b6d4&margin=1`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${qrDataPayload}&bgcolor=ffffff&color=000000&margin=1`;
 
   const handlePrint = () => {
     window.print();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
-      <div 
-        className="w-full max-w-lg bg-slate-900 border border-slate-700/85 rounded-2xl shadow-2xl overflow-hidden glass-card luminous-card"
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: "rgba(0, 0, 0, 0.75)",
+        backdropFilter: "var(--material-blur)",
+        WebkitBackdropFilter: "var(--material-blur)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "var(--space-4)"
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "480px",
+          background: "var(--bg-elevated)",
+          border: "1px solid var(--separator)",
+          borderRadius: "var(--radius-2xl)",
+          boxShadow: "var(--shadow-lg), 0 16px 48px rgba(0,0,0,0.5)",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column"
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header Banner */}
-        <div className="relative bg-gradient-to-r from-red-600/30 via-slate-900 to-cyan-500/20 p-5 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 animate-pulse">
-              <ShieldAlert className="w-6 h-6" />
+        {/* Header */}
+        <div
+          style={{
+            padding: "var(--space-5)",
+            borderBottom: "1px solid var(--separator)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: "var(--bg-elevated-2)"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+            <div
+              style={{
+                padding: "var(--space-2)",
+                background: "rgba(255, 69, 58, 0.15)",
+                borderRadius: "var(--radius-md)",
+                color: "var(--critical)"
+              }}
+            >
+              <ShieldAlert size={20} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white">Emergency Medical ICE Pass</h3>
-                <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30">
-                  First Responder
-                </span>
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                <h3 style={{ fontSize: "var(--text-md)", fontWeight: "var(--weight-semibold)", color: "var(--label-primary)" }}>
+                  Emergency Medical ICE Pass
+                </h3>
+                <Badge tone="red">First Responder</Badge>
               </div>
-              <p className="text-xs text-slate-400">Instant scan access for paramedic & ER hospital intake</p>
+              <p style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", marginTop: "2px" }}>
+                Instant scan access for paramedic & ER hospital intake
+              </p>
             </div>
           </div>
-          <button 
+          <button
+            type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+            style={{
+              background: "none",
+              border: "none",
+              color: "var(--label-tertiary)",
+              cursor: "pointer",
+              padding: "var(--space-1)"
+            }}
           >
-            <X className="w-5 h-5" />
+            <X size={18} />
           </button>
         </div>
 
-        {/* Content Body */}
-        <div className="p-6 space-y-5">
-          <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-xl bg-slate-950/80 border border-slate-800">
-            {/* QR Code Container */}
-            <div className="relative p-2 rounded-xl bg-slate-900 border border-cyan-500/30 shadow-lg flex-shrink-0">
-              <img 
-                src={qrCodeUrl} 
-                alt="Emergency Medical QR Code" 
-                className="w-36 h-36 rounded-lg object-contain"
+        {/* Body */}
+        <div style={{ padding: "var(--space-6)", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--space-5)",
+              padding: "var(--space-4)",
+              background: "var(--bg-elevated-2)",
+              border: "1px solid var(--separator)",
+              borderRadius: "var(--radius-xl)"
+            }}
+          >
+            {/* High-Contrast Crisp QR Container */}
+            <div
+              style={{
+                background: "#ffffff",
+                padding: "var(--space-2)",
+                borderRadius: "var(--radius-lg)",
+                boxShadow: "var(--shadow-sm)",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+            >
+              <img
+                src={qrCodeUrl}
+                alt="Emergency Medical QR Code"
+                style={{ width: "120px", height: "120px", objectFit: "contain", borderRadius: "var(--radius-sm)" }}
                 onError={(e) => {
-                  e.target.style.display = 'none';
+                  e.target.style.display = "none";
                 }}
               />
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-                <QrCode className="w-10 h-10 text-cyan-400" />
-              </div>
             </div>
 
-            {/* Critical ICE Metrics */}
-            <div className="w-full space-y-3">
+            {/* Metrics */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", minWidth: 0 }}>
               <div>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Patient Identity</span>
-                <p className="text-sm font-extrabold text-white flex items-center gap-1.5 mt-0.5">
-                  <User className="w-3.5 h-3.5 text-cyan-400" />
-                  {fullName}
+                <span style={{ fontSize: "var(--text-xs)", textTransform: "uppercase", fontWeight: "var(--weight-semibold)", color: "var(--label-tertiary)", letterSpacing: "var(--tracking-caps)" }}>
+                  Patient Identity
+                </span>
+                <p style={{ fontSize: "var(--text-md)", fontWeight: "var(--weight-semibold)", color: "var(--label-primary)", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+                  <User size={14} style={{ color: "var(--accent)" }} /> {fullName}
                 </p>
               </div>
 
               <div>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Blood Group</span>
-                <p className="text-sm font-black text-red-400 flex items-center gap-1.5 mt-0.5">
-                  <Heart className="w-3.5 h-3.5 text-red-400 fill-red-500/20" />
-                  {bloodGroup}
+                <span style={{ fontSize: "var(--text-xs)", textTransform: "uppercase", fontWeight: "var(--weight-semibold)", color: "var(--label-tertiary)", letterSpacing: "var(--tracking-caps)" }}>
+                  Blood Group
+                </span>
+                <p style={{ fontSize: "var(--text-md)", fontWeight: "var(--weight-bold)", color: "var(--critical)", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+                  <Heart size={14} style={{ color: "var(--critical)" }} /> {bloodGroup}
                 </p>
               </div>
 
               <div>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Critical Allergies / Red Flags</span>
-                <p className="text-xs font-semibold text-amber-300 flex items-start gap-1.5 mt-0.5">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-                  <span>{allergies}</span>
+                <span style={{ fontSize: "var(--text-xs)", textTransform: "uppercase", fontWeight: "var(--weight-semibold)", color: "var(--label-tertiary)", letterSpacing: "var(--tracking-caps)" }}>
+                  Allergies / Red Flags
+                </span>
+                <p style={{ fontSize: "var(--text-xs)", color: "var(--warning)", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+                  <AlertTriangle size={13} style={{ color: "var(--warning)", flexShrink: 0 }} /> {allergies}
                 </p>
               </div>
             </div>
           </div>
 
           {/* Emergency Contact */}
-          <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-800/40 border border-slate-800">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <Phone className="w-4 h-4" />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "var(--space-3) var(--space-4)",
+              background: "var(--bg-elevated-2)",
+              border: "1px solid var(--separator)",
+              borderRadius: "var(--radius-lg)"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+              <div style={{ padding: "var(--space-2)", background: "rgba(48, 209, 88, 0.15)", borderRadius: "var(--radius-md)", color: "var(--safe)" }}>
+                <Phone size={16} />
               </div>
               <div>
-                <span className="text-[10px] font-bold uppercase text-slate-400">Emergency ICE Contact</span>
-                <p className="text-xs font-bold text-slate-200 mt-0.5">{emergencyContact}</p>
+                <span style={{ fontSize: "var(--text-xs)", textTransform: "uppercase", color: "var(--label-tertiary)", fontWeight: "var(--weight-semibold)" }}>
+                  Emergency ICE Contact
+                </span>
+                <p style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-medium)", color: "var(--label-primary)" }}>{emergencyContact}</p>
               </div>
             </div>
-            <a 
-              href={`tel:${emergencyContact.replace(/\D/g, '')}`}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-sm"
+            <a
+              href={`tel:${emergencyContact.replace(/\D/g, "")}`}
+              style={{
+                fontSize: "var(--text-xs)",
+                fontWeight: "var(--weight-semibold)",
+                color: "#ffffff",
+                background: "var(--safe)",
+                padding: "var(--space-2) var(--space-3)",
+                borderRadius: "var(--radius-md)",
+                textDecoration: "none"
+              }}
             >
               Call ICE
             </a>
           </div>
 
-          {/* HIPAA & Security Stamp */}
-          <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-cyan-500/5 border border-cyan-500/15 p-2.5 rounded-xl">
-            <CheckCircle className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-            <span>Digital verification cryptographically signed with AES-256 GCM token validation.</span>
+          {/* Compliance note */}
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--label-tertiary)" }}>
+            <CheckCircle2 size={15} style={{ color: "var(--accent)" }} />
+            <span>Digitally verified via AES-256 encrypted health passport repository.</span>
           </div>
         </div>
 
-        {/* Action Footer */}
-        <div className="p-4 bg-slate-950/60 border-t border-slate-800 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all"
-          >
-            <Printer className="w-4 h-4 text-cyan-400" />
-            Print Emergency Pass
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-md shadow-cyan-500/10"
-          >
+        {/* Footer */}
+        <div
+          style={{
+            padding: "var(--space-4) var(--space-6)",
+            borderTop: "1px solid var(--separator)",
+            background: "var(--bg-elevated-2)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}
+        >
+          <Button variant="secondary" size="md" onClick={handlePrint}>
+            <Printer size={14} /> Print Pass
+          </Button>
+          <Button variant="primary" size="md" onClick={onClose}>
             Done
-          </button>
+          </Button>
         </div>
       </div>
     </div>
   );
 }
+
+export { EmergencyHealthQrModal };

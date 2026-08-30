@@ -17,7 +17,7 @@ const api = axios.create({
 // Request interceptor to automatically attach JWT token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('velocura_jwt');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -33,16 +33,15 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Clear stale token values
-      localStorage.removeItem('token');
-      localStorage.removeItem('role');
-      localStorage.removeItem('email');
-      localStorage.removeItem('firstName');
-      localStorage.removeItem('lastName');
-      
-      // Redirect to login page unless already on auth screens
+      // If unauthorized on protected API call
       const path = window.location.pathname;
-      if (path !== '/login' && path !== '/register' && path !== '/') {
+      if (path.includes('/dashboard')) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('velocura_jwt');
+        localStorage.removeItem('role');
+        localStorage.removeItem('email');
+        localStorage.removeItem('firstName');
+        localStorage.removeItem('lastName');
         window.location.href = '/login?expired=true';
       }
     } else if (error.response && error.response.status === 429) {

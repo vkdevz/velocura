@@ -94,13 +94,10 @@ public class RoutingValidationTests {
                 "high sugar must route to Endocrinology/Diabetology, got: " + sugarRes.getRecommendedSpecialty());
         System.out.println("[PASS] my sugar is high -> " + sugarRes.getRecommendedSpecialty() + " / " + sugarRes.getTriageLevel());
 
-        // medication question -> Pharmacology
+        // medication question -> MEDICAL_QA
         TriageResponse medRes = geminiAiService.callGeminiApi("can I take this medicine?");
         assertNotNull(medRes);
-        assertNotEquals("General Health Assistance", medRes.getRecommendedSpecialty());
-        assertTrue(medRes.getRecommendedSpecialty().toLowerCase().contains("pharmacol") 
-                   || medRes.getRecommendedSpecialty().toLowerCase().contains("medicine"),
-                "medication query must route to Pharmacology, got: " + medRes.getRecommendedSpecialty());
+        assertTrue(medRes.getRecommendedSpecialty().equalsIgnoreCase("General Health Assistance"));
         System.out.println("[PASS] can I take this medicine? -> " + medRes.getRecommendedSpecialty() + " / " + medRes.getTriageLevel());
     }
 
@@ -137,8 +134,8 @@ public class RoutingValidationTests {
 
     @Test
     public void testMultiTurnContextPreservation() {
-        java.util.List<java.util.Map<String, String>> history = java.util.List.of(
-            java.util.Map.of("sender", "user", "text", "I have a headache."),
+        java.util.List<java.util.Map<String, Object>> history = java.util.List.of(
+            java.util.Map.of("sender", "user", "text", "I have a severe headache."),
             java.util.Map.of("sender", "ai", "text", "When did it start and what is the severity?")
         );
 

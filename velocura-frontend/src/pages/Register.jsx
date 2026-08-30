@@ -1,297 +1,147 @@
-import { useState, useEffect, useContext } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
-import api from '../api';
+import React, { useState, useContext, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
+import api from "../api";
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
+import { KeyRound, RefreshCw, X, ShieldCheck } from "lucide-react";
+import s from "./Auth.module.css";
 
-const Register = () => {
+export default function Register() {
   const navigate = useNavigate();
-  const { login } = useContext(AuthContext);
-  
-  const [role, setRole] = useState('PATIENT'); // PATIENT or DOCTOR
-  
-  // Base fields
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const { login } = useContext(AuthContext) || {};
 
-  // Patient fields
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [gender, setGender] = useState('Male');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [bloodGroup, setBloodGroup] = useState('O+');
-  const [address, setAddress] = useState('');
+  const [role, setRole] = useState("PATIENT");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  // Doctor fields
-  const [specialization, setSpecialization] = useState('');
-  const [licenseNumber, setLicenseNumber] = useState('');
-  const [experienceYears, setExperienceYears] = useState('');
-  const [biography, setBiography] = useState('');
-  const [consultationFee, setConsultationFee] = useState('');
+  // Patient / Doctor optional fields
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [specialization, setSpecialization] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
 
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // OTP Verification hooks
+  // OTP Verification Modal States
   const [showOtpModal, setShowOtpModal] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
+  const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
-  const [otpError, setOtpError] = useState('');
-  const [otpSuccess, setOtpSuccess] = useState('');
-  const [cachedRegisterData, setCachedRegisterData] = useState(null);
+  const [otpError, setOtpError] = useState("");
+  const [otpSuccess, setOtpSuccess] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
 
-  // Google Auth hooks
-  const [googleLoading, setGoogleLoading] = useState(false);
-
-  const executeGoogleAuth = async (authPayload) => {
-    setError('');
-    setGoogleLoading(true);
-    try {
-      const response = await api.post('/api/auth/google', {
-        ...authPayload,
-        role,
-        dateOfBirth,
-        gender,
-        phoneNumber,
-        bloodGroup,
-        address,
-        specialization,
-        licenseNumber,
-        experienceYears: experienceYears ? parseInt(experienceYears) : null,
-        biography,
-        consultationFee: consultationFee ? parseFloat(consultationFee) : null
-      });
-      const { token, email: userEmail, role: userRole, firstName: userFn, lastName: userLn } = response.data;
-      if (login) login(token, userEmail, userRole, userFn, userLn);
-      setSuccess('Successfully authenticated via Google! Redirecting...');
-      setTimeout(() => {
-        if (userRole === 'PATIENT') navigate('/patient/dashboard');
-        else if (userRole === 'DOCTOR') navigate('/doctor/dashboard');
-        else navigate('/login');
-      }, 1500);
-    } catch (err) {
-      console.error('Google Auth Error:', err);
-      if (err.response && err.response.data && typeof err.response.data === 'string') {
-        setError(err.response.data);
-      } else if (err.response && err.response.data && err.response.data.message) {
-        setError(err.response.data.message);
-      } else {
-        setError('Google sign-up failed. Please try again.');
-      }
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
-  // Automatic Google One-Tap initialization on mount
   useEffect(() => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (window.google?.accounts?.id && clientId) {
-      try {
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: (res) => {
-            if (res.credential) {
-              executeGoogleAuth({ idToken: res.credential });
-            }
-          },
-          auto_select: true
-        });
-        window.google.accounts.id.prompt();
-      } catch (err) {
-        console.log('Google One-Tap notice:', err);
-      }
+    let timer;
+    if (resendCooldown > 0) {
+      timer = setInterval(() => {
+        setResendCooldown((prev) => prev - 1);
+      }, 1000);
     }
-  }, []);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
-  const triggerGoogleOAuthPopup = (clientId) => {
-    const redirectUri = window.location.origin + '/login';
-    const scope = 'email profile';
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=id_token&scope=${encodeURIComponent(scope)}&nonce=${Date.now()}`;
-    
-    const width = 500;
-    const height = 600;
-    const left = window.screenX + (window.innerWidth - width) / 2;
-    const top = window.screenY + (window.innerHeight - height) / 2;
-    
-    window.open(authUrl, 'GoogleSignIn', `width=${width},height=${height},top=${top},left=${left}`);
-  };
-
-  const handleGoogleClick = () => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-
-    // 1. Official Google Identity Services GIS Prompt / Popup
-    if (clientId && window.google?.accounts?.id) {
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: (res) => {
-          if (res.credential) {
-            executeGoogleAuth({ idToken: res.credential });
-          }
-        }
-      });
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          triggerGoogleOAuthPopup(clientId);
-        }
-      });
-      return;
-    }
-
-    if (clientId) {
-      triggerGoogleOAuthPopup(clientId);
-      return;
-    }
-
-    // 2. Fast 1-click fallback using email input or prompt
-    let userGoogleEmail = email.trim();
-    if (!userGoogleEmail) {
-      const input = window.prompt('Sign up with Google - Enter your Google Email:');
-      if (!input || !input.trim()) return;
-      userGoogleEmail = input.trim();
-    }
-
-    executeGoogleAuth({
-      email: userGoogleEmail,
-      googleId: 'g-' + Date.now()
-    });
-  };
-
-  const handleResendOtp = async () => {
-    if (resendCooldown > 0) return;
-    setOtpError('');
-    setOtpSuccess('');
-    setOtpLoading(true);
-    try {
-      await api.post('/api/auth/otp/send', { email });
-      setOtpSuccess('A fresh security code has been dispatched to your email!');
-      setResendCooldown(30);
-    } catch (err) {
-      console.error(err);
-      setOtpError('Failed to resend verification code. Please try again.');
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  const handleRegisterSubmit = async (e) => {
+  const handleInitiateRegistration = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    setError("");
 
-    // General Validations
-    if (!email || !password || !firstName || !lastName) {
-      setError('Please fill in all core user fields.');
+    if (!firstName || !lastName || !email || !password) {
+      setError("Please fill in all required fields.");
       return;
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
-
-    // Prepare Request Body
-    const registerData = {
-      email,
-      password,
-      firstName,
-      lastName,
-      role
-    };
-
-    if (role === 'PATIENT') {
-      if (!dateOfBirth || !phoneNumber || !address) {
-        setError('Please fill in all patient profile fields.');
-        return;
-      }
-      registerData.dateOfBirth = dateOfBirth;
-      registerData.gender = gender;
-      registerData.phoneNumber = phoneNumber;
-      registerData.bloodGroup = bloodGroup;
-      registerData.address = address;
-    } else {
-      if (!specialization || !licenseNumber || !experienceYears || !consultationFee) {
-        setError('Please fill in all doctor credential fields.');
-        return;
-      }
-      if (parseInt(experienceYears) < 0) {
-        setError('Experience years cannot be negative.');
-        return;
-      }
-      if (parseFloat(consultationFee) < 0) {
-        setError('Consultation fee cannot be negative.');
-        return;
-      }
-      registerData.specialization = specialization;
-      registerData.licenseNumber = licenseNumber;
-      registerData.experienceYears = parseInt(experienceYears);
-      registerData.biography = biography;
-      registerData.consultationFee = parseFloat(consultationFee);
     }
 
     setLoading(true);
     try {
-      // Step 1: Request OTP generation
-      await api.post('/api/auth/otp/send', { email });
-      setCachedRegisterData(registerData);
-      setOtpError('');
-      setOtpCode('');
+      // Step 1: Send OTP to verify email address
+      const otpRes = await api.post("/api/auth/otp/send", { email: email.trim() });
+      setOtpSuccess(otpRes.data?.message || `Verification code sent to ${email}`);
+      setResendCooldown(30);
       setShowOtpModal(true);
     } catch (err) {
-      console.error(err);
-      if (err.response && err.response.data && typeof err.response.data === 'string') {
+      console.error("[OTP Send Error]", err);
+      if (err.response && err.response.data && typeof err.response.data === "string") {
         setError(err.response.data);
+      } else if (err.response?.data?.message) {
+        setError(err.response.data.message);
       } else {
-        setError('Failed to dispatch security code. Please check parameters and try again.');
+        setError("Failed to dispatch verification code. Please check your email.");
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOtpVerify = async (e) => {
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+    setOtpError("");
+    setOtpSuccess("");
+    setOtpLoading(true);
+    try {
+      const res = await api.post("/api/auth/otp/send", { email: email.trim() });
+      setOtpSuccess(res.data?.message || `New verification code sent to ${email}`);
+      setResendCooldown(30);
+    } catch (err) {
+      console.error(err);
+      setOtpError(err.response?.data || "Failed to resend code. Please try again.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtpAndRegister = async (e) => {
     e.preventDefault();
     if (!otpCode.trim()) {
-      setOtpError('Please input the 6-digit verification code.');
+      setOtpError("Please enter the 6-digit verification code.");
       return;
     }
 
+    setOtpError("");
     setOtpLoading(true);
-    setOtpError('');
 
     try {
-      // Step 2: Match OTP via verification REST endpoint
-      await api.post('/api/auth/otp/verify', { email, code: otpCode });
-      
-      // Step 3: Complete actual user profile persistence
-      try {
-        await api.post('/api/auth/register', cachedRegisterData);
-        setSuccess('Account verified and created successfully! Redirecting to login...');
-        setShowOtpModal(false);
-        setTimeout(() => {
-          navigate('/login');
-        }, 2000);
-      } catch (regErr) {
-        console.error("Profile registration error after OTP match:", regErr);
-        if (regErr.response && regErr.response.data && typeof regErr.response.data === 'string') {
-          setOtpError("OTP verified, but registration failed: " + regErr.response.data);
-        } else if (regErr.response && regErr.response.data && regErr.response.data.message) {
-          setOtpError("OTP verified, but registration failed: " + regErr.response.data.message);
-        } else {
-          setOtpError("OTP verified, but failed to create patient database records.");
-        }
+      // Step 2: Verify OTP
+      await api.post("/api/auth/otp/verify", {
+        email: email.trim(),
+        code: otpCode.trim()
+      });
+
+      // Step 3: Complete actual registration
+      const payload = {
+        role,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        password,
+        phoneNumber: phoneNumber.trim() || undefined,
+        specialization: role === "DOCTOR" ? specialization.trim() : undefined,
+        licenseNumber: role === "DOCTOR" ? licenseNumber.trim() : undefined
+      };
+
+      const regRes = await api.post("/api/auth/register", payload);
+      const { token, email: userEmail, role: userRole, firstName: userFn, lastName: userLn } = regRes.data;
+
+      if (login) {
+        login(token, userEmail, userRole, userFn, userLn);
+      }
+
+      setShowOtpModal(false);
+      if (userRole === "PATIENT") {
+        navigate("/patient/dashboard", { replace: true });
+      } else if (userRole === "DOCTOR") {
+        navigate("/doctor/dashboard", { replace: true });
+      } else {
+        navigate("/login", { replace: true });
       }
     } catch (err) {
-      console.error("OTP verification error:", err);
-      if (err.response && err.response.data && err.response.data.message) {
+      console.error("[Verification/Registration Error]", err);
+      if (err.response?.data?.message) {
         setOtpError(err.response.data.message);
-      } else if (err.response && err.response.data && typeof err.response.data === 'string') {
+      } else if (typeof err.response?.data === "string") {
         setOtpError(err.response.data);
       } else {
-        setOtpError('Invalid verification code. Please check and try again.');
+        setOtpError("Invalid verification code or registration error.");
       }
     } finally {
       setOtpLoading(false);
@@ -299,458 +149,222 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center relative overflow-hidden py-12 px-4">
-      {/* Background decoration elements */}
-      <div className="absolute top-[-10%] left-[-15%] w-[400px] h-[400px] bg-cyan-500/10 rounded-full blur-[100px] animate-pulse-glow" />
-      <div className="absolute bottom-[-10%] right-[-15%] w-[400px] h-[400px] bg-teal-500/10 rounded-full blur-[100px] animate-pulse-glow" />
-
-      <div className="w-full max-w-2xl z-10">
-        
-        {/* Brand header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-teal-500 items-center justify-center shadow-lg shadow-cyan-500/20 mb-4 hover:scale-105 transition-transform duration-300">
-            <svg className="w-7 h-7 text-slate-950 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-            </svg>
-          </div>
-          <h2 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">Create Account</h2>
-          <p className="text-sm text-slate-400 mt-2 font-mono">Join the VeloCura Digital Healthcare platform</p>
+    <div className={s.authPage}>
+      <div className={s.authCard} style={{ maxWidth: "440px" }}>
+        <div className={s.authHeader}>
+          <Link to="/" className={s.brandWordmark} style={{ textDecoration: "none" }} title="Return to Home">
+            VeloCura
+          </Link>
+          <h1 className={s.authTitle}>Create account</h1>
         </div>
 
-        {/* Card */}
-        <div className="glass-card rounded-3xl p-8 shadow-2xl relative">
-          
-          {/* Notifications */}
-          {success && (
-            <div className="mb-6 p-4 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs flex items-center gap-3">
-              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>{success}</span>
-            </div>
-          )}
+        {error && <div className={s.errorBanner}>{error}</div>}
 
-          {error && (
-            <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-3">
-              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Role selector tabs */}
-          <div className="flex bg-slate-950 p-1.5 rounded-xl border border-slate-900 mb-8">
-            <button
-              type="button"
-              onClick={() => { setRole('PATIENT'); setError(''); }}
-              className={`flex-1 text-center py-2.5 rounded-lg text-sm font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
-                role === 'PATIENT'
-                  ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-slate-950 shadow-md shadow-cyan-500/10'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Patient Workspace
-            </button>
-            <button
-              type="button"
-              onClick={() => { setRole('DOCTOR'); setError(''); }}
-              className={`flex-1 text-center py-2.5 rounded-lg text-sm font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
-                role === 'DOCTOR'
-                  ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-slate-950 shadow-md shadow-teal-500/10'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Doctor Portal
-            </button>
-          </div>
-
-          <form onSubmit={handleRegisterSubmit} className="space-y-6">
-            
-            {/* Core user credentials section */}
-            <div className="border-b border-slate-900/60 pb-6">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-4 font-mono">1. User Credentials</h3>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="firstName" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">First Name</label>
-                  <input
-                    id="firstName"
-                    type="text"
-                    required
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
-                    placeholder="John"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="lastName" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Last Name</label>
-                  <input
-                    id="lastName"
-                    type="text"
-                    required
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
-                    placeholder="Doe"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Email Address</label>
-                  <input
-                    id="email"
-                    type="email"
-                    required
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Password</label>
-                  <div className="relative">
-                    <input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-4 pr-11 py-3 text-sm text-white focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
-                      placeholder="Min 6 characters"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors p-1 cursor-pointer"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showPassword ? (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.046 10.046 0 013.122-.463c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m-4.592-4.592a3 3 0 10-4.243-4.243m4.242 4.242L3 3l18 18" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Profile fields depending on selected Tab role */}
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-4 font-mono">2. Profile Metadata</h3>
-              
-              {role === 'PATIENT' ? (
-                // PATIENT input layout fields
-                <div className="space-y-6">
-                  <div className="grid md:grid-cols-3 gap-6">
-                    <div>
-                      <label htmlFor="dateOfBirth" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Date of Birth</label>
-                      <input
-                        id="dateOfBirth"
-                        type="date"
-                        required
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
-                        value={dateOfBirth}
-                        onChange={(e) => setDateOfBirth(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="gender" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Gender</label>
-                      <select
-                        id="gender"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
-                        value={gender}
-                        onChange={(e) => setGender(e.target.value)}
-                      >
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="bloodGroup" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Blood Group</label>
-                      <select
-                        id="bloodGroup"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
-                        value={bloodGroup}
-                        onChange={(e) => setBloodGroup(e.target.value)}
-                      >
-                        <option value="O+">O+</option>
-                        <option value="O-">O-</option>
-                        <option value="A+">A+</option>
-                        <option value="A-">A-</option>
-                        <option value="B+">B+</option>
-                        <option value="B-">B-</option>
-                        <option value="AB+">AB+</option>
-                        <option value="AB-">AB-</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="phoneNumber" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Phone Number</label>
-                    <input
-                      id="phoneNumber"
-                      type="tel"
-                      required
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
-                      placeholder="e.g. 555-123-4567"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="address" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Residential Address</label>
-                    <textarea
-                      id="address"
-                      rows="3"
-                      required
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200 resize-none"
-                      placeholder="Street address, City, Zip Code"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                    />
-                  </div>
-                </div>
-              ) : (
-                // DOCTOR input layout fields
-                <div className="space-y-6">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="specialization" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Clinical Specialization</label>
-                      <input
-                        id="specialization"
-                        type="text"
-                        required
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
-                        placeholder="e.g. Cardiology, Pediatrics"
-                        value={specialization}
-                        onChange={(e) => setSpecialization(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="licenseNumber" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Medical License Number</label>
-                      <input
-                        id="licenseNumber"
-                        type="text"
-                        required
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
-                        placeholder="e.g. MED-8822-US"
-                        value={licenseNumber}
-                        onChange={(e) => setLicenseNumber(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="experienceYears" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Years of Experience</label>
-                      <input
-                        id="experienceYears"
-                        type="number"
-                        min="0"
-                        required
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
-                        placeholder="e.g. 8"
-                        value={experienceYears}
-                        onChange={(e) => setExperienceYears(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="consultationFee" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Consultation Fee ($ USD)</label>
-                      <input
-                        id="consultationFee"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        required
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200"
-                        placeholder="e.g. 150.00"
-                        value={consultationFee}
-                        onChange={(e) => setConsultationFee(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="biography" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Professional Biography</label>
-                    <textarea
-                      id="biography"
-                      rows="3"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all duration-200 resize-none"
-                      placeholder="Tell patients about your medical training and clinical approach..."
-                      value={biography}
-                      onChange={(e) => setBiography(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Submit button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className={`w-full text-slate-950 font-bold py-3.5 rounded-xl hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:scale-100 disabled:shadow-none transition-all duration-200 flex items-center justify-center text-sm cursor-pointer ${
-                role === 'PATIENT'
-                  ? 'bg-gradient-to-r from-cyan-500 to-teal-500 hover:shadow-cyan-500/10'
-                  : 'bg-gradient-to-r from-teal-500 to-emerald-500 hover:shadow-teal-500/10'
-              }`}
-            >
-              {loading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin mr-2.5" />
-                  <span>Registering...</span>
-                </>
-              ) : (
-                <span>Register Account</span>
-              )}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div className="relative my-6 flex items-center justify-center">
-            <div className="w-full border-t border-slate-800" />
-            <span className="absolute bg-slate-900 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider font-mono">
-              Or Sign Up With
-            </span>
-          </div>
-
-          {/* Google Sign In/Up Button */}
+        <div className={s.roleToggle}>
           <button
             type="button"
-            onClick={handleGoogleClick}
-            disabled={googleLoading}
-            className="w-full bg-slate-900/90 border border-slate-700/60 hover:bg-slate-800/90 hover:border-slate-600 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-3 text-sm cursor-pointer disabled:opacity-50"
+            className={[s.roleBtn, role === "PATIENT" ? s.roleBtnActive : ""].join(" ")}
+            onClick={() => setRole("PATIENT")}
           >
-            <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-            </svg>
-            <span>{googleLoading ? 'Connecting to Google...' : `Sign Up with Google (${role === 'PATIENT' ? 'Patient' : 'Doctor'})`}</span>
+            Patient
           </button>
+          <button
+            type="button"
+            className={[s.roleBtn, role === "DOCTOR" ? s.roleBtnActive : ""].join(" ")}
+            onClick={() => setRole("DOCTOR")}
+          >
+            Doctor
+          </button>
+        </div>
 
-          {/* Redirect to Sign-in link */}
-          <div className="mt-8 text-center text-xs text-slate-500 border-t border-slate-900/60 pt-6">
-            Already have an account?{' '}
-            <Link to="/login" className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors duration-200">
-              Sign In
+        <form onSubmit={handleInitiateRegistration} className={s.form}>
+          <Input
+            label="First name"
+            type="text"
+            placeholder="Jane"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            required
+          />
+          <Input
+            label="Last name"
+            type="text"
+            placeholder="Doe"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            required
+          />
+
+          <Input
+            label="Email address"
+            type="email"
+            placeholder="name@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+
+          <Input
+            label="Password"
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="new-password"
+          />
+
+          <Input
+            label="Phone number (optional)"
+            type="tel"
+            placeholder="+1 555-0199"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+          />
+
+          {role === "DOCTOR" && (
+            <>
+              <Input
+                label="Medical Specialization"
+                type="text"
+                placeholder="e.g. Cardiology, General Medicine"
+                value={specialization}
+                onChange={(e) => setSpecialization(e.target.value)}
+                required
+              />
+              <Input
+                label="License Number"
+                type="text"
+                placeholder="e.g. MD-98234"
+                value={licenseNumber}
+                onChange={(e) => setLicenseNumber(e.target.value)}
+                required
+              />
+            </>
+          )}
+
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            className={s.fullWidthBtn}
+            loading={loading}
+          >
+            Get started
+          </Button>
+        </form>
+
+        <div className={s.authFooter}>
+          <span>
+            Already have an account?{" "}
+            <Link to="/login" className={s.authLink}>
+              Sign in.
             </Link>
-          </div>
-
+          </span>
         </div>
-
-        {/* Back Link */}
-        <div className="text-center mt-6">
-          <Link to="/" className="text-slate-500 hover:text-slate-400 text-xs transition-colors duration-200 inline-flex items-center gap-1">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to homepage
-          </Link>
-        </div>
-
       </div>
 
-      {/* OTP Verification Modal Overlay */}
+      {/* OTP Verification Modal */}
       {showOtpModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative custom-scrollbar">
-            
-            {/* Shield SVG Decoration */}
-            <div className="mx-auto w-12 h-12 bg-cyan-500/10 border border-cyan-500/25 rounded-2xl flex items-center justify-center mb-6 text-cyan-400">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.75)",
+          backdropFilter: "var(--material-blur)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 200,
+          padding: "var(--space-4)"
+        }}>
+          <div style={{
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--separator)",
+            borderRadius: "var(--radius-2xl)",
+            padding: "var(--space-6)",
+            maxWidth: "420px",
+            width: "100%",
+            boxShadow: "var(--shadow-lg)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "var(--space-4)"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                <div style={{ padding: "var(--space-2)", background: "rgba(10,132,255,0.15)", borderRadius: "var(--radius-md)", color: "var(--accent)" }}>
+                  <KeyRound size={20} />
+                </div>
+                <h3 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-semibold)" }}>Verify Email Address</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOtpModal(false)}
+                style={{ background: "none", border: "none", color: "var(--label-tertiary)", cursor: "pointer" }}
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <h3 className="text-xl font-bold text-center text-white">Security OTP Verification</h3>
-            <p className="text-xs text-slate-400 text-center mt-2 leading-relaxed">
-              We've dispatched a 6-digit confirmation key to <span className="text-cyan-400 font-medium font-mono">{email}</span>. Please input it below to authorize.
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--label-secondary)", lineHeight: "var(--leading-normal)" }}>
+              We sent a 6-digit verification code to <strong>{email}</strong>. Enter it below to complete your account registration.
             </p>
 
-            <form onSubmit={handleOtpVerify} className="mt-6 space-y-4">
-              {otpError && (
-                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
-                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>{otpError}</span>
-                </div>
-              )}
+            {otpError && <div className={s.errorBanner}>{otpError}</div>}
+            {otpSuccess && <div className={s.successBanner}>{otpSuccess}</div>}
 
-              {otpSuccess && (
-                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
-                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>{otpSuccess}</span>
-                </div>
-              )}
+            <form onSubmit={handleVerifyOtpAndRegister} style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+              <Input
+                label="6-Digit Verification Code"
+                type="text"
+                placeholder="123456"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value)}
+                maxLength={6}
+                autoFocus
+                required
+              />
 
-              <div>
-                <input
-                  type="text"
-                  maxLength="6"
-                  required
-                  placeholder="000000"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3.5 text-center text-xl tracking-[0.4em] font-extrabold font-mono text-white focus:outline-none focus:border-cyan-500/50 transition-all duration-200"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                />
-              </div>
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                loading={otpLoading}
+                className={s.fullWidthBtn}
+              >
+                Verify & Complete Registration
+              </Button>
 
-              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-                <span className="text-[10px] text-slate-500 font-mono">
-                  Didn't receive code?
-                </span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "var(--space-2)" }}>
                 <button
                   type="button"
                   onClick={handleResendOtp}
                   disabled={resendCooldown > 0 || otpLoading}
-                  className="text-cyan-400 hover:text-cyan-300 font-semibold disabled:text-slate-600 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                  style={{
+                    fontSize: "var(--text-xs)",
+                    color: resendCooldown > 0 ? "var(--label-tertiary)" : "var(--accent)",
+                    background: "none",
+                    border: "none",
+                    cursor: resendCooldown > 0 ? "not-allowed" : "pointer"
+                  }}
                 >
-                  {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : 'Resend OTP'}
+                  {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend code"}
                 </button>
-              </div>
 
-              <button
-                type="submit"
-                disabled={otpLoading}
-                className="w-full bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-bold py-3.5 rounded-xl hover:shadow-lg hover:shadow-cyan-500/15 transition-all duration-200 text-sm cursor-pointer disabled:opacity-40"
-              >
-                {otpLoading ? (
-                  <div className="flex items-center justify-center">
-                    <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin mr-2" />
-                    <span>Verifying...</span>
-                  </div>
-                ) : (
-                  <span>Verify & Create Account</span>
-                )}
-              </button>
-
-              <div className="text-center pt-2">
                 <button
                   type="button"
                   onClick={() => setShowOtpModal(false)}
-                  className="text-xs text-slate-500 hover:text-slate-400 font-semibold cursor-pointer"
+                  style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", background: "none", border: "none", cursor: "pointer" }}
                 >
                   Cancel
                 </button>
               </div>
-
             </form>
           </div>
         </div>
       )}
     </div>
   );
-};
+}
 
-export default Register;
+export { Register };

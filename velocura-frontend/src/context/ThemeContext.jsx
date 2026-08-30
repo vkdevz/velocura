@@ -4,31 +4,18 @@ const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('velocura_theme') || 'system';
+    return localStorage.getItem('velocura_theme') || 'dark';
   });
 
   const [resolvedTheme, setResolvedTheme] = useState(() => {
-    const saved = localStorage.getItem('velocura_theme') || 'system';
-    if (saved === 'dark') return 'dark';
-    if (saved === 'light') return 'light';
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return localStorage.getItem('velocura_theme') || 'dark';
   });
 
   useEffect(() => {
     localStorage.setItem('velocura_theme', theme);
 
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-
     const updateResolvedTheme = () => {
-      let currentResolved = 'dark';
-      if (theme === 'dark') {
-        currentResolved = 'dark';
-      } else if (theme === 'light') {
-        currentResolved = 'light';
-      } else {
-        currentResolved = mediaQuery.matches ? 'dark' : 'light';
-      }
-
+      const currentResolved = theme === 'light' ? 'light' : 'dark';
       setResolvedTheme(currentResolved);
       document.documentElement.setAttribute('data-theme', currentResolved);
       if (currentResolved === 'dark') {
@@ -41,39 +28,14 @@ export const ThemeProvider = ({ children }) => {
     };
 
     updateResolvedTheme();
-
-    const handleMediaChange = (e) => {
-      if (theme === 'system') {
-        const newResolved = e.matches ? 'dark' : 'light';
-        setResolvedTheme(newResolved);
-        document.documentElement.setAttribute('data-theme', newResolved);
-        if (newResolved === 'dark') {
-          document.documentElement.classList.add('dark');
-          document.documentElement.classList.remove('light');
-        } else {
-          document.documentElement.classList.add('light');
-          document.documentElement.classList.remove('dark');
-        }
-      }
-    };
-
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', handleMediaChange);
-    } else if (mediaQuery.addListener) {
-      mediaQuery.addListener(handleMediaChange);
-    }
-
-    return () => {
-      if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener('change', handleMediaChange);
-      } else if (mediaQuery.removeListener) {
-        mediaQuery.removeListener(handleMediaChange);
-      }
-    };
   }, [theme]);
 
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
@@ -86,3 +48,5 @@ export const useTheme = () => {
   }
   return context;
 };
+
+export default ThemeContext;

@@ -39,7 +39,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
         RequestBucket(int limit) {
             this.windowStartMs = System.currentTimeMillis();
-            this.count = new AtomicInteger(1);
+            this.count = new AtomicInteger(0);
             this.limit = limit;
         }
 
@@ -93,15 +93,15 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
     private int getLimitForPath(String path) {
         if (path.startsWith("/api/auth/login") || path.startsWith("/api/auth/register") || path.startsWith("/api/auth/otp")) {
-            return 20; // 20 attempts per minute on auth endpoints
+            return 60; // 60 attempts per minute on auth endpoints
         }
         if (path.startsWith("/api/auth/triage")) {
-            return 30; // 30 AI queries per minute
+            return 300; // 300 AI queries per minute
         }
         if (path.startsWith("/api/payments")) {
-            return 20; // 20 requests per minute on payments
+            return 60; // 60 requests per minute on payments
         }
-        return 200; // 200 general requests per minute
+        return 500; // 500 general requests per minute
     }
 
     private String getCategoryKey(String path) {

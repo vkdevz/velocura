@@ -1,23 +1,38 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React from "react";
+import { Link } from "react-router-dom";
+import AppShell from "../components/layout/AppShell";
+import Button from "../components/ui/Button";
 
-const HipaaCompliance = () => {
+export default function HipaaCompliance() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6">
-      <div className="max-w-3xl w-full bg-slate-900/40 border border-slate-900 rounded-3xl p-10">
-        <h1 className="text-3xl font-bold text-white mb-6">HIPAA Compliance Shield</h1>
-        <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          VeloCura's architecture is fully HIPAA ready. We implement stringent technical and administrative safeguards to ensure the confidentiality, integrity, and availability of electronic protected health information (ePHI).
-        </p>
-        <p className="text-sm text-slate-400 leading-relaxed mb-8">
-          All data at rest and in transit is secured using advanced AES-256 encryption. Our peer-to-peer telehealth sessions are end-to-end encrypted to guarantee patient-doctor privacy.
-        </p>
-        <Link to="/" className="inline-block bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-6 py-3 rounded-xl hover:bg-cyan-500/20 transition-all font-semibold text-sm">
-          Return to Home
-        </Link>
+    <AppShell>
+      <div className="page-narrow" style={{ paddingTop: "var(--space-12)", paddingBottom: "var(--space-16)" }}>
+        <article style={{
+          background: "var(--bg-elevated)",
+          border: "1px solid var(--separator)",
+          borderRadius: "var(--radius-2xl)",
+          padding: "var(--space-8)",
+          boxShadow: "var(--shadow-md)",
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--space-4)"
+        }}>
+          <h1>HIPAA & Compliance</h1>
+          <p>
+            VeloCura implements administrative, technical, and physical safeguards to ensure the confidentiality, integrity, and availability of electronic protected health information (ePHI).
+          </p>
+          <p>
+            All communications and stored clinical documents are encrypted using AES-256 at rest and TLS 1.3 in transit. Access controls, audit logging, and role-based permissions prevent unauthorized record access.
+          </p>
+          <div style={{ marginTop: "var(--space-4)" }}>
+            <Link to="/">
+              <Button variant="secondary" size="md">Return to home</Button>
+            </Link>
+          </div>
+        </article>
       </div>
-    </div>
+    </AppShell>
   );
-};
+}
 
-export default HipaaCompliance;
+export { HipaaCompliance };

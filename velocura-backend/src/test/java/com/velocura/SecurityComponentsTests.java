@@ -1,7 +1,7 @@
 package com.velocura;
 
 import com.velocura.security.TokenBlacklistService;
-import com.velocura.security.ai.PhiDeidentifier;
+import com.velocura.phi.PhiDeidentifier;
 import com.velocura.security.crypto.AesGcmEncryptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

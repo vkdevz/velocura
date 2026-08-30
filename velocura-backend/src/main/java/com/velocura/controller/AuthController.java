@@ -329,14 +329,24 @@ public class AuthController {
             suggestedOtc = java.util.List.of("Melatonin 3mg-5mg (short-term sleep aid)", "L-Theanine / Herbal relaxation teas");
         }
 
+        java.util.List<com.velocura.dto.DifferentialDiagnosis> dxList = differentialDiagnoses != null ? differentialDiagnoses.stream()
+                .map(d -> new com.velocura.dto.DifferentialDiagnosis("MG30", d, "HIGH", d))
+                .toList() : new java.util.ArrayList<>();
+        java.util.List<com.velocura.dto.HomeCareRemedy> homeList = homeRemedies != null ? homeRemedies.stream()
+                .map(h -> new com.velocura.dto.HomeCareRemedy(h, "Supportive care"))
+                .toList() : new java.util.ArrayList<>();
+        java.util.List<com.velocura.dto.OtcMedication> otcList = suggestedOtc != null ? suggestedOtc.stream()
+                .map(o -> new com.velocura.dto.OtcMedication(o, "Supportive therapy", "As directed", "None"))
+                .toList() : new java.util.ArrayList<>();
+
         com.velocura.dto.TriageResponse response = com.velocura.dto.TriageResponse.builder()
                 .triageLevel(triageLevel)
                 .clinicalSummary(clinicalSummary)
                 .recommendedSpecialty(recommendedSpecialty)
-                .differentialDiagnoses(differentialDiagnoses)
+                .differentialDiagnoses(dxList)
                 .immediatePrecautions(immediatePrecautions)
-                .homeRemedies(homeRemedies)
-                .suggestedOtc(suggestedOtc)
+                .homeCareRemedies(homeList)
+                .suggestedOtc(otcList)
                 .build();
 
         return ResponseEntity.ok(response);
