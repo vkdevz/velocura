@@ -41,7 +41,7 @@ export const getBaseUrl = () => {
 
 const api = axios.create({
   baseURL: getBaseUrl(),
-  timeout: 30000,
+  timeout: 90000, // 90s to accommodate cloud cold starts (e.g. Render free tier)
 });
 
 // Request interceptor to automatically attach JWT token

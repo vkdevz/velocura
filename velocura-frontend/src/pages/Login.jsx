@@ -74,7 +74,9 @@ export default function Login() {
     } catch (err) {
       console.error("[Login Error]", err);
       let errorText = "Unable to sign in. Please verify your connection or credentials.";
-      if (err.response) {
+      if (err.code === "ECONNABORTED" || err.message?.toLowerCase().includes("timeout")) {
+        errorText = "Server connection timed out. If the backend is hosted on a free cloud tier (like Render), it may take ~45–60 seconds to wake up from sleep. Please wait a moment and try again.";
+      } else if (err.response) {
         if (err.response.status === 401) {
           errorText = "Invalid email or password.";
         } else if (err.response.status === 429) {
