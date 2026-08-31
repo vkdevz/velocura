@@ -62,10 +62,18 @@ public class ConsultationChatController {
         }
         Appointment appt = apptOpt.get();
 
+        Long doctorUserId = (appt.getDoctor() != null && appt.getDoctor().getUser() != null)
+                ? appt.getDoctor().getUser().getId()
+                : (appt.getDoctor() != null ? appt.getDoctor().getId() : null);
+
+        Long patientUserId = (appt.getPatient() != null && appt.getPatient().getUser() != null)
+                ? appt.getPatient().getUser().getId()
+                : (appt.getPatient() != null ? appt.getPatient().getId() : null);
+
         // Authorization check: User must be the doctor, patient, or admin
         boolean isAuthorized = user.getRole() == Role.ADMIN
-                || (appt.getDoctor() != null && appt.getDoctor().getUser().getId().equals(user.getId()))
-                || (appt.getPatient() != null && appt.getPatient().getUser().getId().equals(user.getId()));
+                || (doctorUserId != null && doctorUserId.equals(user.getId()))
+                || (patientUserId != null && patientUserId.equals(user.getId()));
 
         if (!isAuthorized) {
             return ResponseEntity.status(403).body(Map.of("message", "Access denied for this consultation"));
@@ -106,14 +114,22 @@ public class ConsultationChatController {
             ));
         }
 
+        Long doctorUserId = (appt.getDoctor() != null && appt.getDoctor().getUser() != null)
+                ? appt.getDoctor().getUser().getId()
+                : (appt.getDoctor() != null ? appt.getDoctor().getId() : null);
+
+        Long patientUserId = (appt.getPatient() != null && appt.getPatient().getUser() != null)
+                ? appt.getPatient().getUser().getId()
+                : (appt.getPatient() != null ? appt.getPatient().getId() : null);
+
         // Determine recipient
         User recipient = null;
-        if (appt.getDoctor() != null && appt.getDoctor().getUser().getId().equals(user.getId())) {
-            recipient = appt.getPatient().getUser();
-        } else if (appt.getPatient() != null && appt.getPatient().getUser().getId().equals(user.getId())) {
-            recipient = appt.getDoctor().getUser();
+        if (doctorUserId != null && doctorUserId.equals(user.getId())) {
+            recipient = appt.getPatient() != null ? appt.getPatient().getUser() : null;
+        } else if (patientUserId != null && patientUserId.equals(user.getId())) {
+            recipient = appt.getDoctor() != null ? appt.getDoctor().getUser() : null;
         } else if (user.getRole() == Role.ADMIN) {
-            recipient = appt.getPatient().getUser();
+            recipient = appt.getPatient() != null ? appt.getPatient().getUser() : null;
         } else {
             return ResponseEntity.status(403).body(Map.of("message", "Access denied for this consultation"));
         }
