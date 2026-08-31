@@ -287,27 +287,52 @@ public class GeminiAiService {
         }
 
         if (norm.contains("cough") || norm.contains("throat")) {
-            return """
-            {
-              "doctorMessage": "Respiratory evaluation indicates acute bronchitis or upper airway mucosal irritation.",
-              "riskLevel": "LOW",
-              "requiresImmediateTelehealth": false,
-              "differentialDiagnoses": [
-                {"icdCode":"CA20","condition":"Acute Bronchitis","confidence":"HIGH","reasoning":"Persistent cough with airway hyperreactivity"},
-                {"icdCode":"CA45","condition":"Acute Upper Respiratory Infection","confidence":"HIGH","reasoning":"Viral pharyngeal involvement"}
-              ],
-              "homeCareRemedies": [
-                {"remedy":"Steam inhalation and warm saline gargling","rationale":"Relieves pharyngeal irritation"},
-                {"remedy":"Honey and warm lemon water","rationale":"Natural demulcent for cough relief"}
-              ],
-              "suggestedOtc": [
-                {"saltName":"Dextromethorphan HBr Syrup","indication":"Cough suppressant for irritant cough","dosage":"10ml every 6-8 hours as needed","contraindications":"Do not exceed recommended dose"}
-              ],
-              "redFlags": ["Blood in sputum", "Difficulty breathing or persistent fever > 103F"],
-              "specialistDepartment": "Pulmonology / General Medicine",
-              "followUpAdvice": "Schedule clinical consult if cough lasts longer than 10 days"
+            boolean isProductive = norm.contains("productive") || norm.contains("phlegm") || norm.contains("mucus") || norm.contains("green") || norm.contains("yellow") || norm.contains("wet");
+            if (isProductive) {
+                return """
+                {
+                  "doctorMessage": "Respiratory evaluation indicates acute bronchitis or upper airway mucosal irritation.",
+                  "riskLevel": "LOW",
+                  "requiresImmediateTelehealth": false,
+                  "differentialDiagnoses": [
+                    {"icdCode":"CA20","condition":"Acute Bronchitis","confidence":"HIGH","reasoning":"Persistent cough with airway hyperreactivity"},
+                    {"icdCode":"CA45","condition":"Acute Upper Respiratory Infection","confidence":"HIGH","reasoning":"Viral pharyngeal involvement"}
+                  ],
+                  "homeCareRemedies": [
+                    {"remedy":"Steam inhalation and warm saline gargling","rationale":"Relieves pharyngeal irritation"},
+                    {"remedy":"Honey and warm lemon water","rationale":"Natural demulcent for cough relief"}
+                  ],
+                  "suggestedOtc": [
+                    {"saltName":"Guaifenesin 100mg / Ambroxol Syrup","indication":"Expectorant & mucolytic agent (thins bronchial phlegm)","dosage":"10ml every 6-8 hours with full glass of water","contraindications":"Do NOT use cough suppressants for productive cough"}
+                  ],
+                  "redFlags": ["Blood in sputum", "Difficulty breathing or persistent fever > 103F"],
+                  "specialistDepartment": "Pulmonology / General Medicine",
+                  "followUpAdvice": "Schedule clinical consult if cough lasts longer than 10 days"
+                }
+                """;
+            } else {
+                return """
+                {
+                  "doctorMessage": "Respiratory evaluation indicates acute bronchitis or upper airway mucosal irritation.",
+                  "riskLevel": "LOW",
+                  "requiresImmediateTelehealth": false,
+                  "differentialDiagnoses": [
+                    {"icdCode":"CA20","condition":"Acute Bronchitis","confidence":"HIGH","reasoning":"Persistent cough with airway hyperreactivity"},
+                    {"icdCode":"CA45","condition":"Acute Upper Respiratory Infection","confidence":"HIGH","reasoning":"Viral pharyngeal involvement"}
+                  ],
+                  "homeCareRemedies": [
+                    {"remedy":"Steam inhalation and warm saline gargling","rationale":"Relieves pharyngeal irritation"},
+                    {"remedy":"Honey and warm lemon water","rationale":"Natural demulcent for cough relief"}
+                  ],
+                  "suggestedOtc": [
+                    {"saltName":"Dextromethorphan HBr Syrup","indication":"Cough suppressant for irritant cough","dosage":"10ml every 6-8 hours as needed","contraindications":"Do not exceed recommended dose"}
+                  ],
+                  "redFlags": ["Blood in sputum", "Difficulty breathing or persistent fever > 103F"],
+                  "specialistDepartment": "Pulmonology / General Medicine",
+                  "followUpAdvice": "Schedule clinical consult if cough lasts longer than 10 days"
+                }
+                """;
             }
-            """;
         }
 
         if (norm.contains("back") || norm.contains("spine")) {

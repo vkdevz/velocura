@@ -219,6 +219,10 @@ export default function PatientDashboard() {
   };
 
   const handleJoinCall = (a) => {
+    if (a.status === "COMPLETED" || a.status === "CANCELLED") {
+      setToast({ message: "This consultation has already concluded and is no longer available.", type: "error" });
+      return;
+    }
     const apptId = a.id || a.appointmentId;
     const pName = `${profile?.firstName || user?.firstName || "Patient"} ${profile?.lastName || ""}`.trim();
     setActiveVideoSession({
@@ -268,7 +272,10 @@ export default function PatientDashboard() {
           <TelehealthRoom
             roomName={activeVideoSession.roomName}
             userName={activeVideoSession.userName}
-            onLeave={() => setActiveVideoSession(null)}
+            onLeave={() => {
+              setActiveVideoSession(null);
+              fetchDashboardData();
+            }}
           />
         </div>
       )}
@@ -334,12 +341,24 @@ export default function PatientDashboard() {
                           </td>
                           <td className={s.td}>{dateFormatted}</td>
                           <td className={s.td}>
-                            <Badge tone="green">{a.status || "CONFIRMED"}</Badge>
+                            <Badge tone={a.status === "COMPLETED" ? "neutral" : a.status === "CANCELLED" ? "red" : a.status === "CONFIRMED" ? "green" : "blue"}>
+                              {a.status || "CONFIRMED"}
+                            </Badge>
                           </td>
                           <td className={s.td}>
-                            <Button variant="primary" size="sm" onClick={() => handleJoinCall(a)}>
-                              <Video size={13} /> Join Call
-                            </Button>
+                            {a.status === "COMPLETED" ? (
+                              <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", fontWeight: "600", padding: "4px 8px", background: "var(--bg-elevated-2)", borderRadius: "var(--radius-sm)" }}>
+                                ✓ Concluded
+                              </span>
+                            ) : a.status === "CANCELLED" ? (
+                              <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", padding: "4px 8px" }}>
+                                Cancelled
+                              </span>
+                            ) : (
+                              <Button variant="primary" size="sm" onClick={() => handleJoinCall(a)}>
+                                <Video size={13} /> Join Call
+                              </Button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -459,6 +478,7 @@ export default function PatientDashboard() {
                     <th className={s.th}>Doctor Name</th>
                     <th className={s.th}>Specialty</th>
                     <th className={s.th}>Date & Time</th>
+                    <th className={s.th}>Status</th>
                     <th className={s.th}>Actions</th>
                   </tr>
                 </thead>
@@ -474,9 +494,24 @@ export default function PatientDashboard() {
                         <td className={s.td}>{a.specialty || "Clinical Outpatient"}</td>
                         <td className={s.td}>{dateFormatted}</td>
                         <td className={s.td}>
-                          <Button variant="primary" size="sm" onClick={() => handleJoinCall(a)}>
-                            <Video size={13} /> Join Video Room
-                          </Button>
+                          <Badge tone={a.status === "COMPLETED" ? "neutral" : a.status === "CANCELLED" ? "red" : a.status === "CONFIRMED" ? "green" : "blue"}>
+                            {a.status || "CONFIRMED"}
+                          </Badge>
+                        </td>
+                        <td className={s.td}>
+                          {a.status === "COMPLETED" ? (
+                            <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", fontWeight: "600", padding: "4px 8px", background: "var(--bg-elevated-2)", borderRadius: "var(--radius-sm)" }}>
+                              ✓ Concluded
+                            </span>
+                          ) : a.status === "CANCELLED" ? (
+                            <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", padding: "4px 8px" }}>
+                              Cancelled
+                            </span>
+                          ) : (
+                            <Button variant="primary" size="sm" onClick={() => handleJoinCall(a)}>
+                              <Video size={13} /> Join Video Room
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     );

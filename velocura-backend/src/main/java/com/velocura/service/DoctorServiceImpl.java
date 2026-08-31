@@ -112,6 +112,10 @@ public class DoctorServiceImpl implements DoctorService {
                 .build();
 
         prescriptionRepository.save(prescription);
+
+        // Mark appointment as COMPLETED upon issuing prescription
+        appointment.setStatus(AppointmentStatus.COMPLETED);
+        appointmentRepository.save(appointment);
     }
 
     @Override

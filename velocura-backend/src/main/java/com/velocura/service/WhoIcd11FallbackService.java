@@ -200,7 +200,7 @@ public class WhoIcd11FallbackService {
             clarifyingQuestions.add("Are you experiencing shortness of breath or dizziness?");
         } else if (isResp) {
             // Fine-grained Cough Subcategory Discrimination
-            boolean isWetOrProductive = norm.contains("wet") || norm.contains("phlegm") || norm.contains("mucus") || norm.contains("sputum") || norm.contains("chesty") || norm.contains("green") || norm.contains("yellow");
+            boolean isWetOrProductive = norm.contains("wet") || norm.contains("productive") || norm.contains("phlegm") || norm.contains("mucus") || norm.contains("sputum") || norm.contains("chesty") || norm.contains("green") || norm.contains("yellow");
             boolean isWheezing = norm.contains("wheez") || norm.contains("asthma") || norm.contains("stridor");
 
             recommendedDepartment = "Pulmonology";

@@ -108,13 +108,29 @@ export default function DoctorDashboard() {
   };
 
   const handleJoinVideoCall = (a) => {
+    if (a.status === "COMPLETED" || a.status === "CANCELLED") {
+      setToast({ message: "This consultation has already concluded and is no longer available.", type: "error" });
+      return;
+    }
     const apptId = a.id || a.appointmentId;
     const drName = `Dr. ${profile?.firstName || user?.firstName || ""} ${profile?.lastName || user?.lastName || ""}`.trim();
     setActiveVideoSession({
       roomName: `velocura-room-${apptId}`,
       userName: drName,
-      patientId: a.patientId
+      patientId: a.patientId,
+      appointmentId: apptId
     });
+  };
+
+  const handleCompleteAppointment = async (apptId) => {
+    try {
+      await api.put(`/api/doctor/appointments/complete/${apptId}`);
+      setToast({ message: "Consultation marked as concluded.", type: "success" });
+      fetchDashboardData();
+    } catch (err) {
+      console.error(err);
+      setToast({ message: "Failed to update appointment status.", type: "error" });
+    }
   };
 
   const handleSavePrescription = async (e) => {
@@ -133,7 +149,12 @@ export default function DoctorDashboard() {
         dosage,
         instructions
       });
-      setToast({ message: "Prescription published to patient passport.", type: "success" });
+      // Ensure appointment status is concluded
+      try {
+        await api.put(`/api/doctor/appointments/complete/${apptId}`);
+      } catch (_) {}
+
+      setToast({ message: "Prescription published & consultation finalized.", type: "success" });
       setConsultationAppt(null);
       setDiagnosis("");
       setSymptoms("");
@@ -141,6 +162,7 @@ export default function DoctorDashboard() {
       setMedication("");
       setDosage("");
       setInstructions("");
+      fetchDashboardData();
     } catch (err) {
       console.error(err);
       setToast({ message: "Failed to record prescription.", type: "error" });
@@ -178,7 +200,18 @@ export default function DoctorDashboard() {
           <TelehealthRoom
             roomName={activeVideoSession.roomName}
             userName={activeVideoSession.userName}
-            onLeave={() => setActiveVideoSession(null)}
+            onLeave={async () => {
+              const apptId = activeVideoSession.appointmentId;
+              if (apptId) {
+                try {
+                  await api.post(`/api/consultations/complete/${apptId}`);
+                } catch (e) {
+                  console.warn("Could not conclude appointment:", e);
+                }
+              }
+              setActiveVideoSession(null);
+              fetchDashboardData();
+            }}
           />
         </div>
       )}
@@ -253,29 +286,48 @@ export default function DoctorDashboard() {
                         </td>
                         <td className={s.td}>{dateFormatted}</td>
                         <td className={s.td}>
-                          <Badge tone={a.status === "CONFIRMED" ? "green" : "blue"}>
+                          <Badge tone={a.status === "COMPLETED" ? "neutral" : a.status === "CANCELLED" ? "red" : a.status === "CONFIRMED" ? "green" : "blue"}>
                             {a.status || "CONFIRMED"}
                           </Badge>
                         </td>
                         <td className={s.td}>
-                          <div style={{ display: "flex", gap: "var(--space-2)" }}>
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              onClick={() => handleJoinVideoCall(a)}
-                            >
-                              <Video size={13} /> Launch Call
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => {
-                                setConsultationAppt(a);
-                                setActiveTab("prescriptions");
-                              }}
-                            >
-                              <FileText size={13} /> Rx Pad
-                            </Button>
+                          <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                            {a.status === "COMPLETED" ? (
+                              <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", fontWeight: "600", padding: "4px 8px", background: "var(--bg-elevated-2)", borderRadius: "var(--radius-sm)" }}>
+                                ✓ Concluded
+                              </span>
+                            ) : a.status === "CANCELLED" ? (
+                              <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", padding: "4px 8px" }}>
+                                Cancelled
+                              </span>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() => handleJoinVideoCall(a)}
+                                >
+                                  <Video size={13} /> Launch Call
+                                </Button>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => {
+                                    setConsultationAppt(a);
+                                    setActiveTab("prescriptions");
+                                  }}
+                                >
+                                  <FileText size={13} /> Rx Pad
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleCompleteAppointment(apptId)}
+                                >
+                                  <CheckCircle2 size={13} /> Conclude
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
