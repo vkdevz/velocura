@@ -152,7 +152,7 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
                     .isActive(true)
                     .build();
 
-            userRepository.save(user);
+            User savedUser = userRepository.save(user);
 
             // Cascade creation of role profile
             if (targetRole == Role.PATIENT) {
@@ -164,7 +164,7 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
                 }
 
                 Patient patient = Patient.builder()
-                        .user(user)
+                        .user(savedUser)
                         .dateOfBirth(dob)
                         .gender(request.getGender() != null ? request.getGender() : "Not Specified")
                         .phoneNumber(request.getPhoneNumber() != null ? request.getPhoneNumber() : "Google User")
@@ -174,7 +174,7 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
                 patientRepository.save(patient);
             } else if (targetRole == Role.DOCTOR) {
                 Doctor doctor = Doctor.builder()
-                        .user(user)
+                        .user(savedUser)
                         .specialization(request.getSpecialization() != null ? request.getSpecialization() : "General Medicine")
                         .licenseNumber(request.getLicenseNumber() != null ? request.getLicenseNumber() : "G-DOC-" + System.currentTimeMillis())
                         .experienceYears(request.getExperienceYears() != null ? request.getExperienceYears() : 5)
