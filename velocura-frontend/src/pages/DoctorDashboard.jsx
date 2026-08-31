@@ -7,6 +7,7 @@ import Badge from "../components/ui/Badge";
 import Input from "../components/ui/Input";
 import Toast from "../components/ui/Toast";
 import TelehealthRoom from "../components/TelehealthRoom";
+import ConsultationChatModal from "../components/ConsultationChatModal";
 import {
   LayoutDashboard,
   Calendar,
@@ -17,7 +18,9 @@ import {
   Clock,
   CheckCircle2,
   X,
-  RefreshCw
+  RefreshCw,
+  MessageSquare,
+  Phone
 } from "lucide-react";
 import s from "../components/layout/WorkspaceShell.module.css";
 
@@ -38,6 +41,7 @@ export default function DoctorDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState({ message: "", type: "success" });
   const [actionLoading, setActionLoading] = useState(false);
+  const [activeChatAppt, setActiveChatAppt] = useState(null);
 
   // Profile fields
   const [specialization, setSpecialization] = useState("");
@@ -216,6 +220,22 @@ export default function DoctorDashboard() {
         </div>
       )}
 
+      {/* Direct Doctor-Patient Consultation Chat & Calling Modal */}
+      {activeChatAppt && (
+        <ConsultationChatModal
+          appointment={activeChatAppt}
+          currentUser={user}
+          isDoctor={true}
+          onClose={() => setActiveChatAppt(null)}
+          onStartVoiceCall={(a) => handleJoinVideoCall(a)}
+          onStartVideoCall={(a) => handleJoinVideoCall(a)}
+          onConcludeConsultation={async (id) => {
+            await handleCompleteAppointment(id);
+            fetchDashboardData();
+          }}
+        />
+      )}
+
       {/* Overview Tab */}
       {activeTab === "overview" && (
         <div className={s.panelCard}>
@@ -291,7 +311,16 @@ export default function DoctorDashboard() {
                           </Badge>
                         </td>
                         <td className={s.td}>
-                          <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                          <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setActiveChatAppt(a)}
+                              title="Open real-time consultation chat with voice/video call options"
+                            >
+                              <MessageSquare size={13} color="var(--accent)" /> Chat & Consult
+                            </Button>
+
                             {a.status === "COMPLETED" ? (
                               <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", fontWeight: "600", padding: "4px 8px", background: "var(--bg-elevated-2)", borderRadius: "var(--radius-sm)" }}>
                                 ✓ Concluded
@@ -307,7 +336,7 @@ export default function DoctorDashboard() {
                                   size="sm"
                                   onClick={() => handleJoinVideoCall(a)}
                                 >
-                                  <Video size={13} /> Launch Call
+                                  <Video size={13} /> Video Call
                                 </Button>
                                 <Button
                                   variant="secondary"

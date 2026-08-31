@@ -8,6 +8,7 @@ import Badge from "../components/ui/Badge";
 import Input from "../components/ui/Input";
 import Toast from "../components/ui/Toast";
 import TelehealthRoom from "../components/TelehealthRoom";
+import ConsultationChatModal from "../components/ConsultationChatModal";
 import EmergencyHealthQrModal from "../components/clinical/EmergencyHealthQrModal";
 import {
   LayoutDashboard,
@@ -25,7 +26,9 @@ import {
   CheckCircle2,
   Clock,
   ShieldAlert,
-  RefreshCw
+  RefreshCw,
+  MessageSquare,
+  Phone
 } from "lucide-react";
 import s from "../components/layout/WorkspaceShell.module.css";
 
@@ -82,6 +85,7 @@ export default function PatientDashboard() {
   // Modals & Video Calls
   const [showQrModal, setShowQrModal] = useState(false);
   const [activeVideoSession, setActiveVideoSession] = useState(null);
+  const [activeChatAppt, setActiveChatAppt] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -280,6 +284,18 @@ export default function PatientDashboard() {
         </div>
       )}
 
+      {/* Direct Doctor-Patient Consultation Chat & Calling Modal */}
+      {activeChatAppt && (
+        <ConsultationChatModal
+          appointment={activeChatAppt}
+          currentUser={user}
+          isDoctor={false}
+          onClose={() => setActiveChatAppt(null)}
+          onStartVoiceCall={(a) => handleJoinCall(a)}
+          onStartVideoCall={(a) => handleJoinCall(a)}
+        />
+      )}
+
       {/* Overview Tab */}
       {activeTab === "overview" && (
         <>
@@ -346,19 +362,30 @@ export default function PatientDashboard() {
                             </Badge>
                           </td>
                           <td className={s.td}>
-                            {a.status === "COMPLETED" ? (
-                              <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", fontWeight: "600", padding: "4px 8px", background: "var(--bg-elevated-2)", borderRadius: "var(--radius-sm)" }}>
-                                ✓ Concluded
-                              </span>
-                            ) : a.status === "CANCELLED" ? (
-                              <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", padding: "4px 8px" }}>
-                                Cancelled
-                              </span>
-                            ) : (
-                              <Button variant="primary" size="sm" onClick={() => handleJoinCall(a)}>
-                                <Video size={13} /> Join Call
+                            <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setActiveChatAppt(a)}
+                                title="Open consultation chat with doctor (with voice/video options)"
+                              >
+                                <MessageSquare size={13} color="var(--accent)" /> Chat & Call
                               </Button>
-                            )}
+
+                              {a.status === "COMPLETED" ? (
+                                <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", fontWeight: "600", padding: "4px 8px", background: "var(--bg-elevated-2)", borderRadius: "var(--radius-sm)" }}>
+                                  ✓ Concluded
+                                </span>
+                              ) : a.status === "CANCELLED" ? (
+                                <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", padding: "4px 8px" }}>
+                                  Cancelled
+                                </span>
+                              ) : (
+                                <Button variant="primary" size="sm" onClick={() => handleJoinCall(a)}>
+                                  <Video size={13} /> Video Call
+                                </Button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -499,19 +526,30 @@ export default function PatientDashboard() {
                           </Badge>
                         </td>
                         <td className={s.td}>
-                          {a.status === "COMPLETED" ? (
-                            <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", fontWeight: "600", padding: "4px 8px", background: "var(--bg-elevated-2)", borderRadius: "var(--radius-sm)" }}>
-                              ✓ Concluded
-                            </span>
-                          ) : a.status === "CANCELLED" ? (
-                            <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", padding: "4px 8px" }}>
-                              Cancelled
-                            </span>
-                          ) : (
-                            <Button variant="primary" size="sm" onClick={() => handleJoinCall(a)}>
-                              <Video size={13} /> Join Video Room
+                          <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setActiveChatAppt(a)}
+                              title="Open consultation chat with doctor (with voice/video options)"
+                            >
+                              <MessageSquare size={13} color="var(--accent)" /> Chat & Call
                             </Button>
-                          )}
+
+                            {a.status === "COMPLETED" ? (
+                              <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", fontWeight: "600", padding: "4px 8px", background: "var(--bg-elevated-2)", borderRadius: "var(--radius-sm)" }}>
+                                ✓ Concluded
+                              </span>
+                            ) : a.status === "CANCELLED" ? (
+                              <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)", padding: "4px 8px" }}>
+                                Cancelled
+                              </span>
+                            ) : (
+                              <Button variant="primary" size="sm" onClick={() => handleJoinCall(a)}>
+                                <Video size={13} /> Video Call
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

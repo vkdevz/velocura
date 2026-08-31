@@ -43,6 +43,18 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
             addColumnIfNotExists(stmt, "patients", "allergies", "TEXT");
             addColumnIfNotExists(stmt, "patients", "medical_history_timeline", "TEXT");
 
+            // 4. Ensure consultation_messages table exists
+            try {
+                stmt.execute("CREATE TABLE IF NOT EXISTS consultation_messages ("
+                        + "id BIGSERIAL PRIMARY KEY, "
+                        + "appointment_id BIGINT NOT NULL, "
+                        + "sender_id BIGINT NOT NULL, "
+                        + "recipient_id BIGINT, "
+                        + "content TEXT NOT NULL, "
+                        + "message_type VARCHAR(32) DEFAULT 'TEXT', "
+                        + "created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP)");
+            } catch (Exception ignored) {}
+
             System.out.println("SCHEMA MIGRATION: Schema migration executed successfully!");
         } catch (Exception e) {
             System.err.println("SCHEMA MIGRATION WARNING: " + e.getMessage());
