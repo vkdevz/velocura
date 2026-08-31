@@ -15,19 +15,20 @@ export default function ThemeToggle() {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        width: "32px",
-        height: "32px",
+        width: "36px",
+        height: "36px",
         borderRadius: "var(--radius-full)",
         background: "var(--fill-tertiary)",
-        border: "1px solid var(--separator)",
-        color: "var(--label-primary)",
+        border: "none",
+        color: "var(--label-secondary)",
         cursor: "pointer",
-        transition: "background var(--dur-fast) var(--ease-apple), transform var(--dur-fast) var(--ease-apple)"
+        padding: 0,
+        transition: "background var(--dur-fast) var(--ease-apple), color var(--dur-fast) var(--ease-apple), transform var(--dur-fast) var(--ease-apple)"
       }}
       aria-label="Toggle Light/Dark Theme"
       title={`Switch to ${isDark ? "Light" : "Dark"} Mode`}
     >
-      {isDark ? <Sun size={15} color="currentColor" /> : <Moon size={15} color="currentColor" />}
+      {isDark ? <Sun size={18} color="currentColor" /> : <Moon size={18} color="currentColor" />}
     </button>
   );
 }

@@ -52,58 +52,84 @@ export default function LandingPage() {
         {/* Hero Section */}
         <section className={s.hero}>
           <span className={s.heroTag}>WHO ICD-11 Mapping</span>
-          <h1 className={s.heroTitle}>Clinical triage and diagnosis support</h1>
+          <h1 className={s.heroTitle}>Clinical intelligence, built for everyone.</h1>
           <p className={s.heroSubtitle}>
-            AI-assisted triage mapped to WHO ICD-11 criteria.
-            Intended to inform — not replace — professional emergency care.
+            AI-powered assessment mapped to WHO ICD-11 — structured, immediate, and built to the standard of professional care.
           </p>
 
           <div className={s.ctaGroup}>
-            <Button size="lg" variant="primary" onClick={() => navigate("/chat")}>
+            <Button
+              size="lg"
+              variant="primary"
+              className={s.heroPrimaryBtn}
+              onClick={() => navigate("/chat")}
+            >
               Start assessment
             </Button>
             {user ? (
-              <Button size="lg" variant="secondary" onClick={() => navigate(getDashboardPath())}>
+              <Button
+                size="lg"
+                variant="ghost"
+                className={s.heroSecondaryBtn}
+                onClick={() => navigate(getDashboardPath())}
+              >
                 View workspace
               </Button>
             ) : (
-              <Button size="lg" variant="secondary" onClick={() => navigate("/login")}>
-                Sign in
+              <Button
+                size="lg"
+                variant="ghost"
+                className={s.heroSecondaryBtn}
+                onClick={() => navigate("/login")}
+              >
+                View workspace
               </Button>
             )}
           </div>
         </section>
 
-        {/* Quick Triage Section */}
-        <section className={s.assessmentCard}>
-          <h2 className={s.assessmentCardTitle}>Describe your symptoms</h2>
-          <p className={s.assessmentCardDesc}>
-            Include symptom location, duration, and severity (1-10) for structured analysis.
-          </p>
+        {/* Input Section - Separated from Hero */}
+        <section className={s.inputSection}>
+          <h2 className={s.inputSectionHeading}>Symptom assessment</h2>
+          <div className={s.inputCard}>
+            <h3 className={s.assessmentCardTitle}>Describe your symptoms</h3>
+            <p className={s.assessmentCardDesc}>
+              Include symptom location, duration, and severity (1-10) for structured analysis.
+            </p>
 
-          <form onSubmit={handleTriageSubmit} className={s.symptomForm}>
-            <textarea
-              className={s.symptomTextarea}
-              placeholder="e.g. Sharp chest pain radiating to left arm for 45 minutes, severity 8/10"
-              value={symptomsInput}
-              onChange={(e) => setSymptomsInput(e.target.value)}
-              rows={3}
-            />
+            <form onSubmit={handleTriageSubmit} className={s.symptomForm}>
+              <textarea
+                className={s.symptomTextarea}
+                placeholder="e.g. Sharp chest pain radiating to left arm for 45 minutes, severity 8/10"
+                value={symptomsInput}
+                onChange={(e) => setSymptomsInput(e.target.value)}
+                rows={4}
+              />
 
-            <div className={s.formActions}>
-              <Button type="submit" variant="primary" loading={loading} disabled={!symptomsInput.trim()}>
-                Analyze symptoms
-              </Button>
-            </div>
-          </form>
+              <div className={s.formActions}>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={loading}
+                  disabled={!symptomsInput.trim()}
+                >
+                  Analyze symptoms
+                </Button>
+              </div>
+            </form>
 
-          {error && <p style={{ color: "var(--critical)", fontSize: "var(--text-sm)", marginTop: "var(--space-3)" }}>{error}</p>}
+            {error && (
+              <p style={{ color: "var(--critical)", fontSize: "var(--text-sm)", marginTop: "var(--space-3)" }}>
+                {error}
+              </p>
+            )}
 
-          {triageResult && (
-            <div className={s.resultWrapper}>
-              <TriageCard data={triageResult} />
-            </div>
-          )}
+            {triageResult && (
+              <div className={s.resultWrapper}>
+                <TriageCard data={triageResult} />
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Capabilities Grid */}
