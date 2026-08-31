@@ -10,7 +10,6 @@ spring:
     username: ${DB_USERNAME:sa}
     password: ${DB_PASSWORD:}
   jpa:
-    database-platform: ${DB_DIALECT:org.hibernate.dialect.H2Dialect}
     open-in-view: false
     hibernate:
       ddl-auto: update
