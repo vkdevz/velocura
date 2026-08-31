@@ -112,7 +112,7 @@ export default function Register() {
         role,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password,
         phoneNumber: phoneNumber.trim() || undefined,
         specialization: role === "DOCTOR" ? specialization.trim() : undefined,
@@ -120,6 +120,10 @@ export default function Register() {
       };
 
       const regRes = await api.post("/api/auth/register", payload);
+      if (!regRes?.data || typeof regRes.data !== "object" || !regRes.data.token) {
+        throw new Error("Invalid registration response received from server.");
+      }
+
       const { token, email: userEmail, role: userRole, firstName: userFn, lastName: userLn } = regRes.data;
 
       if (login) {
@@ -136,13 +140,23 @@ export default function Register() {
       }
     } catch (err) {
       console.error("[Verification/Registration Error]", err);
-      if (err.response?.data?.message) {
-        setOtpError(err.response.data.message);
-      } else if (typeof err.response?.data === "string") {
-        setOtpError(err.response.data);
-      } else {
-        setOtpError("Invalid verification code or registration error.");
+      let errorMsg = "Invalid verification code or registration error.";
+      if (err.response) {
+        if (err.response.status === 429) {
+          errorMsg = "Too many attempts. Please wait 60 seconds.";
+        } else if (err.response.status === 502 || err.response.status === 503) {
+          errorMsg = "Authentication backend is starting up or temporarily unavailable.";
+        } else if (typeof err.response.data === "string" && !err.response.data.startsWith("<!")) {
+          errorMsg = err.response.data;
+        } else if (err.response.data?.message) {
+          errorMsg = err.response.data.message;
+        } else if (err.response.data?.error) {
+          errorMsg = err.response.data.error;
+        }
+      } else if (err.message) {
+        errorMsg = err.message;
       }
+      setOtpError(errorMsg);
     } finally {
       setOtpLoading(false);
     }

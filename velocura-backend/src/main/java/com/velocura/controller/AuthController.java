@@ -154,19 +154,20 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+        String email = loginRequest.getEmail() != null ? loginRequest.getEmail().trim() : "";
         try {
             Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
+                    new UsernamePasswordAuthenticationToken(email, loginRequest.getPassword())
             );
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (org.springframework.security.core.AuthenticationException e) {
-            auditService.logEvent(null, loginRequest.getEmail(), "ANONYMOUS", "LOGIN_FAILED", "User", null, "CLIENT", "DENIED", "Invalid credentials");
+            auditService.logEvent(null, email, "ANONYMOUS", "LOGIN_FAILED", "User", null, "CLIENT", "DENIED", "Invalid credentials");
             return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
-                    .body("Error: Invalid email or password");
+                    .body(java.util.Map.of("status", 401, "message", "Invalid email or password"));
         }
 
-        User user = userRepository.findByEmail(loginRequest.getEmail())
+        User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new RuntimeException("Error: Authenticated user not found in database."));
 
         String jwt = jwtUtils.generateToken(user.getEmail(), user.getRole().name());

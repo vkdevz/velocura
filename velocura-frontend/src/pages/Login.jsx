@@ -58,9 +58,13 @@ export default function Login() {
     setLoading(true);
     try {
       const response = await api.post("/api/auth/login", {
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password
       });
+
+      if (!response?.data || typeof response.data !== "object" || !response.data.token) {
+        throw new Error("Invalid authentication response received from server.");
+      }
 
       const { token, email: userEmail, role, firstName, lastName } = response.data;
       if (login) {
@@ -69,15 +73,25 @@ export default function Login() {
       redirectUser(role);
     } catch (err) {
       console.error("[Login Error]", err);
-      if (err.response && err.response.status === 401) {
-        setError("Invalid email or password.");
-      } else if (err.response && err.response.data && typeof err.response.data === "string") {
-        setError(err.response.data);
-      } else if (err.response && err.response.data?.message) {
-        setError(err.response.data.message);
-      } else {
-        setError("Unable to sign in. Please verify your connection or credentials.");
+      let errorText = "Unable to sign in. Please verify your connection or credentials.";
+      if (err.response) {
+        if (err.response.status === 401) {
+          errorText = "Invalid email or password.";
+        } else if (err.response.status === 429) {
+          errorText = "Too many login attempts. Please wait 60 seconds and try again.";
+        } else if (err.response.status === 502 || err.response.status === 503) {
+          errorText = "Authentication backend is starting up or temporarily offline. Please retry in a few seconds.";
+        } else if (typeof err.response.data === "string" && !err.response.data.startsWith("<!")) {
+          errorText = err.response.data;
+        } else if (err.response.data?.message) {
+          errorText = err.response.data.message;
+        } else if (err.response.data?.error) {
+          errorText = err.response.data.error;
+        }
+      } else if (err.message) {
+        errorText = err.message;
       }
+      setError(errorText);
     } finally {
       setLoading(false);
     }

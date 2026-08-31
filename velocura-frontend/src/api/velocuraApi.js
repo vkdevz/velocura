@@ -1,11 +1,4 @@
-// Unified API client — all chat goes through main backend Port 8080 (or Vite /api proxy)
-
-const getBaseUrl = () => {
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
-  }
-  return "";
-};
+import { getBaseUrl } from "../api";
 
 export async function sendChatMessage(message, conversationHistory = null, sessionId = null) {
   const token = localStorage.getItem("velocura_jwt") || localStorage.getItem("token");
