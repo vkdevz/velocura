@@ -7,6 +7,8 @@ import PatientDashboard from "./pages/PatientDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import ChatPage from "./pages/ChatPage";
+import ChatRoomPage from "./pages/ChatRoomPage";
+import ConversationListPage from "./pages/ConversationListPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
@@ -36,7 +38,11 @@ function App() {
       />
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/chat" element={<ConversationListPage />} />
+        <Route path="/chat/:conversationId" element={<ChatRoomPage />} />
+        <Route path="/triage" element={<ChatPage />} />
+        <Route path="/consultations" element={<ConversationListPage />} />
+        <Route path="/consultations/:conversationId" element={<ChatRoomPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />

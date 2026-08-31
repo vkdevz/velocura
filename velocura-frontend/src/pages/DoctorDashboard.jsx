@@ -126,6 +126,30 @@ export default function DoctorDashboard() {
     });
   };
 
+  const handleOpenConsultation = async (appt) => {
+    if (!appt) return;
+    const apptId = appt.id || appt.appointmentId;
+    const doctorId = profile?.id || user?.id || appt.doctorId;
+    const patientId = appt.patientId || (appt.patient && appt.patient.id);
+
+    try {
+      const res = await api.post("/api/conversations", {
+        appointmentId: apptId,
+        patientId: patientId,
+        doctorId: doctorId,
+        triageContext: null
+      });
+      if (res.data?.id) {
+        navigate(`/chat/${res.data.id}`);
+      } else {
+        navigate(`/chat`);
+      }
+    } catch (err) {
+      console.error("Failed to open consultation conversation:", err);
+      navigate(`/chat`);
+    }
+  };
+
   const handleCompleteAppointment = async (apptId) => {
     try {
       await api.put(`/api/doctor/appointments/complete/${apptId}`);
@@ -313,12 +337,21 @@ export default function DoctorDashboard() {
                         <td className={s.td}>
                           <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}>
                             <Button
+                              variant="tinted"
+                              size="sm"
+                              onClick={() => handleOpenConsultation(a)}
+                              title="Open real-time telehealth chat, triage review, and voice call"
+                            >
+                              <MessageSquare size={13} color="var(--accent)" /> Open consultation
+                            </Button>
+
+                            <Button
                               variant="secondary"
                               size="sm"
                               onClick={() => setActiveChatAppt(a)}
-                              title="Open real-time consultation chat with voice/video call options"
+                              title="Open consultation chat modal"
                             >
-                              <MessageSquare size={13} color="var(--accent)" /> Chat & Consult
+                              Legacy Chat
                             </Button>
 
                             {a.status === "COMPLETED" ? (

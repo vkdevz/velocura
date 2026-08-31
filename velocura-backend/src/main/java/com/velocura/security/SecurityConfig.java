@@ -83,6 +83,10 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/api/chat/**", "/api/health", "/favicon.ico", "/").permitAll()
+                .requestMatchers("/ws/**").permitAll()
+                .requestMatchers("/api/conversations/**").authenticated()
+                .requestMatchers("/api/prescriptions/**").authenticated()
+                .requestMatchers("/uploads/chat-images/**").authenticated()
                 .requestMatchers("/api/admin/audit-logs/**").hasRole("ADMIN")
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/patient/**").hasRole("PATIENT")

@@ -71,6 +71,7 @@ export default function PatientDashboard() {
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [bookingDate, setBookingDate] = useState("");
   const [bookingNotes, setBookingNotes] = useState("");
+  const [confirmedBookingAppt, setConfirmedBookingAppt] = useState(null);
 
   // Report Analyzer States
   const [reportText, setReportText] = useState("");
@@ -158,23 +159,51 @@ export default function PatientDashboard() {
     }
   };
 
+  const handleOpenConsultation = async (appt) => {
+    if (!appt) return;
+    const apptId = appt.id || appt.appointmentId;
+    const doctorId = appt.doctorId || (appt.doctor && appt.doctor.id) || (selectedDoctor && (selectedDoctor.id || selectedDoctor.doctorId));
+    const patientId = profile?.id || user?.id || null;
+
+    try {
+      const res = await api.post("/api/conversations", {
+        appointmentId: apptId,
+        patientId: patientId,
+        doctorId: doctorId,
+        triageContext: reportResult ? JSON.stringify(reportResult) : null
+      });
+      if (res.data?.id) {
+        navigate(`/chat/${res.data.id}`);
+      } else {
+        navigate(`/chat`);
+      }
+    } catch (err) {
+      console.error("Failed to open consultation conversation:", err);
+      navigate(`/chat`);
+    }
+  };
+
   const handleBookAppointment = async (e) => {
     e.preventDefault();
     if (!selectedDoctor || !bookingDate) return;
     setActionLoading(true);
     try {
-      await api.post("/api/patient/appointments/book", {
+      const bookRes = await api.post("/api/patient/appointments/book", {
         doctorId: selectedDoctor.id || selectedDoctor.doctorId,
         appointmentTime: bookingDate,
         reason: bookingNotes
       });
       setToast({ message: "Consultation booked successfully.", type: "success" });
+      const bookedAppt = bookRes.data;
       setSelectedDoctor(null);
       setBookingDate("");
       setBookingNotes("");
       const apptRes = await api.get("/api/patient/appointments");
       setAppointments(apptRes.data || []);
       setActiveTab("appointments");
+      if (bookedAppt && (bookedAppt.id || bookedAppt.appointmentId)) {
+        setConfirmedBookingAppt(bookedAppt);
+      }
     } catch (err) {
       console.error(err);
       setToast({ message: "Failed to book appointment.", type: "error" });
@@ -493,6 +522,33 @@ export default function PatientDashboard() {
             </Button>
           </div>
 
+          {confirmedBookingAppt && (
+            <div style={{
+              background: "var(--bg-elevated-2)",
+              padding: "var(--space-4)",
+              borderRadius: "var(--radius-lg)",
+              border: "1px solid var(--separator)",
+              marginBottom: "var(--space-4)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "var(--space-3)",
+              flexWrap: "wrap"
+            }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--label-primary)" }}>
+                  ✓ Booking Confirmed with Dr. {confirmedBookingAppt.doctorName || (confirmedBookingAppt.doctor && `${confirmedBookingAppt.doctor.firstName || ''} ${confirmedBookingAppt.doctor.lastName || ''}`) || "Specialist"}
+                </h4>
+                <p style={{ margin: "2px 0 0 0", fontSize: "var(--text-xs)", color: "var(--label-secondary)" }}>
+                  Your telehealth consultation room is ready for real-time chat, voice call, and digital prescriptions.
+                </p>
+              </div>
+              <Button variant="tinted" size="sm" onClick={() => handleOpenConsultation(confirmedBookingAppt)}>
+                Open consultation
+              </Button>
+            </div>
+          )}
+
           {appointments.length === 0 ? (
             <p style={{ fontSize: "var(--text-sm)", color: "var(--label-tertiary)", padding: "var(--space-4) 0" }}>
               No appointments on record. Select "Book Consultation" to schedule one.
@@ -528,12 +584,21 @@ export default function PatientDashboard() {
                         <td className={s.td}>
                           <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}>
                             <Button
+                              variant="tinted"
+                              size="sm"
+                              onClick={() => handleOpenConsultation(a)}
+                              title="Open real-time consultation chat and voice call"
+                            >
+                              <MessageSquare size={13} color="var(--accent)" /> Open consultation
+                            </Button>
+
+                            <Button
                               variant="secondary"
                               size="sm"
                               onClick={() => setActiveChatAppt(a)}
-                              title="Open consultation chat with doctor (with voice/video options)"
+                              title="Open consultation chat modal"
                             >
-                              <MessageSquare size={13} color="var(--accent)" /> Chat & Call
+                              Legacy Chat
                             </Button>
 
                             {a.status === "COMPLETED" ? (
