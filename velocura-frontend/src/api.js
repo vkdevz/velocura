@@ -44,9 +44,14 @@ const api = axios.create({
   timeout: 90000, // 90s to accommodate cloud cold starts (e.g. Render free tier)
 });
 
-// Request interceptor to automatically attach JWT token
+if (typeof window !== 'undefined') {
+  console.info('[VeloCura API Config] Active Base URL:', getBaseUrl());
+}
+
+// Request interceptor to automatically attach JWT token & sync baseURL
 api.interceptors.request.use(
   (config) => {
+    config.baseURL = getBaseUrl();
     const token = localStorage.getItem('token') || localStorage.getItem('velocura_jwt');
     if (token && token !== 'undefined' && token !== 'null') {
       config.headers.Authorization = `Bearer ${token}`;
