@@ -55,7 +55,7 @@ public class User {
     private boolean isDeleted = false;
 
     @Builder.Default
-    @Column(name = "auth_provider", nullable = false)
+    @Column(name = "auth_provider")
     private String authProvider = "LOCAL";
 
     @Column(name = "google_id")

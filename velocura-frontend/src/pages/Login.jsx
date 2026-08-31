@@ -281,6 +281,37 @@ export default function Login() {
           </div>
         )}
 
+        {!showResetModal && (
+          <div style={{ marginTop: "var(--space-5)", paddingTop: "var(--space-4)", borderTop: "1px solid var(--color-border-subtle)" }}>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginBottom: "var(--space-2)", fontWeight: "var(--font-weight-medium)", textAlign: "center" }}>
+              ⚡ Quick Fill Demo Accounts
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-2)" }}>
+              <button
+                type="button"
+                onClick={() => { setEmail("admin@velocura.com"); setPassword("Admin@123"); }}
+                style={{ fontSize: "11px", padding: "6px 8px", background: "var(--color-surface-hover)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", cursor: "pointer", color: "var(--color-text-primary)", fontWeight: "600", textAlign: "center" }}
+              >
+                👑 Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail("doctor@velocura.com"); setPassword("Doctor@123"); }}
+                style={{ fontSize: "11px", padding: "6px 8px", background: "var(--color-surface-hover)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", cursor: "pointer", color: "var(--color-text-primary)", fontWeight: "600", textAlign: "center" }}
+              >
+                🩺 Doctor
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail("patient@velocura.com"); setPassword("Patient@123"); }}
+                style={{ fontSize: "11px", padding: "6px 8px", background: "var(--color-surface-hover)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", cursor: "pointer", color: "var(--color-text-primary)", fontWeight: "600", textAlign: "center" }}
+              >
+                👤 Patient
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className={s.authFooter}>
           <span>
             Don't have an account?{" "}

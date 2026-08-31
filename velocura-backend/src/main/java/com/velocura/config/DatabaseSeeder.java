@@ -11,7 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -19,35 +21,28 @@ import java.util.List;
 import java.util.Optional;
 
 @Component
+@Order(10)
 public class DatabaseSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
-    private final DoctorRepository doctorRepository;
-    private final PatientRepository patientRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Value("${velocura.admin.email}")
+    @Value("${velocura.admin.email:admin@velocura.com}")
     private String adminEmail;
 
-    @Value("${velocura.admin.password}")
+    @Value("${velocura.admin.password:Admin@123}")
     private String adminPassword;
 
     @Autowired
-    public DatabaseSeeder(
-            UserRepository userRepository,
-            DoctorRepository doctorRepository,
-            PatientRepository patientRepository,
-            PasswordEncoder passwordEncoder) {
+    public DatabaseSeeder(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
-        this.doctorRepository = doctorRepository;
-        this.patientRepository = patientRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
     @Override
-    public void run(String... args) throws Exception {
+    public void run(String... args) {
         try {
-            String defaultPassword = (adminPassword != null && !adminPassword.trim().isEmpty()) ? adminPassword : "VeloCuraAdmin_#2026_SecureKey";
+            String defaultPassword = (adminPassword != null && !adminPassword.trim().isEmpty()) ? adminPassword.trim() : "Admin@123";
             List<String> adminEmails = List.of(
                 (adminEmail != null && !adminEmail.trim().isEmpty()) ? adminEmail.toLowerCase().trim() : "admin@velocura.com",
                 "developers.vkgroup@gmail.com"
@@ -62,7 +57,9 @@ public class DatabaseSeeder implements CommandLineRunner {
                             .firstName("System")
                             .lastName("Administrator")
                             .role(Role.ADMIN)
+                            .authProvider("LOCAL")
                             .isActive(true)
+                            .isDeleted(false)
                             .build();
                     userRepository.save(admin);
                     System.out.println("DATABASE SEEDER: Seeded Admin account [" + email + "] successfully!");
@@ -71,9 +68,10 @@ public class DatabaseSeeder implements CommandLineRunner {
                     admin.setActive(true);
                     admin.setDeleted(false);
                     admin.setRole(Role.ADMIN);
+                    admin.setAuthProvider("LOCAL");
                     admin.setPassword(passwordEncoder.encode(defaultPassword));
                     userRepository.save(admin);
-                    System.out.println("DATABASE SEEDER: Verified Admin account [" + email + "].");
+                    System.out.println("DATABASE SEEDER: Verified and updated Admin account [" + email + "].");
                 }
             }
         } catch (Exception e) {
