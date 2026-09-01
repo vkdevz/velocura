@@ -1,0 +1,21 @@
+name: Keep Render Alive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping VeloCura backend
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://velocura-backend.onrender.com/api/health)
+          echo "Response code: $response"
+          if [ "$response" != "200" ]; then
+            echo "Backend returned $response"
+          else
+            echo "Backend is alive"
+          fi
