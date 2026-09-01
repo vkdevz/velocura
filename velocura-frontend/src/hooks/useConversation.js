@@ -41,16 +41,37 @@ export function useConversation(conversationId) {
 
     // Connect WebSocket / STOMP
     let client = null;
+    let keepAliveInterval = null;
     try {
       client = new Client({
         webSocketFactory: () => new SockJS(`${baseUrl}/ws`),
-        connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
-        reconnectDelay: 4000,
+        connectHeaders: {},
+        beforeConnect: () => {
+          const freshToken = localStorage.getItem("velocura_jwt") || localStorage.getItem("token");
+          if (!freshToken) {
+            console.warn("No JWT found — aborting WebSocket connect");
+            client.deactivate();
+            return;
+          }
+          client.connectHeaders = {
+            Authorization: `Bearer ${freshToken}`
+          };
+        },
+        reconnectDelay: 5000,
+        heartbeatIncoming: 10000,
+        heartbeatOutgoing: 10000,
         debug: (str) => {
           // console.debug("[STOMP Debug]", str);
         },
         onConnect: () => {
           setConnected(true);
+
+          keepAliveInterval = setInterval(() => {
+            const currentToken = localStorage.getItem("velocura_jwt") || localStorage.getItem("token");
+            fetch(`${baseUrl}/api/health`, {
+              headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : {}
+            }).catch(() => {});
+          }, 480000); // 8 minutes
 
           // Subscribe to conversation messages
           client.subscribe(
@@ -147,13 +168,23 @@ export function useConversation(conversationId) {
             }
           );
         },
-        onDisconnect: () => setConnected(false),
+        onDisconnect: () => {
+          setConnected(false);
+          if (keepAliveInterval) clearInterval(keepAliveInterval);
+        },
         onStompError: (frame) => {
           console.warn("STOMP connection error:", frame.headers?.message);
+          if (frame.headers?.message?.includes("invalid JWT") ||
+              frame.headers?.message?.includes("unauthorized") ||
+              frame.headers?.message?.includes("Token is blacklisted")) {
+            // Token is invalid — redirect to login
+            window.location.href = "/login";
+          }
           setConnected(false);
         },
         onWebSocketClose: () => {
           setConnected(false);
+          if (keepAliveInterval) clearInterval(keepAliveInterval);
         }
       });
 
@@ -166,6 +197,7 @@ export function useConversation(conversationId) {
 
     return () => {
       clearTimeout(typingTimeoutRef.current);
+      if (keepAliveInterval) clearInterval(keepAliveInterval);
       if (client) {
         try { client.deactivate(); } catch {}
       }

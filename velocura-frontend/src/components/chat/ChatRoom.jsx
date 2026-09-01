@@ -52,18 +52,28 @@ export default function ChatRoom(props) {
   const baseUrl = getBaseUrl();
   const token = localStorage.getItem("velocura_jwt") || localStorage.getItem("token");
 
-  // Fetch Conversation metadata (e.g. other participant name, triageContext)
+  // Verify conversation exists and fetch metadata
   useEffect(() => {
     if (!conversationId) return;
     fetch(`${baseUrl}/api/conversations/${conversationId}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
-      .then(r => r.ok ? r.json() : null)
+      .then(r => {
+        if (r.status === 404) {
+          navigate("/chat"); // redirect to list if not found
+          return null;
+        }
+        if (r.status === 403) {
+          navigate("/dashboard"); // redirect if not participant
+          return null;
+        }
+        return r.ok ? r.json() : null;
+      })
       .then(data => {
         if (data) setConversationMeta(data);
       })
-      .catch(err => console.warn("Failed to fetch conversation meta:", err));
-  }, [conversationId, baseUrl, token]);
+      .catch(() => {}); // network error — socket will handle retry
+  }, [conversationId, baseUrl, token, navigate]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
