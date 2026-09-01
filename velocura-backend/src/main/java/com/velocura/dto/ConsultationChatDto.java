@@ -1,5 +1,6 @@
 package com.velocura.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -23,6 +24,7 @@ public class ConsultationChatDto {
         private String content;
         private String messageType;
         private String deliveryStatus;
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
         private LocalDateTime createdAt;
     }
 

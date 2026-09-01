@@ -1,5 +1,6 @@
 package com.velocura.chat.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.velocura.chat.entity.DeliveryStatus;
 import com.velocura.chat.entity.MessageType;
@@ -25,6 +26,8 @@ public class MessageResponse {
     private String attachmentUrl;
     private String attachmentName;
     private DeliveryStatus deliveryStatus;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
     private LocalDateTime sentAt;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
     private LocalDateTime readAt;
 }

@@ -606,9 +606,9 @@ export default function ChatRoom(props) {
                   </span>
                   {isMine && (
                     <span style={{ display: "inline-flex", alignItems: "center" }}>
-                      {msg.deliveryStatus === "READ" ? (
+                      {String(msg.deliveryStatus || "").toUpperCase() === "READ" || Boolean(msg.read) ? (
                         <CheckCheck size={14} color="#53bdeb" title="Read" />
-                      ) : msg.deliveryStatus === "DELIVERED" ? (
+                      ) : String(msg.deliveryStatus || "").toUpperCase() === "DELIVERED" ? (
                         <CheckCheck size={14} color="var(--label-tertiary)" title="Delivered" />
                       ) : (
                         <Check size={14} color="var(--label-tertiary)" title="Sent" />

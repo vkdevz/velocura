@@ -291,9 +291,16 @@ export default function ConsultationChatModal({
             </div>
           ) : (
             messages.map((m) => {
-              const isSelf = m.senderId === currentUser?.id || (m.senderRole === "DOCTOR" && isDoctor) || (m.senderRole === "PATIENT" && !isDoctor);
+              const myUserId = currentUser?.id || localStorage.getItem("userId") || localStorage.getItem("user_id");
+              const isSelf = (m.senderId && myUserId && String(m.senderId) === String(myUserId))
+                || (m.senderRole === "DOCTOR" && isDoctor)
+                || (m.senderRole === "PATIENT" && !isDoctor);
               const isSystem = m.messageType === "SYSTEM" || m.messageType === "CALL_STARTED" || m.messageType === "CALL_ENDED" || m.messageType === "PRESCRIPTION_ISSUED";
               const timeStr = formatMessageTime(m.createdAt);
+
+              const statusStr = String(m.deliveryStatus || m.status || "").toUpperCase();
+              const isRead = statusStr === "READ" || Boolean(m.read);
+              const isDelivered = statusStr === "DELIVERED";
 
               if (isSystem) {
                 return (
@@ -340,9 +347,9 @@ export default function ConsultationChatModal({
                     {timeStr && <span>• {timeStr}</span>}
                     {isSelf && (
                       <span style={{ display: "inline-flex", alignItems: "center", marginLeft: "2px" }}>
-                        {m.deliveryStatus === "READ" || m.status === "READ" || m.read ? (
+                        {isRead ? (
                           <CheckCheck size={14} color="#53bdeb" title="Read" />
-                        ) : m.deliveryStatus === "DELIVERED" || m.status === "DELIVERED" ? (
+                        ) : isDelivered ? (
                           <CheckCheck size={14} color="var(--label-tertiary)" title="Delivered" />
                         ) : (
                           <Check size={14} color="var(--label-tertiary)" title="Sent" />

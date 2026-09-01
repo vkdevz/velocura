@@ -43,7 +43,7 @@ public class ConsultationChatController {
     }
 
     @GetMapping("/{appointmentId}/messages")
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> getMessages(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long appointmentId) {

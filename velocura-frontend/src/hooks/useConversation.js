@@ -349,20 +349,22 @@ export function formatMessageTime(dateInput) {
     let date;
     if (typeof dateInput === "string") {
       let s = dateInput.trim();
-      // Ensure UTC representation if no timezone offset is explicitly attached
-      if (!s.endsWith("Z") && !s.includes("+") && !s.slice(10).includes("-")) {
-        s += "Z";
+      const hasTimezoneOffset = s.endsWith("Z") || /[+-]\d{2}(:?\d{2})?$/.test(s);
+      if (!hasTimezoneOffset) {
+        // Backend stores UTC timestamps; normalize and append Z so browser parses as UTC
+        s = s.replace(" ", "T") + "Z";
       }
       date = new Date(s);
       if (isNaN(date.getTime())) {
         date = new Date(dateInput);
       }
+    } else if (Array.isArray(dateInput)) {
+      date = new Date(Date.UTC(dateInput[0], (dateInput[1] || 1) - 1, dateInput[2] || 1, dateInput[3] || 0, dateInput[4] || 0, dateInput[5] || 0));
     } else {
       date = new Date(dateInput);
     }
     if (isNaN(date.getTime())) return "";
 
-    // Format in user's country / local timezone
     return new Intl.DateTimeFormat(undefined, {
       hour: "numeric",
       minute: "2-digit",
