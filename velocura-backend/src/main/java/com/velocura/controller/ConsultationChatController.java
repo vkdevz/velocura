@@ -43,6 +43,7 @@ public class ConsultationChatController {
     }
 
     @GetMapping("/{appointmentId}/messages")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<?> getMessages(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long appointmentId) {
@@ -56,7 +57,10 @@ public class ConsultationChatController {
         }
         User user = userOpt.get();
 
-        Optional<Appointment> apptOpt = appointmentRepository.findById(appointmentId);
+        Optional<Appointment> apptOpt = appointmentRepository.findByIdWithDetails(appointmentId);
+        if (apptOpt.isEmpty()) {
+            apptOpt = appointmentRepository.findById(appointmentId);
+        }
         if (apptOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
@@ -86,6 +90,7 @@ public class ConsultationChatController {
     }
 
     @PostMapping("/{appointmentId}/messages")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> sendMessage(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long appointmentId,
@@ -100,7 +105,10 @@ public class ConsultationChatController {
         }
         User user = userOpt.get();
 
-        Optional<Appointment> apptOpt = appointmentRepository.findById(appointmentId);
+        Optional<Appointment> apptOpt = appointmentRepository.findByIdWithDetails(appointmentId);
+        if (apptOpt.isEmpty()) {
+            apptOpt = appointmentRepository.findById(appointmentId);
+        }
         if (apptOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
@@ -125,11 +133,17 @@ public class ConsultationChatController {
         // Determine recipient
         User recipient = null;
         if (doctorUserId != null && doctorUserId.equals(user.getId())) {
-            recipient = appt.getPatient() != null ? appt.getPatient().getUser() : null;
+            recipient = (appt.getPatient() != null && appt.getPatient().getUser() != null)
+                    ? appt.getPatient().getUser()
+                    : (patientUserId != null ? userRepository.findById(patientUserId).orElse(null) : null);
         } else if (patientUserId != null && patientUserId.equals(user.getId())) {
-            recipient = appt.getDoctor() != null ? appt.getDoctor().getUser() : null;
+            recipient = (appt.getDoctor() != null && appt.getDoctor().getUser() != null)
+                    ? appt.getDoctor().getUser()
+                    : (doctorUserId != null ? userRepository.findById(doctorUserId).orElse(null) : null);
         } else if (user.getRole() == Role.ADMIN) {
-            recipient = appt.getPatient() != null ? appt.getPatient().getUser() : null;
+            recipient = (appt.getPatient() != null && appt.getPatient().getUser() != null)
+                    ? appt.getPatient().getUser()
+                    : (patientUserId != null ? userRepository.findById(patientUserId).orElse(null) : null);
         } else {
             return ResponseEntity.status(403).body(Map.of("message", "Access denied for this consultation"));
         }
@@ -157,6 +171,7 @@ public class ConsultationChatController {
     }
 
     @PostMapping("/{appointmentId}/event")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> logCallEvent(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long appointmentId,

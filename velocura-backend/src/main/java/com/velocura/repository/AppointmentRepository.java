@@ -15,4 +15,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             java.time.LocalDateTime appointmentTime, 
             List<com.velocura.model.AppointmentStatus> statuses
     );
+
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM Appointment a LEFT JOIN FETCH a.doctor d LEFT JOIN FETCH d.user LEFT JOIN FETCH a.patient p LEFT JOIN FETCH p.user WHERE a.id = :id")
+    java.util.Optional<Appointment> findByIdWithDetails(@org.springframework.data.repository.query.Param("id") Long id);
 }
