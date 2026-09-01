@@ -12,7 +12,7 @@ jobs:
       - name: Ping VeloCura backend
         run: |
           response=$(curl -s -o /dev/null -w "%{http_code}" \
-            https://velocura-backend.onrender.com/api/health)
+            https://velocura.onrender.com/api/health)
           echo "Response code: $response"
           if [ "$response" != "200" ]; then
             echo "Backend returned $response"

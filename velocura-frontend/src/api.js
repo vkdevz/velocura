@@ -26,12 +26,12 @@ export const getBaseUrl = () => {
       return 'http://localhost:8080';
     }
     // Render deployment fallback
-    if (host.endsWith('.onrender.com') && !host.includes('velocura-backend')) {
-      return 'https://velocura-backend.onrender.com';
+    if (host.endsWith('.onrender.com') && !host.includes('velocura')) {
+      return 'https://velocura.onrender.com';
     }
     // Vercel / Netlify deployment fallback
     if (host.endsWith('.vercel.app') || host.endsWith('.netlify.app')) {
-      return 'https://velocura-backend.onrender.com';
+      return 'https://velocura.onrender.com';
     }
     // Unified domain / reverse proxy fallback
     return window.location.origin;
