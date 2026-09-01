@@ -44,6 +44,10 @@ public class ConsultationMessage {
     @Builder.Default
     private String messageType = "TEXT"; // TEXT, CALL_STARTED, CALL_ENDED, PRESCRIPTION, SYSTEM
 
+    @Column(name = "delivery_status", length = 32)
+    @Builder.Default
+    private String deliveryStatus = "DELIVERED"; // SENT, DELIVERED, READ
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

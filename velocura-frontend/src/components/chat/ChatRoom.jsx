@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
 import { 
-  Phone, PhoneOff, Paperclip, Send, ChevronDown, ChevronUp, 
+  Phone, PhoneOff, Video, Paperclip, Send, ChevronDown, ChevronUp, 
   FileText, ShieldAlert, Activity, Check, CheckCheck, User,
   Pill, AlertTriangle, ArrowLeft, Download, X
 } from "lucide-react";
-import { useConversation, getCurrentUserId, getCurrentUserRole } from "../../hooks/useConversation";
+import { useConversation, getCurrentUserId, getCurrentUserRole, formatMessageTime } from "../../hooks/useConversation";
 import { useVoiceCall } from "../../hooks/useVoiceCall";
 import PrescriptionForm from "./PrescriptionForm";
 import { getBaseUrl } from "../../api";
@@ -262,8 +260,8 @@ export default function ChatRoom(props) {
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+        {/* Action Controls & Call Icons (Pinned to Right) */}
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginLeft: "auto" }}>
           {currentUserRole === "DOCTOR" && !isClosed && (
             <>
               <button
@@ -282,8 +280,10 @@ export default function ChatRoom(props) {
                   fontWeight: "var(--weight-semibold)",
                   cursor: "pointer"
                 }}
+                title="Write Prescription"
               >
-                <Pill size={15} /> Write Prescription
+                <Pill size={14} />
+                <span className="hidden sm:inline" style={{ display: "inline" }}>Rx</span>
               </button>
 
               <button
@@ -302,58 +302,98 @@ export default function ChatRoom(props) {
                   fontWeight: "var(--weight-semibold)",
                   cursor: "pointer"
                 }}
+                title="End Consultation"
               >
-                End Consultation
+                <X size={14} />
               </button>
             </>
           )}
 
-          {/* Voice Call Button */}
+          {/* Voice & Video Call Buttons */}
           {!isClosed && (
-            callState === "ACTIVE" || callState === "CALLING" ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+              {/* Voice Call */}
+              {callState === "ACTIVE" || callState === "CALLING" ? (
+                <button
+                  type="button"
+                  onClick={() => endCall(targetUserId)}
+                  style={{
+                    background: "var(--critical)",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "var(--radius-full)",
+                    width: "36px",
+                    height: "36px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    boxShadow: "0 2px 8px rgba(255, 69, 58, 0.4)",
+                    flexShrink: 0
+                  }}
+                  title="End Voice Call"
+                  aria-label="End Voice Call"
+                >
+                  <PhoneOff size={16} />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => startCall(targetUserId)}
+                  disabled={!connected}
+                  style={{
+                    background: "var(--fill-tertiary)",
+                    color: connected ? "var(--accent)" : "var(--label-tertiary)",
+                    border: "1px solid var(--separator)",
+                    borderRadius: "var(--radius-full)",
+                    width: "36px",
+                    height: "36px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: connected ? "pointer" : "not-allowed",
+                    opacity: connected ? 1 : 0.5,
+                    flexShrink: 0
+                  }}
+                  title="Start Voice Call"
+                  aria-label="Start Voice Call"
+                >
+                  <Phone size={16} />
+                </button>
+              )}
+
+              {/* Video Call */}
               <button
                 type="button"
-                onClick={() => endCall(targetUserId)}
-                style={{
-                  background: "var(--critical)",
-                  color: "#ffffff",
-                  border: "none",
-                  borderRadius: "var(--radius-full)",
-                  width: "38px",
-                  height: "38px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  boxShadow: "0 2px 8px rgba(255, 69, 58, 0.4)"
+                onClick={() => {
+                  if (conversationMeta?.appointmentId) {
+                    navigate(`/telehealth/${conversationMeta.appointmentId}`);
+                  } else {
+                    sendCallSignal("OFFER", { video: true }, targetUserId);
+                  }
                 }}
-                title="End Voice Call"
-              >
-                <PhoneOff size={18} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => startCall(targetUserId)}
                 disabled={!connected}
                 style={{
-                  background: "var(--accent)",
+                  background: connected ? "var(--accent)" : "var(--fill-tertiary)",
                   color: "#ffffff",
                   border: "none",
                   borderRadius: "var(--radius-full)",
-                  width: "38px",
-                  height: "38px",
+                  width: "36px",
+                  height: "36px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   cursor: connected ? "pointer" : "not-allowed",
-                  opacity: connected ? 1 : 0.5
+                  opacity: connected ? 1 : 0.5,
+                  boxShadow: connected ? "0 2px 8px rgba(10, 132, 255, 0.3)" : "none",
+                  flexShrink: 0
                 }}
-                title="Start Voice Call"
+                title="Start Video Call"
+                aria-label="Start Video Call"
               >
-                <Phone size={18} />
+                <Video size={16} />
               </button>
-            )
+            </div>
           )}
         </div>
       </header>
@@ -562,7 +602,7 @@ export default function ChatRoom(props) {
                   color: "var(--label-tertiary)"
                 }}>
                   <span>
-                    {(msg.sentAt || msg.createdAt) ? new Date(msg.sentAt || msg.createdAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true }) : ""}
+                    {formatMessageTime(msg.sentAt || msg.createdAt)}
                   </span>
                   {isMine && (
                     <span style={{ display: "inline-flex", alignItems: "center" }}>

@@ -19,6 +19,7 @@ import {
   Check,
   CheckCheck
 } from "lucide-react";
+import { formatMessageTime } from "../hooks/useConversation";
 
 export default function ConsultationChatModal({
   appointment,
@@ -186,8 +187,8 @@ export default function ConsultationChatModal({
             </div>
           </div>
 
-          {/* Quick Calling & Action Toolbar */}
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+          {/* Quick Calling & Action Toolbar (Pinned to Right) */}
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginLeft: "auto", flexShrink: 0 }}>
             {!isConcluded && (
               <>
                 <Button
@@ -292,7 +293,7 @@ export default function ConsultationChatModal({
             messages.map((m) => {
               const isSelf = m.senderId === currentUser?.id || (m.senderRole === "DOCTOR" && isDoctor) || (m.senderRole === "PATIENT" && !isDoctor);
               const isSystem = m.messageType === "SYSTEM" || m.messageType === "CALL_STARTED" || m.messageType === "CALL_ENDED" || m.messageType === "PRESCRIPTION_ISSUED";
-              const timeStr = m.createdAt ? new Date(m.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true }) : "";
+              const timeStr = formatMessageTime(m.createdAt);
 
               if (isSystem) {
                 return (

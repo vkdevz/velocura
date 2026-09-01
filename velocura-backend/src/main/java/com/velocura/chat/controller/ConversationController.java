@@ -109,6 +109,17 @@ public class ConversationController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "30") int size,
             Authentication authentication) {
+        if (authentication != null) {
+            userRepository.findByEmailIgnoreCase(authentication.getName()).ifPresent(currentUser -> {
+                com.velocura.chat.dto.ReadReceiptPayload receipt = new com.velocura.chat.dto.ReadReceiptPayload();
+                receipt.setConversationId(id);
+                receipt.setReadByUserId(currentUser.getId());
+                chatService.markMessagesAsRead(receipt);
+                try {
+                    messagingTemplate.convertAndSend("/topic/conversation/" + id + "/read", receipt);
+                } catch (Exception ignored) {}
+            });
+        }
         return ResponseEntity.ok(chatService.getMessages(id, page, size));
     }
 

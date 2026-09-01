@@ -84,6 +84,21 @@ public class ConsultationChatController {
         }
 
         List<ConsultationMessage> messages = messageRepository.findByAppointmentIdOrderByCreatedAtAsc(appointmentId);
+        
+        // Update unread messages sent by the other participant to READ status
+        boolean statusChanged = false;
+        for (ConsultationMessage msg : messages) {
+            if (msg.getSender() != null && !msg.getSender().getId().equals(user.getId())) {
+                if (!"READ".equalsIgnoreCase(msg.getDeliveryStatus())) {
+                    msg.setDeliveryStatus("READ");
+                    statusChanged = true;
+                }
+            }
+        }
+        if (statusChanged) {
+            messageRepository.saveAll(messages);
+        }
+
         List<MessageResponse> responseList = messages.stream().map(this::mapToResponse).collect(Collectors.toList());
 
         return ResponseEntity.ok(responseList);
@@ -162,6 +177,7 @@ public class ConsultationChatController {
                 .recipient(recipient)
                 .content(request.getContent().trim())
                 .messageType(msgType)
+                .deliveryStatus("DELIVERED")
                 .build();
 
         ConsultationMessage saved = messageRepository.save(message);
@@ -204,6 +220,7 @@ public class ConsultationChatController {
                 .recipient(recipient)
                 .content(eventText)
                 .messageType(request.getEventType() != null ? request.getEventType() : "SYSTEM")
+                .deliveryStatus("DELIVERED")
                 .build();
 
         ConsultationMessage saved = messageRepository.save(eventMessage);
@@ -224,6 +241,7 @@ public class ConsultationChatController {
                 .recipientId(m.getRecipient() != null ? m.getRecipient().getId() : null)
                 .content(m.getContent())
                 .messageType(m.getMessageType())
+                .deliveryStatus(m.getDeliveryStatus() != null ? m.getDeliveryStatus() : "DELIVERED")
                 .createdAt(m.getCreatedAt())
                 .build();
     }

@@ -342,3 +342,33 @@ export function getCurrentUserRole() {
     return "PATIENT";
   }
 }
+
+export function formatMessageTime(dateInput) {
+  if (!dateInput) return "";
+  try {
+    let date;
+    if (typeof dateInput === "string") {
+      let s = dateInput.trim();
+      // Ensure UTC representation if no timezone offset is explicitly attached
+      if (!s.endsWith("Z") && !s.includes("+") && !s.slice(10).includes("-")) {
+        s += "Z";
+      }
+      date = new Date(s);
+      if (isNaN(date.getTime())) {
+        date = new Date(dateInput);
+      }
+    } else {
+      date = new Date(dateInput);
+    }
+    if (isNaN(date.getTime())) return "";
+
+    // Format in user's country / local timezone
+    return new Intl.DateTimeFormat(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true
+    }).format(date);
+  } catch {
+    return "";
+  }
+}

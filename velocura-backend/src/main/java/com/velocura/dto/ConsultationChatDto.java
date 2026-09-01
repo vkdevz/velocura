@@ -22,6 +22,7 @@ public class ConsultationChatDto {
         private Long recipientId;
         private String content;
         private String messageType;
+        private String deliveryStatus;
         private LocalDateTime createdAt;
     }
 
