@@ -14,183 +14,249 @@ export function useConversation(conversationId) {
   const token = localStorage.getItem("velocura_jwt") || localStorage.getItem("token");
   const baseUrl = getBaseUrl();
 
-  useEffect(() => {
+  const fetchMessages = useCallback(() => {
     if (!conversationId) return;
-
-    // Load message history first
     fetch(`${baseUrl}/api/conversations/${conversationId}/messages?page=0&size=50`, {
       headers: { 
         Authorization: `Bearer ${token}` 
       }
     })
-      .then(r => r.ok ? r.json() : Promise.reject(r))
+      .then(r => r.ok ? r.json() : null)
       .then(data => {
-        const msgs = data.content ? [...data.content].reverse() : [];
-        setMessages(msgs);
+        if (data?.content) {
+          const msgs = [...data.content].reverse();
+          setMessages(msgs);
+        }
       })
       .catch(err => {
         console.warn("Could not fetch conversation message history:", err);
       });
+  }, [conversationId, baseUrl, token]);
 
-    // Connect WebSocket
-    const client = new Client({
-      webSocketFactory: () => new SockJS(`${baseUrl}/ws`),
-      connectHeaders: { 
-        Authorization: `Bearer ${token}` 
-      },
-      reconnectDelay: 3000,   // retry every 3s on disconnect
-      onConnect: () => {
-        setConnected(true);
+  useEffect(() => {
+    if (!conversationId) return;
 
-        // Subscribe to conversation messages
-        client.subscribe(
-          `/topic/conversation/${conversationId}`,
-          (frame) => {
-            try {
-              const msg = JSON.parse(frame.body);
-              setMessages(prev => {
-                // Deduplicate if needed
-                if (prev.some(m => m.id === msg.id)) {
-                  return prev.map(m => m.id === msg.id ? msg : m);
-                }
-                return [...prev, msg];
-              });
+    // Load initial message history
+    fetchMessages();
 
-              // Send read receipt if received from other participant
-              const currentUid = getCurrentUserId();
-              if (msg.senderId && currentUid && String(msg.senderId) !== String(currentUid)) {
-                client.publish({
-                  destination: `/app/read/${conversationId}`,
-                  body: JSON.stringify({
-                    conversationId: Number(conversationId),
-                    readByUserId: Number(currentUid),
-                    messageIds: [msg.id]
-                  })
+    // Connect WebSocket / STOMP
+    let client = null;
+    try {
+      client = new Client({
+        webSocketFactory: () => new SockJS(`${baseUrl}/ws`),
+        connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
+        reconnectDelay: 4000,
+        debug: (str) => {
+          // console.debug("[STOMP Debug]", str);
+        },
+        onConnect: () => {
+          setConnected(true);
+
+          // Subscribe to conversation messages
+          client.subscribe(
+            `/topic/conversation/${conversationId}`,
+            (frame) => {
+              try {
+                const msg = JSON.parse(frame.body);
+                setMessages(prev => {
+                  if (prev.some(m => m.id === msg.id)) {
+                    return prev.map(m => m.id === msg.id ? msg : m);
+                  }
+                  return [...prev, msg];
                 });
-              }
-            } catch (err) {
-              console.error("Error parsing incoming chat message:", err);
-            }
-          }
-        );
 
-        // Subscribe to typing indicator
-        client.subscribe(
-          `/topic/conversation/${conversationId}/typing`,
-          (frame) => {
-            try {
-              const data = JSON.parse(frame.body);
-              const currentUid = getCurrentUserId();
-              if (String(data.userId) !== String(currentUid)) {
-                setTyping(true);
-                clearTimeout(typingTimeoutRef.current);
-                typingTimeoutRef.current = setTimeout(() => {
-                  setTyping(false);
-                }, 2000);
+                // Send read receipt if received from other participant
+                const currentUid = getCurrentUserId();
+                const numUid = !isNaN(Number(currentUid)) ? Number(currentUid) : null;
+                if (msg.senderId && numUid && String(msg.senderId) !== String(numUid)) {
+                  client.publish({
+                    destination: `/app/read/${conversationId}`,
+                    body: JSON.stringify({
+                      conversationId: Number(conversationId),
+                      readByUserId: numUid,
+                      messageIds: [msg.id]
+                    })
+                  });
+                }
+              } catch (err) {
+                console.error("Error parsing incoming chat message:", err);
               }
-            } catch (err) {
-              console.error("Error handling typing frame:", err);
             }
-          }
-        );
+          );
 
-        // Subscribe to read receipts
-        client.subscribe(
-          `/topic/conversation/${conversationId}/read`,
-          (frame) => {
-            try {
-              const receipt = JSON.parse(frame.body);
-              setMessages(prev => prev.map(m => {
-                if (receipt.messageIds && receipt.messageIds.length > 0) {
-                  if (receipt.messageIds.includes(m.id)) {
+          // Subscribe to typing indicator
+          client.subscribe(
+            `/topic/conversation/${conversationId}/typing`,
+            (frame) => {
+              try {
+                const data = JSON.parse(frame.body);
+                const currentUid = getCurrentUserId();
+                if (String(data.userId) !== String(currentUid)) {
+                  setTyping(true);
+                  clearTimeout(typingTimeoutRef.current);
+                  typingTimeoutRef.current = setTimeout(() => {
+                    setTyping(false);
+                  }, 2000);
+                }
+              } catch (err) {
+                console.error("Error handling typing frame:", err);
+              }
+            }
+          );
+
+          // Subscribe to read receipts
+          client.subscribe(
+            `/topic/conversation/${conversationId}/read`,
+            (frame) => {
+              try {
+                const receipt = JSON.parse(frame.body);
+                setMessages(prev => prev.map(m => {
+                  if (receipt.messageIds && receipt.messageIds.length > 0) {
+                    if (receipt.messageIds.includes(m.id)) {
+                      return { ...m, deliveryStatus: "READ" };
+                    }
+                    return m;
+                  }
+                  if (String(m.senderId) !== String(receipt.readByUserId)) {
                     return { ...m, deliveryStatus: "READ" };
                   }
                   return m;
-                }
-                if (String(m.senderId) !== String(receipt.readByUserId)) {
-                  return { ...m, deliveryStatus: "READ" };
-                }
-                return m;
-              }));
-            } catch (err) {
-              console.error("Error handling read receipt:", err);
-            }
-          }
-        );
-
-        // Subscribe to incoming call signals
-        client.subscribe(
-          `/user/queue/call`,
-          (frame) => {
-            try {
-              const signal = JSON.parse(frame.body);
-              if (signal.type === "OFFER") {
-                setIncomingCall(signal);
-              } else if (signal.type === "CALL_END" || signal.type === "CALL_REJECT") {
-                setIncomingCall(null);
-              } else if (signal.type === "ANSWER" || signal.type === "ICE_CANDIDATE") {
-                setIncomingCall(signal);
+                }));
+              } catch (err) {
+                console.error("Error handling read receipt:", err);
               }
-            } catch (err) {
-              console.error("Error handling call signal:", err);
             }
-          }
-        );
-      },
-      onDisconnect: () => setConnected(false),
-      onStompError: (frame) => {
-        console.warn("STOMP error:", frame.headers?.message);
-        setConnected(false);
-      }
-    });
+          );
 
-    client.activate();
-    clientRef.current = client;
+          // Subscribe to incoming call signals
+          client.subscribe(
+            `/user/queue/call`,
+            (frame) => {
+              try {
+                const signal = JSON.parse(frame.body);
+                if (signal.type === "OFFER") {
+                  setIncomingCall(signal);
+                } else if (signal.type === "CALL_END" || signal.type === "CALL_REJECT") {
+                  setIncomingCall(null);
+                } else if (signal.type === "ANSWER" || signal.type === "ICE_CANDIDATE") {
+                  setIncomingCall(signal);
+                }
+              } catch (err) {
+                console.error("Error handling call signal:", err);
+              }
+            }
+          );
+        },
+        onDisconnect: () => setConnected(false),
+        onStompError: (frame) => {
+          console.warn("STOMP connection error:", frame.headers?.message);
+          setConnected(false);
+        },
+        onWebSocketClose: () => {
+          setConnected(false);
+        }
+      });
+
+      client.activate();
+      clientRef.current = client;
+    } catch (err) {
+      console.warn("WebSocket client initialization warning:", err);
+      setConnected(false);
+    }
 
     return () => {
       clearTimeout(typingTimeoutRef.current);
-      client.deactivate();
+      if (client) {
+        try { client.deactivate(); } catch {}
+      }
     };
-  }, [conversationId, baseUrl, token]);
+  }, [conversationId, baseUrl, token, fetchMessages]);
 
-  const sendMessage = useCallback((content, messageType = "TEXT", attachmentUrl = null, attachmentName = null) => {
-    if (!clientRef.current?.connected) {
-      console.warn("Cannot send message: WebSocket is not connected.");
-      return;
+  // Polling fallback when WebSocket is offline or reconnecting
+  useEffect(() => {
+    if (!conversationId) return;
+    const interval = setInterval(() => {
+      if (!connected) {
+        fetchMessages();
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [conversationId, connected, fetchMessages]);
+
+  const sendMessage = useCallback(async (content, messageType = "TEXT", attachmentUrl = null, attachmentName = null) => {
+    const uid = getCurrentUserId();
+    const numericSenderId = (uid && !isNaN(Number(uid))) ? Number(uid) : null;
+    const role = getCurrentUserRole() || "PATIENT";
+
+    const payload = {
+      conversationId: Number(conversationId),
+      senderId: numericSenderId,
+      senderRole: role,
+      content,
+      messageType,
+      attachmentUrl,
+      attachmentName,
+    };
+
+    // If WebSocket is connected, publish via STOMP
+    if (clientRef.current?.connected) {
+      try {
+        clientRef.current.publish({
+          destination: `/app/chat/${conversationId}`,
+          body: JSON.stringify(payload)
+        });
+        return;
+      } catch (err) {
+        console.warn("STOMP publish failed, falling back to HTTP REST:", err);
+      }
     }
-    clientRef.current.publish({
-      destination: `/app/chat/${conversationId}`,
-      body: JSON.stringify({
-        conversationId: Number(conversationId),
-        senderId: getCurrentUserId() ? Number(getCurrentUserId()) : null,
-        senderRole: getCurrentUserRole(),
-        content,
-        messageType,
-        attachmentUrl,
-        attachmentName,
-      })
-    });
-  }, [conversationId]);
+
+    // HTTP REST fallback for seamless delivery
+    try {
+      const res = await fetch(`${baseUrl}/api/conversations/${conversationId}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        setMessages(prev => {
+          if (prev.some(m => m.id === saved.id)) return prev;
+          return [...prev, saved];
+        });
+      }
+    } catch (httpErr) {
+      console.error("HTTP send message fallback failed:", httpErr);
+    }
+  }, [conversationId, baseUrl, token]);
 
   const sendTyping = useCallback(() => {
     if (!clientRef.current?.connected) return;
+    const uid = getCurrentUserId();
     clientRef.current.publish({
       destination: `/app/typing/${conversationId}`,
       body: JSON.stringify({ 
         conversationId: Number(conversationId),
-        userId: getCurrentUserId() 
+        userId: uid 
       })
     });
   }, [conversationId]);
 
   const sendCallSignal = useCallback((type, signal, toUserId) => {
+    const uid = getCurrentUserId();
+    const numUid = (uid && !isNaN(Number(uid))) ? Number(uid) : null;
+    const numTo = (toUserId && !isNaN(Number(toUserId))) ? Number(toUserId) : null;
+
     if (!clientRef.current?.connected) return;
     clientRef.current.publish({
       destination: `/app/call/${conversationId}`,
       body: JSON.stringify({
         conversationId: Number(conversationId),
-        fromUserId: getCurrentUserId() ? Number(getCurrentUserId()) : null,
-        toUserId: toUserId ? Number(toUserId) : null,
+        fromUserId: numUid,
+        toUserId: numTo,
         type,
         signal
       })
@@ -212,25 +278,35 @@ export function useConversation(conversationId) {
 }
 
 export function getCurrentUserId() {
+  const storedId = localStorage.getItem("userId") || localStorage.getItem("user_id");
+  if (storedId && !isNaN(Number(storedId))) {
+    return Number(storedId);
+  }
   const token = localStorage.getItem("velocura_jwt") || localStorage.getItem("token");
   if (!token) return null;
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.userId || payload.id || payload.sub;
+    if (payload.userId && !isNaN(Number(payload.userId))) {
+      return Number(payload.userId);
+    }
+    if (payload.id && !isNaN(Number(payload.id))) {
+      return Number(payload.id);
+    }
+    return payload.sub || null;
   } catch {
     return null;
   }
 }
 
 export function getCurrentUserRole() {
-  const token = localStorage.getItem("velocura_jwt") || localStorage.getItem("token");
   const storedRole = localStorage.getItem("role");
   if (storedRole) return storedRole;
-  if (!token) return null;
+  const token = localStorage.getItem("velocura_jwt") || localStorage.getItem("token");
+  if (!token) return "PATIENT";
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.role || null;
+    return payload.role || "PATIENT";
   } catch {
-    return null;
+    return "PATIENT";
   }
 }

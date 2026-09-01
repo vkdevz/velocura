@@ -112,6 +112,27 @@ public class ConversationController {
         return ResponseEntity.ok(chatService.getMessages(id, page, size));
     }
 
+    @PostMapping("/{id}/messages")
+    public ResponseEntity<MessageResponse> sendMessage(
+            @PathVariable Long id,
+            @RequestBody MessagePayload payload,
+            Authentication authentication) {
+        payload.setConversationId(id);
+        MessageResponse saved = chatService.saveMessage(payload, authentication);
+        try {
+            messagingTemplate.convertAndSend("/topic/conversation/" + id, saved);
+            Long recipientId = chatService.getRecipientId(id, authentication);
+            if (recipientId != null) {
+                messagingTemplate.convertAndSendToUser(
+                        recipientId.toString(),
+                        "/queue/notifications", saved);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to broadcast message to WebSocket clients: {}", e.getMessage());
+        }
+        return ResponseEntity.ok(saved);
+    }
+
     @PutMapping("/{id}/close")
     public ResponseEntity<ConversationResponse> closeConversation(
             @PathVariable Long id,
