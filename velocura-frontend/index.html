@@ -7,6 +7,11 @@
     <title>VeloCura</title>
     <!-- Google Identity Services (One-Tap & 1-Click Sign-In) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+      if (typeof window !== 'undefined' && typeof window.global === 'undefined') {
+        window.global = window;
+      }
+    </script>
   </head>
   <body class="antialiased">
     <div id="root"></div>
