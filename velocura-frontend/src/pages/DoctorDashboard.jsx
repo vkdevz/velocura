@@ -20,6 +20,7 @@ import {
   X,
   RefreshCw,
   MessageSquare,
+  MessageCircle,
   Phone
 } from "lucide-react";
 import s from "../components/layout/WorkspaceShell.module.css";
@@ -268,8 +269,8 @@ export default function DoctorDashboard() {
               <h2 className={s.panelTitle}>Clinical Overview</h2>
               <p className={s.panelDesc}>Daily patient appointment queue and clinical workload</p>
             </div>
-            <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing}>
-              <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} /> Refresh
+            <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing} title="Refresh" aria-label="Refresh" style={{ minWidth: "36px", padding: "6px 10px" }}>
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             </Button>
           </div>
 
@@ -299,8 +300,8 @@ export default function DoctorDashboard() {
               <h2 className={s.panelTitle}>Scheduled Consultations</h2>
               <p className={s.panelDesc}>Manage upcoming patient video calls and clinical records</p>
             </div>
-            <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing}>
-              <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} /> Refresh
+            <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing} title="Refresh" aria-label="Refresh" style={{ minWidth: "36px", padding: "6px 10px" }}>
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             </Button>
           </div>
 
@@ -340,18 +341,22 @@ export default function DoctorDashboard() {
                               variant="tinted"
                               size="sm"
                               onClick={() => handleOpenConsultation(a)}
-                              title="Open real-time telehealth chat, triage review, and voice call"
+                              title="Open Consultation"
+                              aria-label="Open Consultation"
+                              style={{ minWidth: "36px", padding: "6px 10px" }}
                             >
-                              <MessageSquare size={13} color="var(--accent)" /> Open consultation
+                              <MessageSquare size={14} color="var(--accent)" />
                             </Button>
 
                             <Button
                               variant="secondary"
                               size="sm"
                               onClick={() => setActiveChatAppt(a)}
-                              title="Open consultation chat modal"
+                              title="Consultation Chat"
+                              aria-label="Consultation Chat"
+                              style={{ minWidth: "36px", padding: "6px 10px" }}
                             >
-                              Legacy Chat
+                              <MessageCircle size={14} />
                             </Button>
 
                             {a.status === "COMPLETED" ? (
@@ -368,8 +373,11 @@ export default function DoctorDashboard() {
                                   variant="primary"
                                   size="sm"
                                   onClick={() => handleJoinVideoCall(a)}
+                                  title="Video Call"
+                                  aria-label="Video Call"
+                                  style={{ minWidth: "36px", padding: "6px 10px" }}
                                 >
-                                  <Video size={13} /> Video Call
+                                  <Video size={14} />
                                 </Button>
                                 <Button
                                   variant="secondary"
@@ -378,8 +386,11 @@ export default function DoctorDashboard() {
                                     setConsultationAppt(a);
                                     setActiveTab("prescriptions");
                                   }}
+                                  title="Prescribe"
+                                  aria-label="Prescribe"
+                                  style={{ minWidth: "36px", padding: "6px 10px" }}
                                 >
-                                  <FileText size={13} /> Rx Pad
+                                  <FileText size={14} />
                                 </Button>
                                 <Button
                                   variant="ghost"

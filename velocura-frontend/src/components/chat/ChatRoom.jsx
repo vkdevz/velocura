@@ -562,16 +562,16 @@ export default function ChatRoom(props) {
                   color: "var(--label-tertiary)"
                 }}>
                   <span>
-                    {msg.sentAt ? new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                    {(msg.sentAt || msg.createdAt) ? new Date(msg.sentAt || msg.createdAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true }) : ""}
                   </span>
                   {isMine && (
-                    <span>
+                    <span style={{ display: "inline-flex", alignItems: "center" }}>
                       {msg.deliveryStatus === "READ" ? (
-                        <CheckCheck size={14} color="var(--accent)" />
+                        <CheckCheck size={14} color="#53bdeb" title="Read" />
                       ) : msg.deliveryStatus === "DELIVERED" ? (
-                        <CheckCheck size={14} color="var(--label-tertiary)" />
+                        <CheckCheck size={14} color="var(--label-tertiary)" title="Delivered" />
                       ) : (
-                        <Check size={14} color="var(--label-tertiary)" />
+                        <Check size={14} color="var(--label-tertiary)" title="Sent" />
                       )}
                     </span>
                   )}

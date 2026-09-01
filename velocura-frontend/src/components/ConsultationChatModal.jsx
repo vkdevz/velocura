@@ -15,7 +15,9 @@ import {
   Sparkles,
   RefreshCw,
   PhoneCall,
-  VideoOff
+  VideoOff,
+  Check,
+  CheckCheck
 } from "lucide-react";
 
 export default function ConsultationChatModal({
@@ -192,20 +194,22 @@ export default function ConsultationChatModal({
                   variant="secondary"
                   size="sm"
                   onClick={() => onStartVoiceCall && onStartVoiceCall(appointment)}
-                  title="Launch Audio Voice Encounter"
-                  style={{ gap: "6px" }}
+                  title="Voice Call"
+                  aria-label="Voice Call"
+                  style={{ padding: "8px 12px", minWidth: "38px" }}
                 >
-                  <Phone size={14} color="var(--accent)" /> Voice Call
+                  <Phone size={15} color="var(--accent)" />
                 </Button>
 
                 <Button
                   variant="primary"
                   size="sm"
                   onClick={() => onStartVideoCall && onStartVideoCall(appointment)}
-                  title="Launch HD WebRTC Video Room"
-                  style={{ gap: "6px" }}
+                  title="Video Call"
+                  aria-label="Video Call"
+                  style={{ padding: "8px 12px", minWidth: "38px" }}
                 >
-                  <Video size={14} /> Video Call
+                  <Video size={15} />
                 </Button>
 
                 {isDoctor && (
@@ -213,10 +217,11 @@ export default function ConsultationChatModal({
                     variant="ghost"
                     size="sm"
                     onClick={handleConclude}
-                    title="Conclude and lock consultation"
-                    style={{ color: "var(--label-tertiary)" }}
+                    title="Conclude Consultation"
+                    aria-label="Conclude Consultation"
+                    style={{ color: "var(--label-tertiary)", padding: "8px 12px" }}
                   >
-                    <CheckCircle2 size={14} /> Conclude
+                    <CheckCircle2 size={15} />
                   </Button>
                 )}
               </>
@@ -287,7 +292,7 @@ export default function ConsultationChatModal({
             messages.map((m) => {
               const isSelf = m.senderId === currentUser?.id || (m.senderRole === "DOCTOR" && isDoctor) || (m.senderRole === "PATIENT" && !isDoctor);
               const isSystem = m.messageType === "SYSTEM" || m.messageType === "CALL_STARTED" || m.messageType === "CALL_ENDED" || m.messageType === "PRESCRIPTION_ISSUED";
-              const timeStr = m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+              const timeStr = m.createdAt ? new Date(m.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true }) : "";
 
               if (isSystem) {
                 return (
@@ -329,8 +334,20 @@ export default function ConsultationChatModal({
                     alignItems: isSelf ? "flex-end" : "flex-start"
                   }}
                 >
-                  <span style={{ fontSize: "11px", color: "var(--label-tertiary)", marginBottom: "2px", padding: "0 4px" }}>
-                    {m.senderName} {timeStr && `• ${timeStr}`}
+                  <span style={{ fontSize: "11px", color: "var(--label-tertiary)", marginBottom: "2px", padding: "0 4px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                    <span>{m.senderName}</span>
+                    {timeStr && <span>• {timeStr}</span>}
+                    {isSelf && (
+                      <span style={{ display: "inline-flex", alignItems: "center", marginLeft: "2px" }}>
+                        {m.deliveryStatus === "READ" || m.status === "READ" || m.read ? (
+                          <CheckCheck size={14} color="#53bdeb" title="Read" />
+                        ) : m.deliveryStatus === "DELIVERED" || m.status === "DELIVERED" ? (
+                          <CheckCheck size={14} color="var(--label-tertiary)" title="Delivered" />
+                        ) : (
+                          <Check size={14} color="var(--label-tertiary)" title="Sent" />
+                        )}
+                      </span>
+                    )}
                   </span>
                   <div
                     style={{
@@ -441,9 +458,11 @@ export default function ConsultationChatModal({
                   size="md"
                   disabled={!inputText.trim() || sending}
                   loading={sending}
-                  style={{ padding: "10px 18px" }}
+                  title="Send Message"
+                  aria-label="Send Message"
+                  style={{ padding: "10px 14px", minWidth: "42px", borderRadius: "var(--radius-lg)" }}
                 >
-                  <Send size={15} /> Send
+                  <Send size={16} />
                 </Button>
               </form>
             </>

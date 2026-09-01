@@ -278,8 +278,8 @@ export default function AdminDashboard() {
               <h2 className={s.panelTitle}>System Governance & Telehealth Infrastructure</h2>
               <p className={s.panelDesc}>Real-time system health, provider verifications, and compliance monitoring</p>
             </div>
-            <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing}>
-              <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} /> Refresh
+            <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing} title="Refresh" aria-label="Refresh" style={{ minWidth: "36px", padding: "6px 10px" }}>
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             </Button>
           </div>
 
@@ -315,8 +315,8 @@ export default function AdminDashboard() {
               <h2 className={s.panelTitle}>Doctor Verification Pipeline</h2>
               <p className={s.panelDesc}>Review institutional medical license credentials before granting clinical provider access</p>
             </div>
-            <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing}>
-              <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} /> Refresh
+            <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing} title="Refresh" aria-label="Refresh" style={{ minWidth: "36px", padding: "6px 10px" }}>
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             </Button>
           </div>
 
@@ -372,8 +372,8 @@ export default function AdminDashboard() {
               <h2 className={s.panelTitle}>User Management & Access Control</h2>
               <p className={s.panelDesc}>Manage accounts, toggle active/deactivated access status, and remove user profiles</p>
             </div>
-            <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing}>
-              <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} /> Refresh
+            <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing} title="Refresh" aria-label="Refresh" style={{ minWidth: "36px", padding: "6px 10px" }}>
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             </Button>
           </div>
 
@@ -507,8 +507,8 @@ export default function AdminDashboard() {
                 <h2 className={s.panelTitle}>Active OTP & Security Challenges</h2>
                 <p className={s.panelDesc}>Monitor real-time verification requests and authorization codes</p>
               </div>
-              <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing}>
-                <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} /> Refresh OTPs
+              <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing} title="Refresh" aria-label="Refresh" style={{ minWidth: "36px", padding: "6px 10px" }}>
+                <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
               </Button>
             </div>
 

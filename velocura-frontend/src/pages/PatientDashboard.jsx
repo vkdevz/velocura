@@ -28,6 +28,7 @@ import {
   ShieldAlert,
   RefreshCw,
   MessageSquare,
+  MessageCircle,
   Phone
 } from "lucide-react";
 import s from "../components/layout/WorkspaceShell.module.css";
@@ -336,8 +337,8 @@ export default function PatientDashboard() {
                   AI-assisted triage mapped to WHO ICD-11 criteria. Intended to inform — not replace — professional care.
                 </p>
               </div>
-              <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing}>
-                <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} /> Refresh
+              <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing} title="Refresh" aria-label="Refresh" style={{ minWidth: "36px", padding: "6px 10px" }}>
+                <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
               </Button>
             </div>
             <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", marginTop: "var(--space-3)" }}>
@@ -435,8 +436,8 @@ export default function PatientDashboard() {
               <h2 className={s.panelTitle}>Book Doctor Consultation</h2>
               <p className={s.panelDesc}>Select a verified clinical specialist for a high-definition WebRTC video encounter</p>
             </div>
-            <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing}>
-              <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} /> Refresh
+            <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing} title="Refresh" aria-label="Refresh" style={{ minWidth: "36px", padding: "6px 10px" }}>
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             </Button>
           </div>
 
@@ -517,8 +518,8 @@ export default function PatientDashboard() {
               <h2 className={s.panelTitle}>Appointments & Consultations</h2>
               <p className={s.panelDesc}>Scheduled virtual encounters and doctor consultations</p>
             </div>
-            <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing}>
-              <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} /> Refresh
+            <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing} title="Refresh" aria-label="Refresh" style={{ minWidth: "36px", padding: "6px 10px" }}>
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             </Button>
           </div>
 
@@ -587,18 +588,22 @@ export default function PatientDashboard() {
                               variant="tinted"
                               size="sm"
                               onClick={() => handleOpenConsultation(a)}
-                              title="Open real-time consultation chat and voice call"
+                              title="Open Consultation"
+                              aria-label="Open Consultation"
+                              style={{ minWidth: "36px", padding: "6px 10px" }}
                             >
-                              <MessageSquare size={13} color="var(--accent)" /> Open consultation
+                              <MessageSquare size={14} color="var(--accent)" />
                             </Button>
 
                             <Button
                               variant="secondary"
                               size="sm"
                               onClick={() => setActiveChatAppt(a)}
-                              title="Open consultation chat modal"
+                              title="Consultation Chat"
+                              aria-label="Consultation Chat"
+                              style={{ minWidth: "36px", padding: "6px 10px" }}
                             >
-                              Legacy Chat
+                              <MessageCircle size={14} />
                             </Button>
 
                             {a.status === "COMPLETED" ? (
@@ -610,8 +615,15 @@ export default function PatientDashboard() {
                                 Cancelled
                               </span>
                             ) : (
-                              <Button variant="primary" size="sm" onClick={() => handleJoinCall(a)}>
-                                <Video size={13} /> Video Call
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => handleJoinCall(a)}
+                                title="Video Call"
+                                aria-label="Video Call"
+                                style={{ minWidth: "36px", padding: "6px 10px" }}
+                              >
+                                <Video size={14} />
                               </Button>
                             )}
                           </div>
@@ -635,8 +647,8 @@ export default function PatientDashboard() {
                 <h2 className={s.panelTitle}>Log Health Vitals</h2>
                 <p className={s.panelDesc}>Record blood pressure, heart rate, and sugar levels</p>
               </div>
-              <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing}>
-                <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} /> Refresh
+              <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing} title="Refresh" aria-label="Refresh" style={{ minWidth: "36px", padding: "6px 10px" }}>
+                <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
               </Button>
             </div>
 
@@ -723,8 +735,8 @@ export default function PatientDashboard() {
               <p className={s.panelDesc}>Verified doctor prescriptions, clinical notes, and emergency profile</p>
             </div>
             <div style={{ display: "flex", gap: "var(--space-2)" }}>
-              <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing}>
-                <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} /> Refresh
+              <Button variant="secondary" size="sm" onClick={fetchDashboardData} loading={refreshing} title="Refresh" aria-label="Refresh" style={{ minWidth: "36px", padding: "6px 10px" }}>
+                <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setShowQrModal(true)}>
                 <QrCode size={14} /> Emergency ICE Pass
