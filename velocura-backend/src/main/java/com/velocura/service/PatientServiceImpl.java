@@ -7,10 +7,13 @@ import com.velocura.dto.PrescriptionResponse;
 import com.velocura.dto.UpdatePatientProfileRequest;
 import com.velocura.dto.PatientPassportDto;
 import com.velocura.dto.VitalsDto;
+import com.velocura.dto.ChatHistoryDto;
+import com.velocura.dto.SaveChatHistoryRequest;
 import com.velocura.exception.ResourceNotFoundException;
 import com.velocura.model.MedicalHistory;
 import com.velocura.model.Patient;
 import com.velocura.model.Prescription;
+import com.velocura.model.ChatHistorySession;
 import com.velocura.model.User;
 import com.velocura.model.Vitals;
 import com.velocura.repository.DoctorRepository;
@@ -36,6 +39,7 @@ public class PatientServiceImpl implements PatientService {
     private final PrescriptionRepository prescriptionRepository;
     private final DoctorRepository doctorRepository;
     private final VitalsRepository vitalsRepository;
+    private final com.velocura.repository.ChatHistorySessionRepository chatHistorySessionRepository;
 
     @Autowired
     public PatientServiceImpl(
@@ -44,14 +48,17 @@ public class PatientServiceImpl implements PatientService {
             MedicalHistoryRepository medicalHistoryRepository,
             PrescriptionRepository prescriptionRepository,
             DoctorRepository doctorRepository,
-            VitalsRepository vitalsRepository) {
+            VitalsRepository vitalsRepository,
+            com.velocura.repository.ChatHistorySessionRepository chatHistorySessionRepository) {
         this.userRepository = userRepository;
         this.patientRepository = patientRepository;
         this.medicalHistoryRepository = medicalHistoryRepository;
         this.prescriptionRepository = prescriptionRepository;
         this.doctorRepository = doctorRepository;
         this.vitalsRepository = vitalsRepository;
+        this.chatHistorySessionRepository = chatHistorySessionRepository;
     }
+
 
     private Patient fetchPatientByEmail(String email) {
         User user = userRepository.findByEmailIgnoreCase(email)
@@ -223,6 +230,80 @@ public class PatientServiceImpl implements PatientService {
                 .heartRate(saved.getHeartRate())
                 .bloodSugar(saved.getBloodSugar())
                 .recordedAt(saved.getRecordedAt())
+                .build();
+    }
+
+    @Override
+    public List<ChatHistoryDto> getChatHistory(String email) {
+        return chatHistorySessionRepository.findByPatientUserEmailOrderByCreatedAtDesc(email)
+                .stream()
+                .map(this::mapToChatHistoryDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public ChatHistoryDto getChatHistoryDetail(String email, Long id) {
+        Patient patient = fetchPatientByEmail(email);
+        ChatHistorySession session = chatHistorySessionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Chat history session not found with ID: " + id));
+        if (!session.getPatient().getId().equals(patient.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Unauthorized access to chat record");
+        }
+        return mapToChatHistoryDto(session);
+    }
+
+    @Override
+    @Transactional
+    public ChatHistoryDto saveChatSession(String email, SaveChatHistoryRequest request) {
+        Patient patient = fetchPatientByEmail(email);
+
+        ChatHistorySession session = chatHistorySessionRepository.findBySessionId(request.getSessionId())
+                .orElseGet(() -> ChatHistorySession.builder()
+                        .patient(patient)
+                        .sessionId(request.getSessionId())
+                        .startedAt(request.getStartedAt() != null ? request.getStartedAt() : java.time.LocalDateTime.now())
+                        .build());
+
+        session.setPatient(patient);
+        if (request.getFirstMedicalIssue() != null && !request.getFirstMedicalIssue().isBlank()) {
+            session.setFirstMedicalIssue(request.getFirstMedicalIssue());
+        }
+        if (request.getChiefComplaint() != null && !request.getChiefComplaint().isBlank()) {
+            session.setChiefComplaint(request.getChiefComplaint());
+        }
+        if (request.getPrimaryDiagnosis() != null && !request.getPrimaryDiagnosis().isBlank()) {
+            session.setPrimaryDiagnosis(request.getPrimaryDiagnosis());
+        }
+        if (request.getRiskLevel() != null && !request.getRiskLevel().isBlank()) {
+            session.setRiskLevel(request.getRiskLevel());
+        }
+        session.setStatus(request.getStatus() != null && !request.getStatus().isBlank() ? request.getStatus() : "COMPLETED");
+        if (request.getMessagesJson() != null) {
+            session.setMessagesJson(request.getMessagesJson());
+        }
+        if (request.getTriageResultJson() != null) {
+            session.setTriageResultJson(request.getTriageResultJson());
+        }
+        session.setCompletedAt(request.getCompletedAt() != null ? request.getCompletedAt() : java.time.LocalDateTime.now());
+
+        ChatHistorySession saved = chatHistorySessionRepository.save(session);
+        return mapToChatHistoryDto(saved);
+    }
+
+    private ChatHistoryDto mapToChatHistoryDto(ChatHistorySession session) {
+        return ChatHistoryDto.builder()
+                .id(session.getId())
+                .sessionId(session.getSessionId())
+                .firstMedicalIssue(session.getFirstMedicalIssue())
+                .chiefComplaint(session.getChiefComplaint())
+                .primaryDiagnosis(session.getPrimaryDiagnosis())
+                .riskLevel(session.getRiskLevel())
+                .status(session.getStatus())
+                .messagesJson(session.getMessagesJson())
+                .triageResultJson(session.getTriageResultJson())
+                .startedAt(session.getStartedAt())
+                .completedAt(session.getCompletedAt())
+                .createdAt(session.getCreatedAt())
                 .build();
     }
 }

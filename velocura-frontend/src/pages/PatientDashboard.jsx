@@ -10,6 +10,7 @@ import Toast from "../components/ui/Toast";
 import TelehealthRoom from "../components/TelehealthRoom";
 import ConsultationChatModal from "../components/ConsultationChatModal";
 import EmergencyHealthQrModal from "../components/clinical/EmergencyHealthQrModal";
+import ConsultationHistoryDetailModal from "../components/clinical/ConsultationHistoryDetailModal";
 import {
   LayoutDashboard,
   Calendar,
@@ -29,12 +30,15 @@ import {
   RefreshCw,
   MessageSquare,
   MessageCircle,
-  Phone
+  Phone,
+  ArrowRight,
+  Archive
 } from "lucide-react";
 import s from "../components/layout/WorkspaceShell.module.css";
 
 const PATIENT_TABS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "chat-history", label: "Consultation History", icon: MessageSquare },
   { id: "book", label: "Book Consultation", icon: Stethoscope },
   { id: "appointments", label: "Appointments", icon: Calendar },
   { id: "vitals", label: "Vitals & Trends", icon: Activity },
@@ -55,6 +59,8 @@ export default function PatientDashboard() {
   const [vitals, setVitals] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
   const [passport, setPassport] = useState(null);
+  const [chatHistories, setChatHistories] = useState([]);
+  const [selectedChatHistory, setSelectedChatHistory] = useState(null);
 
   // Loading & Notification states
   const [loading, setLoading] = useState(true);
@@ -90,19 +96,23 @@ export default function PatientDashboard() {
   const [activeChatAppt, setActiveChatAppt] = useState(null);
 
   useEffect(() => {
+    if (window.location.hash === "#chat-history") {
+      setActiveTab("chat-history");
+    }
     fetchDashboardData();
   }, []);
 
   const fetchDashboardData = async () => {
     setRefreshing(true);
     try {
-      const [profRes, docsRes, apptRes, vitalsRes, rxRes, passRes] = await Promise.allSettled([
+      const [profRes, docsRes, apptRes, vitalsRes, rxRes, passRes, chatRes] = await Promise.allSettled([
         api.get("/api/patient/profile"),
         api.get("/api/patient/doctors"),
         api.get("/api/patient/appointments"),
         api.get("/api/patient/vitals"),
         api.get("/api/patient/prescriptions"),
-        api.get("/api/patient/passport")
+        api.get("/api/patient/passport"),
+        api.get("/api/patient/chat-history")
       ]);
 
       if (profRes.status === "fulfilled") {
@@ -126,6 +136,28 @@ export default function PatientDashboard() {
       if (passRes.status === "fulfilled") {
         setPassport(passRes.value.data || null);
       }
+      
+      let serverChats = [];
+      if (chatRes.status === "fulfilled" && Array.isArray(chatRes.value.data)) {
+        serverChats = chatRes.value.data;
+      }
+      let localChats = [];
+      try {
+        localChats = JSON.parse(localStorage.getItem("velocura_local_chat_history") || "[]");
+      } catch {
+        // ignore
+      }
+      const seenSessions = new Set();
+      const merged = [];
+      for (const c of [...serverChats, ...localChats]) {
+        if (c.sessionId && !seenSessions.has(c.sessionId)) {
+          seenSessions.add(c.sessionId);
+          merged.push(c);
+        } else if (!c.sessionId) {
+          merged.push(c);
+        }
+      }
+      setChatHistories(merged);
     } catch (err) {
       console.error(err);
       setToast({ message: "Failed to sync health records.", type: "error" });
@@ -326,6 +358,16 @@ export default function PatientDashboard() {
         />
       )}
 
+      {/* Archived Consultation Detail Modal */}
+      {selectedChatHistory && (
+        <ConsultationHistoryDetailModal
+          isOpen={!!selectedChatHistory}
+          session={selectedChatHistory}
+          onClose={() => setSelectedChatHistory(null)}
+          onStartNewWithComplaint={(issue) => navigate(`/triage?q=${encodeURIComponent(issue)}`)}
+        />
+      )}
+
       {/* Overview Tab */}
       {activeTab === "overview" && (
         <>
@@ -425,7 +467,233 @@ export default function PatientDashboard() {
               </div>
             )}
           </div>
+
+          {/* Recent AI Consultations Widget */}
+          <div className={s.panelCard}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-2)", flexWrap: "wrap", gap: "var(--space-2)" }}>
+              <div>
+                <h2 className={s.panelTitle}>Recent AI Consultations</h2>
+                <p className={s.panelDesc}>Past triage sessions expired and saved to your workspace records</p>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setActiveTab("chat-history")}
+              >
+                View all ({chatHistories.length}) <ArrowRight size={13} />
+              </Button>
+            </div>
+
+            {chatHistories.length === 0 ? (
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--label-tertiary)", margin: "var(--space-2) 0" }}>
+                No completed consultations saved yet. Start an assessment above to record your symptoms.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
+                {chatHistories.slice(0, 3).map((item, idx) => {
+                  const dateStr = item.completedAt || item.createdAt
+                    ? new Date(item.completedAt || item.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                    : "Recent";
+                  return (
+                    <div
+                      key={item.id || item.sessionId || idx}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "var(--space-3) var(--space-4)",
+                        background: "var(--bg-elevated-2)",
+                        borderRadius: "var(--radius-lg)",
+                        border: "1px solid var(--separator)",
+                        gap: "var(--space-3)",
+                        flexWrap: "wrap"
+                      }}
+                    >
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                          <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)" }}>{dateStr}</span>
+                          <span style={{ fontSize: "var(--text-xs)", background: "rgba(16, 185, 129, 0.15)", color: "#10b981", padding: "1px 6px", borderRadius: "var(--radius-full)", fontWeight: "var(--weight-semibold)" }}>
+                            Archived
+                          </span>
+                        </div>
+                        <div style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-medium)", color: "var(--label-primary)" }}>
+                          "{item.firstMedicalIssue || item.chiefComplaint || "General consultation"}"
+                        </div>
+                        {item.primaryDiagnosis && (
+                          <div style={{ fontSize: "var(--text-xs)", color: "var(--accent)" }}>
+                            Assessment: {item.primaryDiagnosis}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        variant="tinted"
+                        size="sm"
+                        onClick={() => setSelectedChatHistory(item)}
+                      >
+                        View Record
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </>
+      )}
+
+      {/* Consultation History Tab */}
+      {activeTab === "chat-history" && (
+        <div className={s.panelCard}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)", flexWrap: "wrap", gap: "var(--space-3)" }}>
+            <div>
+              <h2 className={s.panelTitle}>AI Consultation History</h2>
+              <p className={s.panelDesc}>
+                Archived clinical sessions saved with consultation date, primary medical issue, and clinical assessment
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={fetchDashboardData}
+                loading={refreshing}
+                title="Refresh"
+                aria-label="Refresh"
+                style={{ minWidth: "36px", padding: "6px 10px" }}
+              >
+                <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => navigate("/triage")}
+              >
+                <Plus size={14} /> Start New Consultation
+              </Button>
+            </div>
+          </div>
+
+          {chatHistories.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "var(--space-8) var(--space-4)", color: "var(--label-secondary)" }}>
+              <div
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: "var(--radius-full)",
+                  background: "var(--fill-tertiary)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto var(--space-3)",
+                  color: "var(--label-tertiary)"
+                }}
+              >
+                <Archive size={28} />
+              </div>
+              <h3 style={{ margin: "0 0 var(--space-2) 0", fontSize: "var(--text-md)", color: "var(--label-primary)" }}>
+                No Archived Consultations
+              </h3>
+              <p style={{ margin: "0 0 var(--space-4) 0", fontSize: "var(--text-sm)", maxWidth: 440, marginLeft: "auto", marginRight: "auto" }}>
+                When you complete an AI triage assessment, the chat automatically concludes and is archived here with the date, initial symptom, and findings.
+              </p>
+              <Button variant="primary" size="md" onClick={() => navigate("/triage")}>
+                Start an assessment now
+              </Button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+              {chatHistories.map((session, idx) => {
+                const dateFormatted = session.completedAt || session.createdAt
+                  ? new Date(session.completedAt || session.createdAt).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short"
+                    })
+                  : "Recent";
+                const risk = session.riskLevel || "MILD";
+                const riskTone = risk === "CRITICAL" ? "red" : risk === "URGENT" ? "amber" : risk === "MODERATE" ? "blue" : "green";
+
+                return (
+                  <div
+                    key={session.id || session.sessionId || idx}
+                    style={{
+                      background: "var(--bg-elevated-2)",
+                      border: "1px solid var(--separator)",
+                      borderRadius: "var(--radius-xl)",
+                      padding: "var(--space-4) var(--space-5)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "var(--space-3)",
+                      transition: "border-color var(--dur-fast) var(--ease-apple)"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "var(--space-2)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                        <Calendar size={14} color="var(--label-tertiary)" />
+                        <span style={{ fontSize: "var(--text-xs)", color: "var(--label-secondary)", fontWeight: "var(--weight-medium)" }}>
+                          {dateFormatted}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "var(--text-xs)",
+                            background: "rgba(16, 185, 129, 0.12)",
+                            color: "#10b981",
+                            padding: "2px 8px",
+                            borderRadius: "var(--radius-full)",
+                            fontWeight: "var(--weight-semibold)"
+                          }}
+                        >
+                          ✓ Concluded &amp; Expired
+                        </span>
+                      </div>
+
+                      <Badge tone={riskTone}>
+                        Urgency: {risk}
+                      </Badge>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--accent)", fontWeight: "var(--weight-semibold)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "3px" }}>
+                        First Medical Issue Discussed
+                      </div>
+                      <div style={{ fontSize: "var(--text-md)", fontWeight: "var(--weight-semibold)", color: "var(--label-primary)", lineHeight: "var(--leading-normal)" }}>
+                        "{session.firstMedicalIssue || session.chiefComplaint || "General consultation"}"
+                      </div>
+                      {session.primaryDiagnosis && (
+                        <div style={{ fontSize: "var(--text-sm)", color: "var(--label-secondary)", marginTop: "4px" }}>
+                          Assessment: <strong style={{ color: "var(--label-primary)" }}>{session.primaryDiagnosis}</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "var(--space-2)", borderTop: "1px solid var(--separator)", flexWrap: "wrap", gap: "var(--space-2)" }}>
+                      <span style={{ fontSize: "var(--text-xs)", color: "var(--label-tertiary)" }}>
+                        Session ID: {session.sessionId ? session.sessionId.substring(0, 18) + "..." : "archived"}
+                      </span>
+
+                      <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setSelectedChatHistory(session)}
+                        >
+                          <FileText size={13} /> View Full Consultation
+                        </Button>
+                        <Button
+                          variant="tinted"
+                          size="sm"
+                          onClick={() => navigate(`/triage?q=${encodeURIComponent(session.firstMedicalIssue || "")}`)}
+                          title="Start a new chat using these symptoms"
+                        >
+                          Follow-up <ArrowRight size={13} />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Book Consultation Tab */}

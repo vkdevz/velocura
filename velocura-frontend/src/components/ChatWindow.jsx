@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowUp, Sparkles, Activity, FileText, AlertCircle, Mic, MicOff, AlertTriangle, User, Phone } from "lucide-react";
-import { sendChatMessage } from "../api/velocuraApi";
+import { ArrowUp, Sparkles, Activity, FileText, AlertCircle, Mic, MicOff, AlertTriangle, User, Phone, CheckCircle2, RotateCcw, Archive } from "lucide-react";
+import { sendChatMessage, resetChatSession } from "../api/velocuraApi";
+import api from "../api";
 import TriageCard from "./TriageCard";
 import TypingIndicator from "./ui/TypingIndicator";
 import s from "./ChatWindow.module.css";
@@ -28,6 +29,10 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
   const [input, setInput] = useState(initialQuery);
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [firstMedicalIssue, setFirstMedicalIssue] = useState("");
+  const [isSessionExpired, setIsSessionExpired] = useState(false);
+  const [savedSessionRecord, setSavedSessionRecord] = useState(null);
+
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -154,9 +159,61 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
     }
   };
 
+  const saveSessionToHistory = async (allMessages, triageObj, initialIssue) => {
+    try {
+      const issue = initialIssue || firstMedicalIssue || allMessages.find((m) => m.role === "user")?.text || "General Symptom Evaluation";
+      const primaryDx = triageObj?.differentialDiagnoses?.[0]?.condition || "Clinical Triage Assessment";
+      const risk = triageObj?.riskLevel || "MILD";
+
+      const payload = {
+        sessionId: sessionIdRef.current,
+        firstMedicalIssue: issue,
+        chiefComplaint: triageObj?.chiefComplaint || issue,
+        primaryDiagnosis: primaryDx,
+        riskLevel: risk,
+        status: "COMPLETED",
+        messagesJson: JSON.stringify(allMessages),
+        triageResultJson: JSON.stringify(triageObj),
+        startedAt: allMessages[0]?.timestamp || new Date().toISOString(),
+        completedAt: new Date().toISOString()
+      };
+
+      const token = localStorage.getItem("token") || localStorage.getItem("velocura_jwt");
+      if (token && token !== "undefined") {
+        await api.post("/api/patient/chat-history", payload);
+      } else {
+        const localHist = JSON.parse(localStorage.getItem("velocura_local_chat_history") || "[]");
+        localHist.unshift({
+          id: Date.now(),
+          ...payload,
+          createdAt: new Date().toISOString()
+        });
+        localStorage.setItem("velocura_local_chat_history", JSON.stringify(localHist.slice(0, 30)));
+      }
+      setSavedSessionRecord(payload);
+    } catch (err) {
+      console.warn("Failed to archive chat session:", err);
+    }
+  };
+
+  const handleStartNewConsultation = () => {
+    const newSessionId = resetChatSession();
+    sessionIdRef.current = newSessionId;
+    setMessages([]);
+    setInput("");
+    setFirstMedicalIssue("");
+    setIsSessionExpired(false);
+    setSavedSessionRecord(null);
+    initialSentRef.current = false;
+  };
+
   const handleSend = async (overrideText) => {
     const queryText = (overrideText || input).trim();
-    if (!queryText || loading) return;
+    if (!queryText || loading || isSessionExpired) return;
+
+    if (!firstMedicalIssue) {
+      setFirstMedicalIssue(queryText);
+    }
 
     if (isListening && recognitionRef.current) {
       try {
@@ -253,6 +310,9 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
         if ((hasDx || hasMeds || hasRemedies) && isNotAsking) {
           assistantMsg.isTriage = true;
           assistantMsg.triageData = triageObj;
+          setIsSessionExpired(true);
+          const fullChat = [...messages, userMsg, assistantMsg];
+          saveSessionToHistory(fullChat, triageObj, firstMedicalIssue || queryText);
           if (onTriageComplete) onTriageComplete(triageObj);
         }
       }
@@ -431,6 +491,41 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
                   <TypingIndicator />
                 </div>
               )}
+
+              {isSessionExpired && (
+                <div className={s.sessionExpiredBanner}>
+                  <div className={s.sessionExpiredHeader}>
+                    <div className={s.sessionExpiredTitle}>
+                      <CheckCircle2 size={18} />
+                      <span>Consultation Concluded &amp; Saved</span>
+                    </div>
+                    <span className={s.sessionIssueTag}>
+                      Issue: {firstMedicalIssue || savedSessionRecord?.firstMedicalIssue || "Clinical Consultation"}
+                    </span>
+                  </div>
+                  <div className={s.sessionExpiredDesc}>
+                    This clinical consultation has completed triage and is archived in your workspace history with the date and primary medical issue.
+                  </div>
+                  <div className={s.sessionExpiredActions}>
+                    <button
+                      type="button"
+                      className={s.startNewBtn}
+                      onClick={handleStartNewConsultation}
+                    >
+                      <RotateCcw size={15} />
+                      <span>Start New Consultation</span>
+                    </button>
+                    <a
+                      href="/patient/dashboard#chat-history"
+                      className={s.viewHistoryBtn}
+                    >
+                      <Archive size={15} />
+                      <span>View in Consultation History</span>
+                    </a>
+                  </div>
+                </div>
+              )}
+
               <div ref={messagesEndRef} />
             </div>
           )}
@@ -439,40 +534,67 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
 
       {/* Input bar zone */}
       <div className={s.inputBar}>
-        <div className={s.inputInner}>
-          <textarea
-            ref={textareaRef}
-            className={s.textarea}
-            value={input}
-            onChange={handleTextareaChange}
-            onKeyDown={handleKeyDown}
-            placeholder={isListening ? "Listening... speak clearly" : "Describe what you're experiencing"}
-            rows={1}
-            disabled={loading}
-          />
+        {isSessionExpired ? (
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            width: "100%",
+            gap: "var(--space-3)",
+            padding: "10px 18px",
+            background: "var(--fill-secondary)",
+            borderRadius: "var(--radius-full)",
+            border: "1px solid var(--separator)"
+          }}>
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--label-secondary)" }}>
+              Session completed &amp; archived. Start a new consultation for other symptoms.
+            </span>
+            <button
+              type="button"
+              className={s.startNewBtn}
+              onClick={handleStartNewConsultation}
+              style={{ padding: "6px 14px", fontSize: "var(--text-xs)" }}
+            >
+              <RotateCcw size={14} />
+              <span>New Consultation</span>
+            </button>
+          </div>
+        ) : (
+          <div className={s.inputInner}>
+            <textarea
+              ref={textareaRef}
+              className={s.textarea}
+              value={input}
+              onChange={handleTextareaChange}
+              onKeyDown={handleKeyDown}
+              placeholder={isListening ? "Listening... speak clearly" : "Describe what you're experiencing"}
+              rows={1}
+              disabled={loading}
+            />
 
-          {/* Voice Dictation Button */}
-          <button
-            type="button"
-            className={[s.micBtn, isListening ? s.micBtnActive : ""].join(" ")}
-            onClick={toggleSpeechRecognition}
-            title={isListening ? "Stop listening" : "Start voice dictation"}
-            aria-label={isListening ? "Stop voice dictation" : "Start voice dictation"}
-          >
-            {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-          </button>
+            {/* Voice Dictation Button */}
+            <button
+              type="button"
+              className={[s.micBtn, isListening ? s.micBtnActive : ""].join(" ")}
+              onClick={toggleSpeechRecognition}
+              title={isListening ? "Stop listening" : "Start voice dictation"}
+              aria-label={isListening ? "Stop voice dictation" : "Start voice dictation"}
+            >
+              {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+            </button>
 
-          {/* Send Button */}
-          <button
-            type="button"
-            className={s.sendBtn}
-            onClick={() => handleSend()}
-            disabled={!input.trim() || loading}
-            aria-label="Send message"
-          >
-            <ArrowUp size={16} />
-          </button>
-        </div>
+            {/* Send Button */}
+            <button
+              type="button"
+              className={s.sendBtn}
+              onClick={() => handleSend()}
+              disabled={!input.trim() || loading}
+              aria-label="Send message"
+            >
+              <ArrowUp size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

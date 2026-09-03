@@ -5,6 +5,8 @@ import com.velocura.dto.PatientProfileResponse;
 import com.velocura.dto.PrescriptionResponse;
 import com.velocura.dto.UpdatePatientProfileRequest;
 import com.velocura.dto.VitalsDto;
+import com.velocura.dto.ChatHistoryDto;
+import com.velocura.dto.SaveChatHistoryRequest;
 import com.velocura.service.PatientService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -91,6 +93,31 @@ public class PatientController {
             @RequestBody VitalsDto request) {
         VitalsDto saved = patientService.addVitals(userDetails.getUsername(), request);
         auditService.logSuccess("CREATE_VITALS", "Vitals", userDetails.getUsername(), "Patient logged new biometric vitals");
+        return ResponseEntity.ok(saved);
+    }
+
+    @GetMapping("/chat-history")
+    public ResponseEntity<List<ChatHistoryDto>> getChatHistory(@AuthenticationPrincipal UserDetails userDetails) {
+        List<ChatHistoryDto> history = patientService.getChatHistory(userDetails.getUsername());
+        auditService.logSuccess("READ_CHAT_HISTORY", "ChatHistorySession", userDetails.getUsername(), "Patient accessed consultation history list");
+        return ResponseEntity.ok(history);
+    }
+
+    @GetMapping("/chat-history/{id}")
+    public ResponseEntity<ChatHistoryDto> getChatHistoryDetail(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id) {
+        ChatHistoryDto detail = patientService.getChatHistoryDetail(userDetails.getUsername(), id);
+        auditService.logSuccess("READ_CHAT_DETAIL", "ChatHistorySession", userDetails.getUsername(), "Patient viewed consultation session ID " + id);
+        return ResponseEntity.ok(detail);
+    }
+
+    @PostMapping("/chat-history")
+    public ResponseEntity<ChatHistoryDto> saveChatSession(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody SaveChatHistoryRequest request) {
+        ChatHistoryDto saved = patientService.saveChatSession(userDetails.getUsername(), request);
+        auditService.logSuccess("ARCHIVE_CHAT_SESSION", "ChatHistorySession", userDetails.getUsername(), "Archived completed consultation session: " + request.getSessionId());
         return ResponseEntity.ok(saved);
     }
 }
