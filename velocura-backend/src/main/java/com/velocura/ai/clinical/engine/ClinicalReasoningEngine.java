@@ -164,6 +164,12 @@ public class ClinicalReasoningEngine {
         String lower = input.toLowerCase();
         StringBuilder msg = new StringBuilder();
 
+        // General greeting / casual conversation
+        if (intent == ClinicalIntent.GENERAL_CONVERSATION) {
+            msg.append("Hello! I am VeloCura's clinical AI assistant. How can I help you today? You can describe any symptoms you are experiencing, ask about medications, or ask general medical questions.");
+            return new ReasoningOutput(msg.toString(), null, questionDecision.getQuickReplies(), true);
+        }
+
         // Educational response
         if (intent == ClinicalIntent.EDUCATIONAL) {
             if (lower.contains("fever")) {

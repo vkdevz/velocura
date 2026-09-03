@@ -39,15 +39,18 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const initialSentRef = useRef(false);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages, loading]);
 
   useEffect(() => {
-    if (initialQuery.trim()) {
+    if (initialQuery && initialQuery.trim() && !initialSentRef.current) {
+      initialSentRef.current = true;
       handleSend(initialQuery.trim());
     }
-  }, []);
+  }, [initialQuery]);
 
   // Clean up speech recognition on unmount
   useEffect(() => {
@@ -211,80 +214,46 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
         nextAction
       };
 
-      // Helper to determine if a payload contains structured clinical triage details
-      const isStructuredTriage = (obj) => {
-        if (!obj || typeof obj !== "object") return false;
-        return !!(
-          obj.triageLevel ||
-          obj.riskLevel ||
-          (Array.isArray(obj.differentialDiagnoses) && obj.differentialDiagnoses.length > 0) ||
-          (Array.isArray(obj.suggestedOtc) && obj.suggestedOtc.length > 0) ||
-          (Array.isArray(obj.homeCareRemedies) && obj.homeCareRemedies.length > 0)
-        );
-      };
-
-      if (rawResponse?.triage && isStructuredTriage(rawResponse.triage)) {
-        assistantMsg.isTriage = true;
-        assistantMsg.triageData = rawResponse.triage;
-        if (onTriageComplete) onTriageComplete(rawResponse.triage);
-      } else if (isStructuredTriage(rawResponse)) {
-        assistantMsg.isTriage = true;
-        assistantMsg.triageData = rawResponse;
-        if (onTriageComplete) onTriageComplete(rawResponse);
+      // 1. Extract user-facing message text
+      if (rawResponse?.clinicalMessage) {
+        assistantMsg.text = rawResponse.clinicalMessage;
       } else if (rawResponse?.medicalQaReply) {
         try {
-          const parsed = typeof rawResponse.medicalQaReply === "string"
-            ? JSON.parse(rawResponse.medicalQaReply)
-            : rawResponse.medicalQaReply;
-
-          if (isStructuredTriage(parsed)) {
-            assistantMsg.isTriage = true;
-            assistantMsg.triageData = parsed;
-            if (onTriageComplete) onTriageComplete(parsed);
-          } else if (typeof parsed === "string") {
-            assistantMsg.text = parsed;
-          } else if (parsed.answer) {
-            assistantMsg.text = parsed.answer;
-          } else if (parsed.doctorMessage) {
-            assistantMsg.text = parsed.doctorMessage;
-          } else if (parsed.reply) {
-            assistantMsg.text = parsed.reply;
-          } else {
-            assistantMsg.text = typeof parsed === "object" ? JSON.stringify(parsed, null, 2) : String(parsed);
-          }
+          const parsed = typeof rawResponse.medicalQaReply === "string" ? JSON.parse(rawResponse.medicalQaReply) : rawResponse.medicalQaReply;
+          assistantMsg.text = parsed.answer || parsed.doctorMessage || parsed.reply || (typeof parsed === "string" ? parsed : rawResponse.medicalQaReply);
         } catch {
           assistantMsg.text = rawResponse.medicalQaReply;
         }
       } else if (rawResponse?.casualReply) {
         try {
-          const parsed = typeof rawResponse.casualReply === "string"
-            ? JSON.parse(rawResponse.casualReply)
-            : rawResponse.casualReply;
-
-          if (isStructuredTriage(parsed)) {
-            assistantMsg.isTriage = true;
-            assistantMsg.triageData = parsed;
-            if (onTriageComplete) onTriageComplete(parsed);
-          } else if (typeof parsed === "string") {
-            assistantMsg.text = parsed;
-          } else if (parsed.doctorMessage) {
-            assistantMsg.text = parsed.doctorMessage;
-          } else if (parsed.reply) {
-            assistantMsg.text = parsed.reply;
-          } else {
-            assistantMsg.text = typeof parsed === "object" ? JSON.stringify(parsed, null, 2) : String(parsed);
-          }
+          const parsed = typeof rawResponse.casualReply === "string" ? JSON.parse(rawResponse.casualReply) : rawResponse.casualReply;
+          assistantMsg.text = parsed.doctorMessage || parsed.reply || (typeof parsed === "string" ? parsed : rawResponse.casualReply);
         } catch {
           assistantMsg.text = rawResponse.casualReply;
         }
-      } else if (rawResponse?.clinicalMessage) {
-        assistantMsg.text = rawResponse.clinicalMessage;
       } else if (rawResponse?.text || rawResponse?.message || rawResponse?.reply) {
         assistantMsg.text = rawResponse.text || rawResponse.message || rawResponse.reply;
       } else if (typeof rawResponse === "string") {
         assistantMsg.text = rawResponse;
+      } else if (rawResponse?.triage?.doctorMessage) {
+        assistantMsg.text = rawResponse.triage.doctorMessage;
       } else {
-        assistantMsg.text = "Clinical analysis complete. Let me know if you would like more details.";
+        assistantMsg.text = "Clinical analysis complete. How else can I assist you?";
+      }
+
+      // 2. Structured TriageCard is only shown when actual differential diagnoses, remedies, or OTC are present and not asking
+      const triageObj = rawResponse?.triage;
+      if (triageObj && typeof triageObj === "object") {
+        const hasDx = Array.isArray(triageObj.differentialDiagnoses) && triageObj.differentialDiagnoses.length > 0;
+        const hasMeds = Array.isArray(triageObj.suggestedOtc) && triageObj.suggestedOtc.length > 0;
+        const hasRemedies = Array.isArray(triageObj.homeCareRemedies) && triageObj.homeCareRemedies.length > 0;
+        const isNotAsking = rawResponse.nextAction !== "ASK" && rawResponse.nextAction !== "CLARIFY";
+
+        if ((hasDx || hasMeds || hasRemedies) && isNotAsking) {
+          assistantMsg.isTriage = true;
+          assistantMsg.triageData = triageObj;
+          if (onTriageComplete) onTriageComplete(triageObj);
+        }
       }
 
       setMessages((prev) => [...prev, assistantMsg]);
@@ -360,6 +329,11 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
                         <div className={s.patientBadge}>
                           <User size={11} />
                           <span>Patient: {msg.patientRelationship}</span>
+                        </div>
+                      )}
+                      {msg.text && (
+                        <div className={s.assistantBubble} style={{ marginBottom: "12px", maxWidth: "100%" }}>
+                          <div className={s.bubbleText}>{msg.text}</div>
                         </div>
                       )}
                       <TriageCard triage={msg.triageData} />

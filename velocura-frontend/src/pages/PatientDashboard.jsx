@@ -345,7 +345,7 @@ export default function PatientDashboard() {
               <Button
                 variant="primary"
                 size="lg"
-                onClick={() => navigate("/chat")}
+                onClick={() => navigate("/triage")}
               >
                 <Sparkles size={16} /> Start assessment
               </Button>

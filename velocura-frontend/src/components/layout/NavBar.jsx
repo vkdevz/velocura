@@ -7,7 +7,7 @@ import s from "./NavBar.module.css";
 
 const NAV_LINKS = [
   { to: "/", label: "Home" },
-  { to: "/chat", label: "Triage" },
+  { to: "/triage", label: "AI Assessment" },
   { to: "/privacy", label: "Privacy" },
   { to: "/terms", label: "Terms" },
   { to: "/hipaa", label: "Compliance" }

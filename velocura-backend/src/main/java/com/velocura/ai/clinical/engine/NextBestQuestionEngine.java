@@ -47,10 +47,14 @@ public class NextBestQuestionEngine {
         ClinicalIntent intent = state.getIntent();
 
         // 1. Intents that require NO questioning (immediate answer/action)
-        if (intent == ClinicalIntent.EDUCATIONAL || intent == ClinicalIntent.GENERAL_CONVERSATION
-                || intent == ClinicalIntent.EMERGENCY || intent == ClinicalIntent.SELF_CARE
-                || intent == ClinicalIntent.MEDICATION_INFORMATION) {
+        if (intent == ClinicalIntent.EDUCATIONAL || intent == ClinicalIntent.EMERGENCY
+                || intent == ClinicalIntent.SELF_CARE || intent == ClinicalIntent.MEDICATION_INFORMATION) {
             return QuestionDecision.stopAsking(intent == ClinicalIntent.EMERGENCY ? NextAction.ESCALATE : NextAction.ANSWER);
+        }
+
+        if (intent == ClinicalIntent.GENERAL_CONVERSATION) {
+            List<String> replies = List.of("I have symptoms to check", "Medication questions", "General health query");
+            return new QuestionDecision(false, null, replies, NextAction.ANSWER);
         }
 
         // 2. Ambiguous single-word symptom -> CLARIFICATION

@@ -30,7 +30,7 @@ export const navigationByRole = {
     {
       group: 'CLINICAL & RECORDS',
       items: [
-        { id: 'triage', label: 'AI Symptom Assessment', icon: Sparkles, path: '/patient/triage' },
+        { id: 'triage', label: 'AI Symptom Assessment', icon: Sparkles, path: '/triage' },
         { id: 'passport', label: 'Medical Records', icon: UserCheck, path: '/patient/passport' },
         { id: 'prescriptions', label: 'Prescriptions', icon: FileText, path: '/patient/prescriptions' },
         { id: 'reports', label: 'Reports', icon: Clock, path: '/patient/reports' }

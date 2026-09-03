@@ -33,7 +33,7 @@ export default function CommandPalette({ isOpen, onClose }) {
       subtitle: "AI symptom screening mapped to ICD-11",
       category: "Clinical",
       icon: Sparkles,
-      perform: () => navigate("/chat")
+      perform: () => navigate("/triage")
     },
     {
       id: "appointments",

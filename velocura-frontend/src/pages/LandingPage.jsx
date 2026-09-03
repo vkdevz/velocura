@@ -1,40 +1,33 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { Sparkles } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
-import api from "../api";
 import AppShell from "../components/layout/AppShell";
 import Button from "../components/ui/Button";
-import TriageCard from "../components/TriageCard";
 import s from "./LandingPage.module.css";
 
 export default function LandingPage() {
   const { user } = useContext(AuthContext) || {};
   const navigate = useNavigate();
+  const textareaRef = useRef(null);
 
   const [symptomsInput, setSymptomsInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [triageResult, setTriageResult] = useState(null);
-  const [error, setError] = useState("");
 
-  const handleTriageSubmit = async (e) => {
-    e.preventDefault();
-    if (!symptomsInput.trim() || loading) return;
+  const handleTriageSubmit = (e) => {
+    if (e) e.preventDefault();
+    const query = symptomsInput.trim();
+    if (!query) return;
+    navigate("/triage", { state: { initialQuery: query } });
+  };
 
-    setLoading(true);
-    setError("");
-    setTriageResult(null);
-
-    try {
-      const res = await api.post("/api/auth/triage", {
-        symptoms: symptomsInput.trim(),
-        history: []
-      });
-      setTriageResult(res.data);
-    } catch (err) {
-      console.error("[Triage Error]", err);
-      setError("Unable to process triage request. Please try again or navigate to active chat.");
-    } finally {
-      setLoading(false);
+  const handleHeroStart = () => {
+    if (symptomsInput.trim()) {
+      navigate("/triage", { state: { initialQuery: symptomsInput.trim() } });
+    } else if (textareaRef.current) {
+      textareaRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      textareaRef.current.focus();
+    } else {
+      navigate("/triage");
     }
   };
 
@@ -62,7 +55,7 @@ export default function LandingPage() {
               size="lg"
               variant="primary"
               className={s.heroPrimaryBtn}
-              onClick={() => navigate("/chat")}
+              onClick={handleHeroStart}
             >
               Start assessment
             </Button>
@@ -88,21 +81,28 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Input Section - Separated from Hero */}
+        {/* Input Section - Gateway to AI Chat */}
         <section className={s.inputSection}>
           <h2 className={s.inputSectionHeading}>Symptom assessment</h2>
           <div className={s.inputCard}>
             <h3 className={s.assessmentCardTitle}>Describe your symptoms</h3>
             <p className={s.assessmentCardDesc}>
-              Include symptom location, duration, and severity (1-10) for structured analysis.
+              Enter what you are experiencing. Press Enter or click below to launch your interactive clinical session.
             </p>
 
             <form onSubmit={handleTriageSubmit} className={s.symptomForm}>
               <textarea
+                ref={textareaRef}
                 className={s.symptomTextarea}
                 placeholder="e.g. Sharp chest pain radiating to left arm for 45 minutes, severity 8/10"
                 value={symptomsInput}
                 onChange={(e) => setSymptomsInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleTriageSubmit();
+                  }
+                }}
                 rows={4}
               />
 
@@ -110,25 +110,12 @@ export default function LandingPage() {
                 <Button
                   type="submit"
                   variant="primary"
-                  loading={loading}
                   disabled={!symptomsInput.trim()}
                 >
-                  Analyze symptoms
+                  <Sparkles size={15} style={{ marginRight: "6px" }} /> Start AI Assessment
                 </Button>
               </div>
             </form>
-
-            {error && (
-              <p style={{ color: "var(--critical)", fontSize: "var(--text-sm)", marginTop: "var(--space-3)" }}>
-                {error}
-              </p>
-            )}
-
-            {triageResult && (
-              <div className={s.resultWrapper}>
-                <TriageCard data={triageResult} />
-              </div>
-            )}
           </div>
         </section>
 
