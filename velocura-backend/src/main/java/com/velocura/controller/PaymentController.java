@@ -17,17 +17,28 @@ import java.math.BigDecimal;
 @RequestMapping("/api/payments")
 public class PaymentController {
 
-    // Inject from application.properties or default to a dummy developer key
-    @Value("${stripe.secret.key:sk_test_51PtXYZ2M0000000000000000000000000000000000000000000000000000000000000000000000}")
+    // Inject from application properties or environment variable (never hardcoded in source)
+    @Value("${stripe.secret.key:${STRIPE_SECRET_KEY:}}")
     private String stripeSecretKey;
 
     @PostConstruct
     public void init() {
-        Stripe.apiKey = stripeSecretKey;
+        if (stripeSecretKey != null && !stripeSecretKey.isBlank()) {
+            Stripe.apiKey = stripeSecretKey;
+        }
     }
 
     @PostMapping("/checkout")
     public ResponseEntity<PaymentResponse> createCheckoutSession(@RequestBody PaymentRequest request) {
+        if (stripeSecretKey == null || stripeSecretKey.isBlank()) {
+            // Graceful fallback for mock/developer environments without Stripe credentials
+            PaymentResponse mockResponse = PaymentResponse.builder()
+                    .sessionId("mock_session_" + System.currentTimeMillis())
+                    .sessionUrl(request.getSuccessUrl())
+                    .build();
+            return ResponseEntity.ok(mockResponse);
+        }
+
         try {
             // Stripe expects amount in cents (Long)
             long unitAmount = request.getAmount().multiply(new BigDecimal(100)).longValue();
