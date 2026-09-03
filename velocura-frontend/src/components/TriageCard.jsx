@@ -41,8 +41,8 @@ function Section({ title, children, defaultOpen=true }) {
   );
 }
 
-export default function TriageCard({ data, triageCard }) {
-  const payload = data || triageCard;
+export default function TriageCard({ data, triageCard, triage }) {
+  const payload = data || triageCard || triage;
   if (!payload) return null;
   
   const riskKey = (payload.riskLevel || "MEDIUM").toUpperCase();

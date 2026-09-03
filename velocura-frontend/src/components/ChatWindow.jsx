@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowUp, Sparkles, Activity, FileText, AlertCircle, Mic, MicOff } from "lucide-react";
+import { ArrowUp, Sparkles, Activity, FileText, AlertCircle, Mic, MicOff, AlertTriangle, User, Phone } from "lucide-react";
 import { sendChatMessage } from "../api/velocuraApi";
 import TriageCard from "./TriageCard";
 import TypingIndicator from "./ui/TypingIndicator";
@@ -195,11 +195,20 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
         throw new Error(rawResponse.errorMessage || "Service error. Please try again.");
       }
 
+      const isEmergency = !!(rawResponse?.emergency || rawResponse?.isEmergency || rawResponse?.triage?.riskLevel === "CRITICAL" || rawResponse?.riskLevel === "CRITICAL");
+      const quickReplies = Array.isArray(rawResponse?.quickReplies) ? rawResponse.quickReplies : [];
+      const patientRelationship = rawResponse?.patientRelationship;
+      const nextAction = rawResponse?.nextAction;
+
       let assistantMsg = {
         id: assistantMessageId,
         role: "assistant",
         timestamp: new Date().toISOString(),
-        raw: rawResponse
+        raw: rawResponse,
+        isEmergency,
+        quickReplies,
+        patientRelationship,
+        nextAction
       };
 
       // Helper to determine if a payload contains structured clinical triage details
@@ -268,6 +277,8 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
         } catch {
           assistantMsg.text = rawResponse.casualReply;
         }
+      } else if (rawResponse?.clinicalMessage) {
+        assistantMsg.text = rawResponse.clinicalMessage;
       } else if (rawResponse?.text || rawResponse?.message || rawResponse?.reply) {
         assistantMsg.text = rawResponse.text || rawResponse.message || rawResponse.reply;
       } else if (typeof rawResponse === "string") {
@@ -345,7 +356,28 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
                 if (msg.isTriage && msg.triageData) {
                   return (
                     <div key={msg.id} className={s.triageWrap}>
+                      {msg.patientRelationship && msg.patientRelationship.toLowerCase() !== "self" && (
+                        <div className={s.patientBadge}>
+                          <User size={11} />
+                          <span>Patient: {msg.patientRelationship}</span>
+                        </div>
+                      )}
                       <TriageCard triage={msg.triageData} />
+                      {msg.quickReplies && msg.quickReplies.length > 0 && (
+                        <div className={s.quickRepliesWrap}>
+                          {msg.quickReplies.map((reply, rIdx) => (
+                            <button
+                              key={rIdx}
+                              type="button"
+                              className={s.quickReplyBtn}
+                              onClick={() => handleSend(reply)}
+                              disabled={loading}
+                            >
+                              {reply}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 }
@@ -365,7 +397,39 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
                     className={isUser ? s.userBubbleWrap : s.assistantBubbleWrap}
                   >
                     <div className={isUser ? s.userBubble : s.assistantBubble}>
+                      {!isUser && msg.patientRelationship && msg.patientRelationship.toLowerCase() !== "self" && (
+                        <div className={s.patientBadge}>
+                          <User size={11} />
+                          <span>Patient: {msg.patientRelationship}</span>
+                        </div>
+                      )}
+                      {!isUser && msg.isEmergency && (
+                        <div className={s.emergencyBanner} style={{ marginBottom: "8px" }}>
+                          <div className={s.emergencyBannerHeader}>
+                            <AlertTriangle size={16} />
+                            <span>Emergency Red Flag Detected</span>
+                          </div>
+                          <a href="tel:108" className={s.emergencyCallBtn}>
+                            <Phone size={13} /> Call 108 / 911 / 112
+                          </a>
+                        </div>
+                      )}
                       <div className={s.bubbleText}>{msg.text}</div>
+                      {!isUser && msg.quickReplies && msg.quickReplies.length > 0 && (
+                        <div className={s.quickRepliesWrap}>
+                          {msg.quickReplies.map((reply, rIdx) => (
+                            <button
+                              key={rIdx}
+                              type="button"
+                              className={s.quickReplyBtn}
+                              onClick={() => handleSend(reply)}
+                              disabled={loading}
+                            >
+                              {reply}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
