@@ -40,6 +40,7 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
   };
 
   const initialSentRef = useRef(false);
+  const sessionIdRef = useRef(`session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
 
   useEffect(() => {
     scrollToBottom();
@@ -191,7 +192,7 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
         }));
 
       const historyString = historyPayload.length > 0 ? JSON.stringify(historyPayload) : null;
-      const rawResponse = await sendChatMessage(queryText, historyString);
+      const rawResponse = await sendChatMessage(queryText, historyString, sessionIdRef.current);
       const assistantMessageId = `asst-${Date.now()}`;
 
       if (rawResponse?.error) {
@@ -344,7 +345,15 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
                               key={rIdx}
                               type="button"
                               className={s.quickReplyBtn}
-                              onClick={() => handleSend(reply)}
+                              onClick={() => {
+                                if (reply === "Go to Appointments") {
+                                  window.location.href = "/patient/dashboard#appointments";
+                                } else if (reply === "Start live consultation") {
+                                  window.location.href = "/consultations";
+                                } else {
+                                  handleSend(reply);
+                                }
+                              }}
                               disabled={loading}
                             >
                               {reply}
@@ -396,7 +405,15 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
                               key={rIdx}
                               type="button"
                               className={s.quickReplyBtn}
-                              onClick={() => handleSend(reply)}
+                              onClick={() => {
+                                if (reply === "Go to Appointments") {
+                                  window.location.href = "/patient/dashboard#appointments";
+                                } else if (reply === "Start live consultation") {
+                                  window.location.href = "/consultations";
+                                } else {
+                                  handleSend(reply);
+                                }
+                              }}
                               disabled={loading}
                             >
                               {reply}

@@ -41,30 +41,45 @@ public class PatientContextDetector {
             context.setUserRole(PatientContext.UserRole.FAMILY_MEMBER);
             context.setRelationship("mother");
             context.setGender("female");
+            context.setClarified(true);
         } else if (FATHER.matcher(lower).find()) {
             context.setUserRole(PatientContext.UserRole.FAMILY_MEMBER);
             context.setRelationship("father");
             context.setGender("male");
+            context.setClarified(true);
         } else if (SPOUSE_HUSBAND.matcher(lower).find()) {
             context.setUserRole(PatientContext.UserRole.FAMILY_MEMBER);
             context.setRelationship("husband");
             context.setGender("male");
+            context.setClarified(true);
         } else if (SPOUSE_WIFE.matcher(lower).find()) {
             context.setUserRole(PatientContext.UserRole.FAMILY_MEMBER);
             context.setRelationship("wife");
             context.setGender("female");
+            context.setClarified(true);
         } else if (SON.matcher(lower).find()) {
             context.setUserRole(PatientContext.UserRole.FAMILY_MEMBER);
             context.setRelationship("son");
             context.setGender("male");
+            context.setClarified(true);
         } else if (DAUGHTER.matcher(lower).find()) {
             context.setUserRole(PatientContext.UserRole.FAMILY_MEMBER);
             context.setRelationship("daughter");
             context.setGender("female");
-        } else if (CHILD.matcher(lower).find()) {
+            context.setClarified(true);
+        } else if (CHILD.matcher(lower).find() || lower.contains("my child") || lower.contains("my baby")) {
             context.setUserRole(PatientContext.UserRole.FAMILY_MEMBER);
             context.setRelationship("child");
             context.setPediatric(true);
+            context.setClarified(true);
+        } else if (lower.contains("my parent") || lower.contains("elderly")) {
+            context.setUserRole(PatientContext.UserRole.FAMILY_MEMBER);
+            context.setRelationship("parent");
+            context.setClarified(true);
+        } else if (lower.contains("i have") || lower.contains("i am") || lower.contains("i feel") || lower.contains("myself") || lower.contains("currently experiencing it") || lower.contains("experiencing this myself")) {
+            context.setUserRole(PatientContext.UserRole.SELF);
+            context.setRelationship("self");
+            context.setClarified(true);
         }
 
         // 2. Age Detection

@@ -1,6 +1,5 @@
 import React, { useState, useContext, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Sparkles } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import AppShell from "../components/layout/AppShell";
 import Button from "../components/ui/Button";
@@ -112,7 +111,7 @@ export default function LandingPage() {
                   variant="primary"
                   disabled={!symptomsInput.trim()}
                 >
-                  <Sparkles size={15} style={{ marginRight: "6px" }} /> Start AI Assessment
+                  Start AI Assessment
                 </Button>
               </div>
             </form>

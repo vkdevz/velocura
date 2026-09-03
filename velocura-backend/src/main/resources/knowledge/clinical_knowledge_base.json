@@ -1,0 +1,406 @@
+[
+  {
+    "id": "TRAUMA_OPEN_WOUND",
+    "icdCode": "NE81.0",
+    "condition": "Open Wound / Acute Laceration",
+    "department": "Emergency Medicine / Surgery",
+    "keywords": ["cut", "wound", "laceration", "slash", "puncture", "scratch", "kat gaya", "chot", "bleeding wound"],
+    "anatomicalSites": ["finger", "hand", "arm", "leg", "foot", "toe", "face", "scalp", "head", "chest", "knee", "palm"],
+    "summary": "Acute cutaneous laceration or open wound disrupting epidermal and dermal barrier. Direct pressure and sterile cleansing required.",
+    "source": "WHO ICD-11 & Advanced Trauma Life Support (ATLS) Guidelines",
+    "questions": [
+      {
+        "prompt": "Is the bleeding controlled with direct pressure, or is it bleeding continuously or spurting?",
+        "replies": ["Bleeding has stopped", "Bleeding with pressure", "Bleeding continuously", "Spurting bright red blood"]
+      },
+      {
+        "prompt": "Do you feel numbness or loss of sensation beyond the cut, or difficulty moving the joint/finger?",
+        "replies": ["Normal sensation and movement", "Numbness / tingling", "Cannot move finger/joint", "Mild throbbing pain"]
+      },
+      {
+        "prompt": "Have you received a Tetanus toxoid booster vaccine within the past 5 to 10 years?",
+        "replies": ["Tetanus vaccine up to date", "Tetanus vaccine > 5 years ago", "Never had tetanus shot", "Unsure of vaccine history"]
+      }
+    ],
+    "safeMeasures": [
+      "Wash wound thoroughly under clean running tap water for 3 to 5 minutes with mild soap",
+      "Apply continuous direct pressure using a clean sterile gauze or cloth to arrest bleeding",
+      "Apply topical antiseptic ointment (Neosporin or Bacitracin) and cover with a sterile bandage",
+      "Keep the affected limb elevated above heart level to minimize swelling and throbbing"
+    ],
+    "suggestedOtc": [
+      {
+        "saltName": "Bacitracin / Polymyxin B Topical Ointment",
+        "indication": "Topical antimicrobial for clean minor cuts and abrasions",
+        "dosage": "Apply thin film to clean wound 1 to 2 times daily",
+        "contraindications": "Deep puncture wounds or animal bites requiring systemic antibiotics"
+      },
+      {
+        "saltName": "Paracetamol 500mg",
+        "indication": "Oral analgesic for mild-to-moderate wound pain",
+        "dosage": "1 tablet every 6 to 8 hours as needed (do not exceed 3000mg/day)",
+        "contraindications": "Severe hepatic impairment"
+      }
+    ],
+    "redFlags": [
+      "Continuous bleeding that does not stop after 10 minutes of direct firm pressure",
+      "Pulsating or spurting bright red arterial bleeding",
+      "Deep wound gaping open more than 1/4 inch requiring surgical sutures",
+      "Loss of sensation, tingling, or inability to flex or extend the finger/joint",
+      "Wound caused by rusty metal, soil contamination, or animal/human bite"
+    ]
+  },
+  {
+    "id": "THERMAL_BURN",
+    "icdCode": "ND90.0",
+    "condition": "Acute Thermal Burn / Scald",
+    "department": "Emergency Medicine / Dermatology",
+    "keywords": ["burn", "scald", "blister", "jal gaya", "hot water", "hot oil", "steam burn", "stove burn"],
+    "anatomicalSites": ["finger", "hand", "arm", "face", "leg", "foot", "chest"],
+    "summary": "Thermal injury to dermal tissue from contact with hot liquids, steam, surfaces, or flames. Immediate cooling and barrier protection essential.",
+    "source": "WHO ICD-11 & International Society for Burn Injuries (ISBI) Protocols",
+    "questions": [
+      {
+        "prompt": "What does the burn look like (red without blisters, blistering with fluid, or charred/white/numb)?",
+        "replies": ["Red and painful, no blisters", "Blistering with clear fluid", "Skin is white, charred, or numb", "Covers a large area"]
+      },
+      {
+        "prompt": "How large is the burned area compared to the size of the patient's palm?",
+        "replies": ["Smaller than palm size", "About palm size", "Larger than palm", "Spans across a moving joint"]
+      }
+    ],
+    "safeMeasures": [
+      "Immediately cool the burn under cool (not ice-cold) running tap water for 15 to 20 minutes",
+      "Do NOT apply ice, butter, toothpaste, or greasy ointments to fresh burns",
+      "Do NOT deliberately pop or puncture intact blisters",
+      "Cover loosely with sterile non-adherent dressing or clean plastic cling wrap"
+    ],
+    "suggestedOtc": [
+      {
+        "saltName": "Silver Sulfadiazine 1% Cream / Aloe Vera Gel",
+        "indication": "Soothing antimicrobial barrier for superficial second-degree burns",
+        "dosage": "Apply thin layer to cooled, clean burn 1-2 times daily",
+        "contraindications": "Sulfa drug allergy; do not use on face near eyes"
+      }
+    ],
+    "redFlags": [
+      "Burn larger than palm size or involving face, hands, feet, groin, or major joints",
+      "Third-degree burns: white, leathery, charred, or completely painless skin",
+      "Chemical or high-voltage electrical burns",
+      "Signs of infection: spreading erythema, foul-smelling pus, or fever"
+    ]
+  },
+  {
+    "id": "MUSCULOSKELETAL_SPRAIN",
+    "icdCode": "FB50.0",
+    "condition": "Acute Sprain / Ligamentous Strain",
+    "department": "Orthopedics",
+    "keywords": ["sprain", "twist", "twisted", "rolled", "moch", "swollen ankle", "swollen knee", "sprained wrist", "pop in joint"],
+    "anatomicalSites": ["ankle", "knee", "wrist", "foot", "elbow", "shoulder", "finger"],
+    "summary": "Traumatic stretching or microscopic tearing of joint ligaments following inversion, twisting, or mechanical overload.",
+    "source": "WHO ICD-11 & Ottawa Ankle/Knee Clinical Rules",
+    "questions": [
+      {
+        "prompt": "Can you put weight on the limb and take 4 steps, or is it completely impossible to bear weight?",
+        "replies": ["Can bear weight / walk", "Painful but can walk a few steps", "Completely unable to bear weight", "Heard or felt a pop"]
+      },
+      {
+        "prompt": "Is there visible bony deformity, severe bruising, or rapid massive swelling within 30 minutes?",
+        "replies": ["Mild swelling only", "Rapid swelling and blue bruising", "Visible bone deformity / misaligned", "Tender directly over the bone"]
+      }
+    ],
+    "safeMeasures": [
+      "Follow R.I.C.E. protocol: Rest the joint and avoid strenuous loading",
+      "Ice: Apply ice wrapped in a damp cloth for 15 minutes every 2 to 3 hours",
+      "Compression: Wrap with an elastic compression bandage (not overly tight)",
+      "Elevation: Elevate the joint above heart level to assist venous lymphatic drainage"
+    ],
+    "suggestedOtc": [
+      {
+        "saltName": "Topical Diclofenac Gel 1.16%",
+        "indication": "Localized non-steroidal anti-inflammatory pain relief",
+        "dosage": "Gently massage 2-4g onto affected joint 3 to 4 times daily",
+        "contraindications": "Broken or abraded skin"
+      },
+      {
+        "saltName": "Ibuprofen 400mg",
+        "indication": "Oral NSAID anti-inflammatory analgesic",
+        "dosage": "1 tablet every 8 hours with meals",
+        "contraindications": "Active peptic ulcer disease, severe renal insufficiency"
+      }
+    ],
+    "redFlags": [
+      "Visible bone deformity, angulation, or open skin over the injured joint",
+      "Inability to bear any weight immediately after injury and take 4 steps (Ottawa criteria)",
+      "Intense focal bone tenderness on the posterior edge of malleolus or navicular bone",
+      "Coldness, pale discoloration, or loss of distal pulse in foot/hand"
+    ]
+  },
+  {
+    "id": "DENTAL_ODONTALGIA",
+    "icdCode": "DA00.0",
+    "condition": "Acute Odontalgia / Dental Pulpitis",
+    "department": "Dentistry / Oral & Maxillofacial Surgery",
+    "keywords": ["tooth", "teeth", "toothache", "dant dard", "gum bleeding", "swollen gum", "cavity", "jaw pain"],
+    "anatomicalSites": ["tooth", "teeth", "gum", "jaw", "mouth"],
+    "summary": "Acute dental pain arising from bacterial caries, pulpal inflammation, or periodontal abscess.",
+    "source": "WHO ICD-11 & American Dental Association (ADA) Clinical Guidelines",
+    "questions": [
+      {
+        "prompt": "Is the pain triggered by hot or cold fluids, or is it a continuous throbbing pain that keeps you awake?",
+        "replies": ["Triggered by hot/cold", "Continuous throbbing ache", "Pain when biting / chewing", "Swelling on cheek or gum"]
+      },
+      {
+        "prompt": "Do you notice facial swelling, difficulty opening your mouth (trismus), or high fever?",
+        "replies": ["No facial swelling", "Mild gum swelling only", "Swollen cheek or jaw", "Fever present with jaw pain"]
+      }
+    ],
+    "safeMeasures": [
+      "Rinse mouth gently with warm salt water (1/2 tsp salt in warm water) every 3-4 hours",
+      "Floss carefully around the tooth to dislodge any trapped food particles",
+      "Do NOT place aspirin or analgesic tablets directly against the gum tissue (causes chemical burn)",
+      "Sleep with head elevated on pillows to reduce intracranial blood pressure to the tooth"
+    ],
+    "suggestedOtc": [
+      {
+        "saltName": "Ibuprofen 400mg + Paracetamol 500mg combination",
+        "indication": "Gold-standard synergy for acute odontogenic inflammation",
+        "dosage": "1 dose every 6-8 hours with food",
+        "contraindications": "Peptic ulcer disease or severe liver disorder"
+      },
+      {
+        "saltName": "Clove Oil (Eugenol) / Chlorhexidine 0.12% Mouthwash",
+        "indication": "Topical numbing and antimicrobial dental rinse",
+        "dosage": "Dab clove oil with cotton tip on tooth cavity; rinse chlorhexidine 2x daily",
+        "contraindications": "Do not swallow mouthwash"
+      }
+    ],
+    "redFlags": [
+      "Facial cellulitis or rapid swelling spreading under the jaw, floor of mouth, or towards eye",
+      "Difficulty swallowing saliva, drooling, or difficulty breathing (Ludwig angina risk)",
+      "High fever, chills, or difficulty opening mouth wider than two fingers (trismus)"
+    ]
+  },
+  {
+    "id": "PEDIATRIC_INFANT_FEVER",
+    "icdCode": "1B20",
+    "condition": "Pediatric Febrile Illness (Neonatal / Infant)",
+    "department": "Pediatrics / Neonatology",
+    "keywords": ["baby fever", "infant fever", "child fever", "bacha bukhar", "toddler fever"],
+    "anatomicalSites": ["infant", "baby", "child"],
+    "summary": "Fever in pediatric populations. In infants under 3 months, fever represents a medical emergency requiring sepsis evaluation.",
+    "source": "WHO Integrated Management of Childhood Illness (IMCI) & AAP Guidelines",
+    "questions": [
+      {
+        "prompt": "How old is the child or infant, and what is the rectal/axillary temperature reading?",
+        "replies": ["Under 3 months old", "3 to 6 months old", "6 to 24 months old", "Over 2 years old"]
+      },
+      {
+        "prompt": "Is the child drinking fluids, making wet diapers, and alert, or are they unusually lethargic or floppy?",
+        "replies": ["Drinking and active", "Decreased feeding / fewer wet diapers", "Extremely sleepy / hard to wake", "Inconsolable continuous crying"]
+      }
+    ],
+    "safeMeasures": [
+      "Dress the child in lightweight single-layer clothing; avoid heavy bundling",
+      "Offer frequent breast milk, formula, or oral rehydration fluids to prevent dehydration",
+      "Keep room comfortably ventilated around 20-22°C (68-72°F)"
+    ],
+    "suggestedOtc": [
+      {
+        "saltName": "Pediatric Paracetamol Oral Suspension (15mg/kg)",
+        "indication": "Antipyretic for infants over 3 months of age",
+        "dosage": "10-15 mg/kg per dose every 4-6 hours (strictly verified by infant weight)",
+        "contraindications": "Do NOT give to infants under 3 months without physician examination; NEVER give Aspirin to children"
+      }
+    ],
+    "redFlags": [
+      "Any infant under 3 months of age with a temperature of 100.4°F (38°C) or higher (immediate ER)",
+      "Lethargy, limpness, unresponsive, or bulging soft spot (fontanelle) on scalp",
+      "Purplish non-blanching pinprick rash (petechiae) anywhere on body",
+      "Stridor, grunting breathing, or blue discoloration around lips"
+    ]
+  },
+  {
+    "id": "ACUTE_CYSTITIS_UTI",
+    "icdCode": "GC08",
+    "condition": "Acute Uncomplicated Cystitis / UTI",
+    "department": "Urology",
+    "keywords": ["urine", "urnie", "urien", "pee", "peeing", "urinary", "burning pee", "dysuria", "bladder", "uti"],
+    "anatomicalSites": ["urinary", "bladder", "pelvis"],
+    "summary": "Lower urinary tract mucosal infection typically caused by uropathogenic E. coli, causing burning micturition, frequency, and pelvic heaviness.",
+    "source": "WHO ICD-11 & EAU Guidelines on Urological Infections",
+    "questions": [
+      {
+        "prompt": "Are you having burning or pain during urination, increased frequency or urgency, or any lower pelvic pain?",
+        "replies": ["Burning while urinating", "Frequent urge to pee", "Lower pelvic discomfort", "Fever or flank pain"]
+      },
+      {
+        "prompt": "How long have these symptoms been present, and when did they first start?",
+        "replies": ["Started today", "Past 1–2 days", "3–5 days", "More than a week"]
+      }
+    ],
+    "safeMeasures": [
+      "Drink 3 to 4 liters of clean water daily to flush urinary bacterial colonizations",
+      "Avoid bladder irritants including caffeine, alcohol, artificial sweeteners, and hot spicy foods",
+      "Urinate frequently without holding urine; wipe front to back"
+    ],
+    "suggestedOtc": [
+      {
+        "saltName": "Potassium Citrate Liquid / Disodium Hydrogen Citrate",
+        "indication": "Systemic urine alkalizer to alleviate painful burning micturition",
+        "dosage": "15ml diluted in a full glass of water 3 times daily after meals",
+        "contraindications": "Severe renal impairment, hyperkalemia"
+      }
+    ],
+    "redFlags": [
+      "High spiking fever with shaking chills or rigors",
+      "Unilateral or bilateral flank / lower back pain (costovertebral angle tenderness indicating pyelonephritis)",
+      "Visible red blood in urine (gross hematuria)",
+      "Persistent nausea and vomiting with inability to keep fluids"
+    ]
+  },
+  {
+    "id": "ALLERGIC_CONJUNCTIVITIS_EYE_STRAIN",
+    "icdCode": "9A60.0",
+    "condition": "Allergic Conjunctivitis / Digital Asthenopia (Eye Strain)",
+    "department": "Ophthalmology",
+    "keywords": ["eye", "eyes", "blury", "blurry", "vision", "eye strain", "itchy eye", "red eye", "watery eye"],
+    "anatomicalSites": ["eye", "eyes"],
+    "summary": "Ocular conjunctival irritation, vascular hyperemia, and ciliary muscle fatigue from prolonged digital display exposure or contact allergens.",
+    "source": "WHO ICD-11 & American Academy of Ophthalmology (AAO) Guidelines",
+    "questions": [
+      {
+        "prompt": "Are you experiencing eye redness, itching, watery discharge, or noticeable blurriness and visual strain?",
+        "replies": ["Blurry vision / eye strain", "Redness and watery eyes", "Itchy eyes / discharge", "Light sensitivity or pain"]
+      }
+    ],
+    "safeMeasures": [
+      "Practice 20-20-20 screen rule: Every 20 minutes, look at an object 20 feet away for 20 seconds",
+      "Apply cool sterile saline compress over closed eyelids for 10 minutes to soothe vascular congestion",
+      "Discontinue contact lens use until all irritation and redness completely resolve",
+      "Avoid rubbing eyes to prevent mechanical micro-abrasions to corneal epithelium"
+    ],
+    "suggestedOtc": [
+      {
+        "saltName": "Carboxymethylcellulose Sodium 0.5% Eye Drops",
+        "indication": "Preservative-free artificial tear lubricant for ocular fatigue and irritation",
+        "dosage": "Instill 1 to 2 drops in affected eye(s) 3 to 4 times daily as needed",
+        "contraindications": "Do not touch dropper tip directly to eyeball or eyelid surface"
+      }
+    ],
+    "redFlags": [
+      "Sudden loss or severe reduction in visual acuity",
+      "Severe deep ocular pain, halo rings around lights, or nausea (acute angle-closure glaucoma)",
+      "Copious thick green/yellow purulent discharge gluing eyelids shut in morning (bacterial conjunctivitis)",
+      "History of chemical splash or foreign body penetrating the eye"
+    ]
+  },
+  {
+    "id": "ACUTE_GASTRITIS_DYSPEPSIA",
+    "icdCode": "DD90",
+    "condition": "Acute Gastritis / Acid Dyspepsia",
+    "department": "Gastroenterology",
+    "keywords": ["stomach", "abdomen", "pet dard", "gas", "acidity", "heartburn", "bloat", "cramp", "belly pain"],
+    "anatomicalSites": ["stomach", "abdomen", "belly"],
+    "summary": "Gastric mucosal inflammation caused by hyperacidity, H. pylori, NSAID irritation, or dietary indiscretion.",
+    "source": "WHO ICD-11 & American College of Gastroenterology (ACG) Guidelines",
+    "questions": [
+      {
+        "prompt": "Where is the abdominal discomfort located (upper stomach, lower abdomen, or all over), and does it come in waves or stay constant?",
+        "replies": ["Upper stomach / acidity", "Lower abdomen cramps", "Constant dull pain", "Sharp cramping waves"]
+      }
+    ],
+    "safeMeasures": [
+      "Adopt a bland BRAT diet (bananas, white rice, applesauce, toast, oatmeal)",
+      "Sip warm water or ginger tea; stay upright for 45 minutes after eating",
+      "Strictly avoid deep-fried, oily meals, chili peppers, coffee, alcohol, and NSAID painkillers"
+    ],
+    "suggestedOtc": [
+      {
+        "saltName": "Magaldrate + Simethicone Antacid Gel / Famotidine 20mg",
+        "indication": "Neutralizes gastric acid hypersecretion and relieves bloating gas",
+        "dosage": "10ml gel or 1 tablet 30 minutes before meals or at bedtime",
+        "contraindications": "Severe chronic kidney disease"
+      }
+    ],
+    "redFlags": [
+      "Rigid board-like abdomen or severe rebound tenderness (peritonitis / perforation)",
+      "Black tarry stools (melena) or vomiting blood / coffee-ground emesis",
+      "Severe right lower quadrant pain with fever (appendicitis concern)"
+    ]
+  },
+  {
+    "id": "PRIMARY_HEADACHE_MIGRAINE",
+    "icdCode": "8A80",
+    "condition": "Primary Headache Disorder / Migraine / Tension Cephalea",
+    "department": "Neurology",
+    "keywords": ["headache", "head pain", "migraine", "sar dard", "sir dard", "temple pain"],
+    "anatomicalSites": ["head", "forehead", "temple"],
+    "summary": "Benign primary cephalea presenting as unilateral throbbing neurovascular pain or bilateral band-like tension pressure.",
+    "source": "WHO ICD-11 & International Headache Society (IHS) Classification (ICHD-3)",
+    "questions": [
+      {
+        "prompt": "How would you describe the headache (throbbing, dull pressure, or sharp), and does light or sound make it worse?",
+        "replies": ["Throbbing / one-sided", "Dull band-like pressure", "Worse with light", "Mild ache"]
+      }
+    ],
+    "safeMeasures": [
+      "Rest quietly in a darkened, noise-isolated room with eyes closed",
+      "Apply a cool damp cloth or ice pack wrapped in a towel over forehead or temples",
+      "Hydrate with oral electrolytes and avoid skipping meals"
+    ],
+    "suggestedOtc": [
+      {
+        "saltName": "Paracetamol 500mg / Naproxen 250mg",
+        "indication": "Acute analgesia for tension headache or early-phase migraine",
+        "dosage": "1 tablet at onset of headache with water (do not exceed daily safe limits)",
+        "contraindications": "Active gastrointestinal ulceration, hepatic failure"
+      }
+    ],
+    "redFlags": [
+      "Sudden explosive thunderclap headache reaching maximum intensity in seconds",
+      "Headache with stiff neck, photophobia, and high fever (meningitis concern)",
+      "New focal neurological deficit: slurred speech, facial drooping, or one-sided limb weakness"
+    ]
+  },
+  {
+    "id": "ACUTE_BRONCHITIS_COUGH",
+    "icdCode": "CA20",
+    "condition": "Acute Bronchitis / Tracheobronchial Airway Hyperreactivity",
+    "department": "Pulmonology",
+    "keywords": ["cough", "khansi", "phlegm", "mucus", "bronchitis", "chest congestion"],
+    "anatomicalSites": ["chest", "throat", "lung"],
+    "summary": "Acute viral inflammatory reaction of bronchial mucosa resulting in cough with or without sputum production.",
+    "source": "WHO ICD-11 & Global Initiative for Chronic Obstructive Lung Disease (GOLD)",
+    "questions": [
+      {
+        "prompt": "Is your cough dry, or is it producing phlegm or mucus?",
+        "replies": ["Dry cough", "Productive / with phlegm", "Comes and goes"]
+      }
+    ],
+    "safeMeasures": [
+      "Inhale warm steam for 10 minutes 2 to 3 times daily to loosen tracheobronchial secretions",
+      "Drink warm water, honey, and lemon tea to coat and soothe hypersensitive pharynx",
+      "Avoid exposure to tobacco smoke, dust, and cold ambient air"
+    ],
+    "suggestedOtc": [
+      {
+        "saltName": "Ambroxol 30mg / Guaifenesin 100mg (for productive cough)",
+        "indication": "Mucolytic expectorant that thins thick bronchial mucus for easier clearance",
+        "dosage": "10ml syrup 3 times daily with a full glass of water",
+        "contraindications": "Do not combine with cough suppressants; drink ample water"
+      },
+      {
+        "saltName": "Dextromethorphan HBr 10mg (for dry irritant cough)",
+        "indication": "Centrally acting cough suppressant for non-productive hacking cough",
+        "dosage": "10ml syrup every 6 to 8 hours as needed",
+        "contraindications": "Productive mucus cough, asthma exacerbation"
+      }
+    ],
+    "redFlags": [
+      "Coughing up frank blood or rust-colored sputum (hemoptysis)",
+      "Severe shortness of breath, audible wheezing, or chest retraction while breathing",
+      "High persistent fever > 102°F lasting more than 3 days with chest pain"
+    ]
+  }
+]

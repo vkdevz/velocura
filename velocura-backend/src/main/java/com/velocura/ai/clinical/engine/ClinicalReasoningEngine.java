@@ -14,6 +14,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -68,6 +69,15 @@ public class ClinicalReasoningEngine {
             NextBestQuestionEngine.QuestionDecision questionDecision) {
 
         List<ClinicalEvidence> evidenceList = knowledgeService.retrieveEvidence(normalizedInput);
+        if (evidenceList.isEmpty() && state != null && !state.getSymptoms().isEmpty()) {
+            for (String sym : state.getSymptoms().keySet()) {
+                List<ClinicalEvidence> symEvidence = knowledgeService.retrieveEvidence(sym);
+                if (!symEvidence.isEmpty()) {
+                    evidenceList.addAll(symEvidence);
+                    break;
+                }
+            }
+        }
 
         String cleanKey = apiKey != null ? apiKey.trim() : "";
         if (cleanKey.startsWith("${") && cleanKey.endsWith("}")) {
@@ -148,7 +158,6 @@ public class ClinicalReasoningEngine {
         ResponseEntity<Map> resp = restTemplate.exchange(endpoint, HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
         List<Map<String, Object>> candidates = (List<Map<String, Object>>) resp.getBody().get("candidates");
         if (candidates == null || candidates.isEmpty()) throw new RuntimeException("No candidates returned from Gemini");
-
         Map<String, Object> content = (Map<String, Object>) candidates.get(0).get("content");
         List<Map<String, Object>> parts = (List<Map<String, Object>>) content.get("parts");
         return (String) parts.get(0).get("text");
@@ -214,15 +223,103 @@ public class ClinicalReasoningEngine {
             return new ReasoningOutput(msg.toString(), questionDecision.getQuestionText(), questionDecision.getQuickReplies(), true);
         }
 
-        // Symptom Assessment & Follow Up
+        // Self-Care, Follow-up actions & Booking / Live Telehealth
+        if (intent == ClinicalIntent.SELF_CARE) {
+            if (lower.contains("book an appointment") || lower.contains("book appointment") || lower.contains("schedule appointment") || lower.contains("view available doctors") || lower.contains("available doctors") || lower.contains("go to booking")) {
+                String dept = getRecommendedDepartment(state);
+                msg.append("I can help connect you with our ").append(dept).append(" department. We have certified medical specialists available for in-person clinic visits and video consultations (such as Dr. Sarah Smith). Would you like to check open appointment slots now?");
+                List<String> replies = List.of("Go to Appointments", "Consult a doctor live", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
+            }
+            if (lower.contains("consult a doctor live") || lower.contains("consult on live") || lower.contains("live consult") || lower.contains("live consultation") || lower.contains("start live")) {
+                msg.append("Our live telemedicine service is available. You can initiate a secure one-on-one digital consultation with an active-duty physician immediately for real-time video evaluation and prescription confirmation.");
+                List<String> replies = List.of("Start live consultation", "Book an appointment", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
+            }
+            if (lower.contains("ask more about this condition") || lower.contains("ask more") || lower.contains("more about this")) {
+                msg.append("I am here to answer any questions you have about this condition. You can ask about recommended foods or diet, expected recovery timeline, medication precautions, or activity limits.");
+                List<String> replies = List.of("What foods should I avoid?", "How long until I recover?", "Are there medication side effects?", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
+            }
+            if (lower.contains("check another symptom") || lower.contains("another symptom")) {
+                msg.append("Certainly. Please describe any other symptoms you or the patient are experiencing (such as blurry vision, headache, fever, or stomach pain), and we will evaluate them carefully.");
+                List<String> replies = List.of("Blurry vision / eye strain", "Headache or migraine", "Fever or chills", "Stomach discomfort");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
+            }
+            if (lower.contains("food") || lower.contains("diet") || lower.contains("eat") || lower.contains("drink")) {
+                if (state.getSymptoms().containsKey("dysuria")) {
+                    msg.append("For urinary health and bladder irritation: Drink 3 to 4 liters of clean water daily to flush bacteria. Consider unsweetened cranberry juice. Avoid bladder irritants such as alcohol, excess caffeine, artificial sweeteners, and heavily spiced foods until symptoms resolve.");
+                } else if (state.getSymptoms().containsKey("abdominal_pain")) {
+                    msg.append("For stomach and digestive discomfort: Stick to bland, easily digestible foods (bananas, white rice, applesauce, toast, plain oatmeal). Sip warm water or ginger tea. Strictly avoid deep-fried foods, citrus, hot chili peppers, caffeine, and carbonated beverages.");
+                } else if (state.getSymptoms().containsKey("eye_symptoms") || state.getSymptoms().containsKey("conjunctivitis_symptoms")) {
+                    msg.append("For eye health and strain relief: Stay well-hydrated with plenty of fluids, and include foods rich in Vitamin A, lutein, and Omega-3 fatty acids (carrots, leafy spinach, walnuts). Avoid excessive salt intake which can promote eye dryness.");
+                } else {
+                    msg.append("During recovery, maintain high fluid intake with water and clear soups. Eat small, balanced meals rich in whole grains and fresh produce, and avoid greasy, excessively sugary, or spicy meals.");
+                }
+                List<String> replies = List.of("How long until I recover?", "Book an appointment", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
+            }
+            if (lower.contains("how long") || lower.contains("recover") || lower.contains("heal") || lower.contains("cure")) {
+                if (state.getSymptoms().containsKey("dysuria")) {
+                    msg.append("With proper hydration and alkalizing support or targeted antibiotics, acute uncomplicated urinary discomfort typically begins easing within 24 to 48 hours, with complete resolution in 3 to 5 days. If fever or back pain develops, see a doctor promptly.");
+                } else if (state.getSymptoms().containsKey("abdominal_pain")) {
+                    msg.append("Mild gastritis and dyspepsia usually calm down within 48 to 72 hours with bland dietary measures and acid-reducing remedies.");
+                } else if (state.getSymptoms().containsKey("eye_symptoms") || state.getSymptoms().containsKey("conjunctivitis_symptoms")) {
+                    msg.append("Ocular strain and allergic irritation generally subside within 24 to 48 hours of avoiding screen glare, practicing the 20-20-20 rule, and applying preservative-free lubricating drops.");
+                } else {
+                    msg.append("Most mild-to-moderate acute symptoms show noticeable improvement within 48 to 72 hours with rest and supportive care. Please seek medical evaluation if symptoms worsen or fail to improve after 3 days.");
+                }
+                List<String> replies = List.of("What foods should I avoid?", "Book an appointment", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
+            }
+            if (lower.contains("side effect") || lower.contains("effects")) {
+                msg.append("The recommended supportive remedies and OTC options have well-established safety profiles. However, always check product packaging for contraindications, adhere strictly to recommended doses, and discontinue use if you notice rash, stomach upset, or unusual swelling.");
+                List<String> replies = List.of("Book an appointment", "Consult a doctor live", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
+            }
+        }
+
+        // Symptom Assessment & Follow Up (Multi-system synthesis)
         PatientContext patient = state.getPatientContext();
         String patientRef = patient.isThirdParty() ? ("your " + patient.getRelationship()) : "you";
 
-        msg.append("I understand ").append(patientRef).append(" is experiencing ");
-        if (state.getSymptoms().containsKey("fever")) msg.append("fever ");
-        if (state.getSymptoms().containsKey("cough")) msg.append("and cough ");
-        if (state.getSymptoms().isEmpty()) msg.append("these symptoms ");
-        msg.append(". ");
+        List<String> symptomNames = new ArrayList<>();
+        if (state.getSymptoms().containsKey("headache")) symptomNames.add("headache");
+        if (state.getSymptoms().containsKey("fever")) symptomNames.add("fever");
+        if (state.getSymptoms().containsKey("cough")) symptomNames.add("cough");
+        if (state.getSymptoms().containsKey("abdominal_pain")) symptomNames.add("abdominal pain");
+        if (state.getSymptoms().containsKey("sore_throat")) symptomNames.add("sore throat");
+        if (state.getSymptoms().containsKey("rash")) symptomNames.add("skin rash");
+        if (state.getSymptoms().containsKey("diarrhea")) symptomNames.add("diarrhea");
+        if (state.getSymptoms().containsKey("nausea")) symptomNames.add("nausea");
+        if (state.getSymptoms().containsKey("laceration_wound")) {
+            String site = state.getTimeline().getOrDefault("anatomical_site", "wound");
+            symptomNames.add("an acute cut/laceration on the " + site);
+        }
+        if (state.getSymptoms().containsKey("burn_injury")) {
+            String site = state.getTimeline().getOrDefault("anatomical_site", "skin");
+            symptomNames.add("a thermal burn on the " + site);
+        }
+        if (state.getSymptoms().containsKey("sprain_strain")) {
+            String site = state.getTimeline().getOrDefault("anatomical_site", "joint");
+            symptomNames.add("a sprain/strain in the " + site);
+        }
+        if (state.getSymptoms().containsKey("dental_pain")) symptomNames.add("toothache and dental discomfort");
+        if (state.getSymptoms().containsKey("joint_pain")) symptomNames.add("joint discomfort");
+        if (state.getSymptoms().containsKey("back_pain")) symptomNames.add("back pain");
+        if (state.getSymptoms().containsKey("dysuria")) symptomNames.add(lower.contains("burn") ? "burning urination" : "urinary discomfort");
+        if (state.getSymptoms().containsKey("eye_symptoms") || state.getSymptoms().containsKey("conjunctivitis_symptoms")) symptomNames.add(lower.contains("blur") ? "blurry vision and eye strain" : "eye irritation");
+        if (state.getSymptoms().containsKey("cold_symptoms")) symptomNames.add("cold symptoms");
+        if (state.getSymptoms().containsKey("ear_pain")) symptomNames.add("ear discomfort");
+        if (state.getSymptoms().containsKey("dizziness")) symptomNames.add("dizziness");
+
+        String patientRefVerb = patient.isThirdParty() ? ("your " + patient.getRelationship() + " is") : "you are";
+        if (symptomNames.isEmpty()) {
+            msg.append("I am here as your clinical physician to evaluate this with you calmly and thoroughly. ");
+        } else {
+            String symptomText = String.join(" and ", symptomNames);
+            msg.append("I understand ").append(patientRefVerb).append(" experiencing ").append(symptomText).append(". As a doctor, let's look at this carefully together. ");
+        }
 
         if (!evidenceList.isEmpty()) {
             msg.append(evidenceList.get(0).getSummary()).append(" ");
@@ -231,9 +328,32 @@ public class ClinicalReasoningEngine {
         if (questionDecision.isShouldAsk()) {
             msg.append(questionDecision.getQuestionText());
         } else {
-            msg.append("Stay well-hydrated, rest, and monitor for any sudden changes. If symptoms worsen, a clinician should evaluate in person.");
+            if (!evidenceList.isEmpty() && !evidenceList.get(0).getSafeMeasures().isEmpty()) {
+                msg.append("Recommended immediate self-care: ").append(String.join(", ", evidenceList.get(0).getSafeMeasures())).append(". ");
+            } else {
+                msg.append("Stay well-hydrated, rest in a comfortable environment, and monitor your symptoms closely. ");
+            }
+            msg.append("If symptoms persist or worsen, please consult a healthcare professional for an in-person evaluation.");
         }
 
         return new ReasoningOutput(msg.toString().trim(), questionDecision.getQuestionText(), questionDecision.getQuickReplies(), true);
+    }
+
+    private String getRecommendedDepartment(ClinicalConversationState state) {
+        if (state == null || state.getSymptoms() == null) return "General Medicine";
+        if (state.getSymptoms().containsKey("laceration_wound")) return "Emergency Medicine / Surgery";
+        if (state.getSymptoms().containsKey("burn_injury")) return "Emergency Medicine / Dermatology";
+        if (state.getSymptoms().containsKey("sprain_strain")) return "Orthopedics";
+        if (state.getSymptoms().containsKey("dental_pain")) return "Dentistry";
+        if (state.getSymptoms().containsKey("dysuria")) return "Urology";
+        if (state.getSymptoms().containsKey("eye_symptoms") || state.getSymptoms().containsKey("conjunctivitis_symptoms")) return "Ophthalmology";
+        if (state.getSymptoms().containsKey("abdominal_pain")) return "Gastroenterology";
+        if (state.getSymptoms().containsKey("headache")) return "Neurology";
+        if (state.getSymptoms().containsKey("cough")) return "Pulmonology";
+        if (state.getSymptoms().containsKey("sore_throat")) return "ENT / Otolaryngology";
+        if (state.getSymptoms().containsKey("rash")) return "Dermatology";
+        if (state.getSymptoms().containsKey("joint_pain") || state.getSymptoms().containsKey("back_pain")) return "Orthopedics";
+        if (state.getSymptoms().containsKey("chest_symptoms")) return "Cardiology / Emergency Medicine";
+        return "General Medicine";
     }
 }

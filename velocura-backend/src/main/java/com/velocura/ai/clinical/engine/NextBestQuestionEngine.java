@@ -29,8 +29,15 @@ public class NextBestQuestionEngine {
             this.nextAction = nextAction;
         }
 
+        public static final List<String> POST_CONSULTATION_REPLIES = List.of(
+            "Book an appointment",
+            "Consult a doctor live",
+            "Ask more about this condition",
+            "Check another symptom"
+        );
+
         public static QuestionDecision stopAsking(NextAction action) {
-            return new QuestionDecision(false, null, new ArrayList<>(), action);
+            return new QuestionDecision(false, null, POST_CONSULTATION_REPLIES, action);
         }
 
         public boolean isShouldAsk() { return shouldAsk; }
@@ -101,41 +108,114 @@ public class NextBestQuestionEngine {
 
         // 5. Symptom Assessment & Follow-up
         if (intent == ClinicalIntent.SYMPTOM_ASSESSMENT || intent == ClinicalIntent.FOLLOW_UP) {
-            // Check Clinical Stop Condition:
-            // If turnCount >= 2 or we already know key parameters (timeline + severity/vitals), stop asking!
+            // STOP CONDITION: If turnCount >= 5 or if primary dimensions are collected, provide complete guidance
+            if (state.getTurnCount() >= 5 && state.getLastQuestion() != null && !state.getLastQuestion().isBlank()) {
+                return QuestionDecision.stopAsking(NextAction.ANSWER);
+            }
+
             boolean hasTimeline = state.isFactKnown("duration") || state.getTimeline().containsKey("duration");
-            boolean hasSeverityOrVitals = state.isFactKnown("severity") || !state.getVitals().isEmpty();
+            boolean hasProgression = state.isFactKnown("progression") || state.getTimeline().containsKey("progression");
+            boolean hasSeverity = state.isFactKnown("severity") || state.getSeverity() != null;
             boolean hasCoughDetails = state.isFactKnown("cough");
 
-            if (state.getSymptoms().containsKey("fever")) {
-                // Priority 1 for fever: Temperature & Duration
-                if (!state.isFactKnown("temperature") && state.getVitals().isEmpty() && !state.wasQuestionAnsweredOrAsked("temperature")) {
+            // 0. If no symptoms described yet:
+            if (state.getSymptoms().isEmpty()) {
+                String q = "Please describe the symptoms you are experiencing (such as fever, cough, headache, stomach discomfort, or rash) and when they started.";
+                List<String> replies = List.of("Fever and body ache", "Cough or sore throat", "Stomach pain or nausea", "Headache");
+                return new QuestionDecision(true, q, replies, NextAction.ASK);
+            }
+
+            // 1. Patient Context & Intent: "Who is having these problems... or just wanna know about them"
+            if (!state.getPatientContext().isClarified() && !state.wasQuestionAnsweredOrAsked("who is experiencing")) {
+                String q = "To evaluate this safely and give you the most accurate medical advice: Who is experiencing these symptoms, or are you looking for general medical information?";
+                List<String> replies = List.of("Currently experiencing it", "My child or infant", "My parent / elderly", "Just general information");
+                return new QuestionDecision(true, q, replies, NextAction.CLARIFY);
+            }
+
+            // 2. Timeline / Duration: "time"
+            if (!hasTimeline && !state.wasQuestionAnsweredOrAsked("how long") && !state.wasQuestionAnsweredOrAsked("temperature")) {
+                if (state.getSymptoms().containsKey("fever")) {
                     String q = "How high has your temperature been, and how long have you had the fever?";
                     List<String> replies = List.of("Around 100°F - 101°F", "102°F or higher", "Haven't measured", "Started today");
                     return new QuestionDecision(true, q, replies, NextAction.ASK);
                 }
+                String q = "How long have these symptoms been present, and when did they first start?";
+                List<String> replies = List.of("Started today", "Past 1–2 days", "3–5 days", "More than a week");
+                return new QuestionDecision(true, q, replies, NextAction.ASK);
             }
 
-            if (state.getSymptoms().containsKey("cough")) {
-                // Priority 1 for cough: Character (dry vs phlegm)
-                if (!hasCoughDetails && !state.wasQuestionAnsweredOrAsked("dry or producing")) {
+            // 3. Frequency & Pattern: "frequency"
+            if (!hasProgression && !state.wasQuestionAnsweredOrAsked("pattern") && !state.wasQuestionAnsweredOrAsked("frequency") && !state.wasQuestionAnsweredOrAsked("throbbing") && !state.wasQuestionAnsweredOrAsked("abdominal discomfort") && !state.wasQuestionAnsweredOrAsked("swallowing") && !state.wasQuestionAnsweredOrAsked("dry or producing") && !state.wasQuestionAnsweredOrAsked("burning or pain") && !state.wasQuestionAnsweredOrAsked("eye redness") && !state.wasQuestionAnsweredOrAsked("bleeding") && !state.wasQuestionAnsweredOrAsked("burn look") && !state.wasQuestionAnsweredOrAsked("weight on the limb") && !state.wasQuestionAnsweredOrAsked("hot or cold fluids")) {
+                if (state.getSymptoms().containsKey("laceration_wound")) {
+                    String q = "Is the bleeding controlled with direct pressure, or is it bleeding continuously or spurting?";
+                    List<String> replies = List.of("Bleeding has stopped", "Bleeding with pressure", "Bleeding continuously", "Spurting bright red blood");
+                    return new QuestionDecision(true, q, replies, NextAction.ASK);
+                } else if (state.getSymptoms().containsKey("burn_injury")) {
+                    String q = "What does the burn look like (red without blisters, blistering with fluid, or charred/white/numb)?";
+                    List<String> replies = List.of("Red and painful, no blisters", "Blistering with clear fluid", "Skin is white or charred", "Covers a large area");
+                    return new QuestionDecision(true, q, replies, NextAction.ASK);
+                } else if (state.getSymptoms().containsKey("sprain_strain")) {
+                    String q = "Can you put weight on the limb and walk, or is it completely impossible to bear weight?";
+                    List<String> replies = List.of("Can bear weight / walk", "Painful but can walk a few steps", "Completely unable to bear weight", "Heard or felt a pop");
+                    return new QuestionDecision(true, q, replies, NextAction.ASK);
+                } else if (state.getSymptoms().containsKey("dental_pain")) {
+                    String q = "Is the pain triggered by hot or cold fluids, or is it a continuous throbbing ache that keeps you awake?";
+                    List<String> replies = List.of("Triggered by hot/cold", "Continuous throbbing ache", "Pain when biting / chewing", "Swelling on cheek or gum");
+                    return new QuestionDecision(true, q, replies, NextAction.ASK);
+                } else if (state.getSymptoms().containsKey("cough") && !hasCoughDetails) {
                     String q = "Is your cough dry, or is it producing phlegm or mucus?";
                     List<String> replies = List.of("Dry cough", "Productive / with phlegm", "Comes and goes");
+                    return new QuestionDecision(true, q, replies, NextAction.ASK);
+                } else if (state.getSymptoms().containsKey("headache")) {
+                    String q = "How would you describe the headache (throbbing, dull pressure, or sharp), and does light or sound make it worse?";
+                    List<String> replies = List.of("Throbbing / one-sided", "Dull band-like pressure", "Worse with light", "Mild ache");
+                    return new QuestionDecision(true, q, replies, NextAction.ASK);
+                } else if (state.getSymptoms().containsKey("abdominal_pain")) {
+                    String q = "Where is the abdominal discomfort located (upper stomach, lower abdomen, or all over), and does it come in waves or stay constant?";
+                    List<String> replies = List.of("Upper stomach / acidity", "Lower abdomen cramps", "Constant dull pain", "Sharp cramping waves");
+                    return new QuestionDecision(true, q, replies, NextAction.ASK);
+                } else if (state.getSymptoms().containsKey("sore_throat")) {
+                    String q = "Are you having severe pain when swallowing, or any hoarseness in your voice?";
+                    List<String> replies = List.of("Painful swallowing", "Mild scratchy throat", "Voice is hoarse", "Difficulty drinking fluids");
+                    return new QuestionDecision(true, q, replies, NextAction.ASK);
+                } else if (state.getSymptoms().containsKey("dysuria")) {
+                    String q = "Are you having burning or pain during urination, increased frequency or urgency, or any lower pelvic pain?";
+                    List<String> replies = List.of("Burning while urinating", "Frequent urge to pee", "Lower pelvic discomfort", "Fever or flank pain");
+                    return new QuestionDecision(true, q, replies, NextAction.ASK);
+                } else if (state.getSymptoms().containsKey("eye_symptoms") || state.getSymptoms().containsKey("conjunctivitis_symptoms")) {
+                    String q = "Are you experiencing eye redness, itching, watery discharge, or noticeable blurriness and visual strain?";
+                    List<String> replies = List.of("Blurry vision / eye strain", "Redness and watery eyes", "Itchy eyes / discharge", "Light sensitivity or pain");
+                    return new QuestionDecision(true, q, replies, NextAction.ASK);
+                } else {
+                    String q = "What is the pattern and frequency of the discomfort?";
+                    List<String> replies = List.of("Constant throughout the day", "Comes and goes in waves", "After meals or exertion", "Occasional / intermittent");
                     return new QuestionDecision(true, q, replies, NextAction.ASK);
                 }
             }
 
-            // If duration is completely unknown across any symptom:
-            if (!hasTimeline && !state.wasQuestionAnsweredOrAsked("how long")) {
-                String q = "About how long have you been experiencing these symptoms?";
-                List<String> replies = List.of("Started today", "1–3 days", "More than a week");
+            // 4. Intensity & Severity: "intensity"
+            if (!hasSeverity && !state.wasQuestionAnsweredOrAsked("intensity") && !state.wasQuestionAnsweredOrAsked("severity")) {
+                String q = "How would you describe the intensity and severity level of the discomfort?";
+                List<String> replies = List.of("Mild (1–3/10) — manageable", "Moderate (4–6/10) — uncomfortable", "Severe (7–9/10) — hard to bear", "Very severe / unbearable");
                 return new QuestionDecision(true, q, replies, NextAction.ASK);
             }
 
-            // Stop condition reached! We have enough clinical data to provide assessment, ICD-11 guidance, and care plan
-            return QuestionDecision.stopAsking(NextAction.ANSWER);
+            // Stop condition reached! All key clinical dimensions captured
+            List<String> postConsultationReplies = List.of(
+                "Book an appointment",
+                "Consult a doctor live",
+                "Ask more about this condition",
+                "Check another symptom"
+            );
+            return new QuestionDecision(false, null, postConsultationReplies, NextAction.ANSWER);
         }
 
-        return QuestionDecision.stopAsking(NextAction.ANSWER);
+        List<String> postConsultationReplies = List.of(
+            "Book an appointment",
+            "Consult a doctor live",
+            "Ask more about this condition",
+            "Check another symptom"
+        );
+        return new QuestionDecision(false, null, postConsultationReplies, NextAction.ANSWER);
     }
 }

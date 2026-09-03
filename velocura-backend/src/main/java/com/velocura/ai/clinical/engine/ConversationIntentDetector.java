@@ -39,24 +39,26 @@ public class ConversationIntentDetector {
 
     private static final Pattern BODY_PART = Pattern.compile(
         "(?i)\\b(eye|eyes|ear|ears|chest|back|abdomen|stomach|throat|head|neck|knee|joint|skin|" +
-        "urinary|bladder|kidney|pelvis|groin|shoulder|wrist|ankle|foot|feet|leg|arm|" +
+        "urinary|urine|urnie|urien|pee|peeing|bladder|kidney|pelvis|groin|shoulder|wrist|ankle|foot|feet|leg|arm|" +
         "elbow|hip|finger|toe|scalp|face|jaw|tooth|teeth|gum|tongue|nose|sinus|lung|" +
         "heart|liver|bowel|rectum|anus|spine|rib|calf|thigh|forehead|temple|cheek)\\b");
 
     private static final Pattern SYMPTOM_VERB = Pattern.compile(
-        "(?i)\\b(pain|ache|aching|burn|burning|itch|itching|itchy|watery|red|redness|bleed|bleeding|swell|swelling|" +
-        "nausea|vomit|vomiting|cough|coughing|fever|discharge|cramp|dizzy|dizziness|blurry|rash|fatigue|" +
+        "(?i)\\b(cut|cuts|cutting|laceration|wound|wounds|scald|puncture|bite|sting|pain|ache|aching|burn|burning|itch|itching|itchy|watery|red|redness|bleed|bleeding|swell|swelling|" +
+        "nausea|vomit|vomiting|cough|coughing|fever|discharge|cramp|cramps|dizzy|dizziness|blur|blury|blurry|vision|strain|rash|fatigue|" +
         "weakness|shortness|breathless|palpitat|tingle|tingling|numbness|numb|stiff|" +
-        "constipat|diarrhea|bloat|wheez|sneez|runny|congestion|lump|lesion|wound|bruise|" +
-        "sprain|strain|abscess|ulcer|sore|tender|frequent urination|urgency|hurts|hurt)\\b");
+        "constipat|diarrhea|bloat|wheez|sneez|runny|congestion|lump|lesion|bruise|" +
+        "sprain|strain|abscess|ulcer|sore|tender|frequent urination|urgency|hurts|hurt|acidity|heartburn|reflux|loose motion|" +
+        "problem|issue|trouble|difficulty|discomfort|infection)\\b");
 
     private static final Pattern FIRST_PERSON_OR_PATIENT_SYMPTOM = Pattern.compile(
-        "(?i)\\b(i\\s*have|i'm\\s*having|i\\s*feel|i've\\s*had|my\\s*\\w+\\s*hurts|my\\s*(mother|father|husband|wife|child|baby|son|daughter)\\s*has|suffering\\s*from|experiencing|pain|hurts|burning|fever|cough|ache|vomit|rash|swelling|bleeding)\\b"
+        "(?i)\\b(i\\s*have|i'm\\s*having|i\\s*feel|i've\\s*had|my\\s*\\w+\\s*hurts|my\\s*(mother|father|husband|wife|child|baby|son|daughter)\\s*has|suffering\\s*from|experiencing|pain|hurts|burning|fever|cough|ache|vomit|rash|swelling|bleeding|cut|wound|burn|sprain|problem\\s*in|issue\\s*in|trouble\\s*(with|in))\\b"
     );
 
     private static final Set<String> SINGLE_WORD_SYMPTOMS = Set.of(
         "fever", "cough", "headache", "vomiting", "pain", "nausea", "diarrhea", "rash",
-        "dizziness", "fatigue", "bukhar", "khansi", "dard", "ulti", "chakkar"
+        "dizziness", "fatigue", "bukhar", "khansi", "dard", "ulti", "chakkar", "urine", "urnie", "dysuria", "uti",
+        "cut", "wound", "burn", "sprain", "toothache", "bleeding"
     );
 
     private static final Pattern FOLLOW_UP_PATTERN = Pattern.compile(
@@ -75,11 +77,31 @@ public class ConversationIntentDetector {
             return ClinicalIntent.CLARIFICATION;
         }
 
-        // 2. Short follow-up answer when assistant previously asked a question
-        if (state != null && state.getLastQuestion() != null && !state.getLastQuestion().isBlank()) {
-            if (FOLLOW_UP_PATTERN.matcher(text).find() || text.length() < 25) {
+        // Quick replies / vitals / timeline answers should never be classified as general conversation
+        if (text.contains("general information") || text.contains("general medical information") || text.contains("just want to know") || text.contains("wanna know")) {
+            return ClinicalIntent.EDUCATIONAL;
+        }
+
+        // Post-consultation action chips & follow-up Q&A
+        if (text.contains("book an appointment") || text.contains("book appointment") || text.contains("schedule appointment")
+                || text.contains("consult a doctor live") || text.contains("consult on live") || text.contains("live consult")
+                || text.contains("ask more") || text.contains("check another symptom")
+                || text.contains("food") || text.contains("diet") || text.contains("how long") || text.contains("recover")
+                || text.contains("side effect") || text.contains("view available doctors") || text.contains("go to booking")) {
+            return ClinicalIntent.SELF_CARE;
+        }
+
+        // 2. Follow-up answer when assistant previously asked a question or active symptoms exist
+        if (state != null && ((state.getLastQuestion() != null && !state.getLastQuestion().isBlank()) || !state.getSymptoms().isEmpty())) {
+            boolean isExplicitGreeting = text.equals("hi") || text.equals("hello") || text.equals("hey") || text.equals("thanks") || text.equals("thank you") || text.equals("bye");
+            if (!isExplicitGreeting && !MEDICATION_SAFETY.matcher(text).find() && !EDUCATIONAL_QUERY.matcher(text).find()) {
                 return ClinicalIntent.FOLLOW_UP;
             }
+        }
+
+        if (text.contains("100") || text.contains("101") || text.contains("102") || text.contains("103") || text.contains("°f")
+                || text.contains("started today") || text.contains("symptoms to check") || text.contains("have symptoms")) {
+            return ClinicalIntent.SYMPTOM_ASSESSMENT;
         }
 
         // 3. Medication Safety
@@ -121,7 +143,9 @@ public class ConversationIntentDetector {
         if (FIRST_PERSON_OR_PATIENT_SYMPTOM.matcher(text).find()
                 || (BODY_PART.matcher(text).find() && SYMPTOM_VERB.matcher(text).find())
                 || (SYMPTOM_VERB.matcher(text).find() && text.contains("since"))
-                || text.contains("fever") || text.contains("cough") || text.contains("pain") || text.contains("urin")) {
+                || text.contains("fever") || text.contains("cough") || text.contains("pain") || text.contains("urin")
+                || text.contains("eye") || text.contains("blur") || text.contains("vision") || text.contains("stomach") || text.contains("headache")
+                || BODY_PART.matcher(text).find()) {
             return ClinicalIntent.SYMPTOM_ASSESSMENT;
         }
 

@@ -45,6 +45,9 @@ public class PatientContext implements Serializable {
     @Builder.Default
     private PregnancyStatus pregnancyStatus = PregnancyStatus.NOT_APPLICABLE;
 
+    @Builder.Default
+    private boolean clarified = false;
+
     private String countryLocation; // null or "IN", "US", etc.
 
     public static PatientContext defaultSelf() {

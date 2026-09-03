@@ -347,14 +347,14 @@ export default function PatientDashboard() {
                 size="lg"
                 onClick={() => navigate("/triage")}
               >
-                <Sparkles size={16} /> Start assessment
+                Start assessment
               </Button>
               <Button
                 variant="secondary"
                 size="lg"
                 onClick={() => setShowQrModal(true)}
               >
-                <QrCode size={16} /> Emergency ICE Pass
+                Emergency ICE Pass
               </Button>
             </div>
           </div>
@@ -739,7 +739,7 @@ export default function PatientDashboard() {
                 <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setShowQrModal(true)}>
-                <QrCode size={14} /> Emergency ICE Pass
+                Emergency ICE Pass
               </Button>
             </div>
           </div>

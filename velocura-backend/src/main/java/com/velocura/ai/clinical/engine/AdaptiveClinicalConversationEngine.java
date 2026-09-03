@@ -72,6 +72,21 @@ public class AdaptiveClinicalConversationEngine {
             state.getVitals().put("extracted", normalized.getExtractedVitals());
         }
 
+        // ─── STAGE 1.5: MULTI-TOPIC TRANSITION & COMPLAINT RESET ──────────────
+        boolean explicitSwitch = normText.contains("new problem") || normText.contains("different issue") || normText.contains("start over") || normText.contains("another problem") || normText.contains("check another");
+        if ((state.getCurrentPhase() == ClinicalPhase.GUIDANCE && isIntroducingNewComplaint(normText, state)) || explicitSwitch) {
+            log.info("[CLINICAL ENGINE] New clinical complaint detected. Resetting active complaint context.");
+            state.getSymptoms().clear();
+            state.getTimeline().clear();
+            state.setSeverity(null);
+            state.setLastQuestion(null);
+            state.getAnsweredQuestions().clear();
+            state.getUserHypotheses().clear();
+            state.setTurnCount(1);
+            state.setCurrentPhase(ClinicalPhase.ASSESSMENT);
+            state.setRecommendedAction(NextAction.ASK);
+        }
+
         // ─── STAGE 2: PATIENT CONTEXT DETECTION ──────────────────────────────
         PatientContext updatedPatient = patientContextDetector.detectContext(normText, state.getPatientContext());
         state.setPatientContext(updatedPatient);
@@ -134,6 +149,55 @@ public class AdaptiveClinicalConversationEngine {
         // ─── STAGE 10: RESPONSE COMPOSITION & STATE PERSISTENCE ───────────────
         stateStore.save(state);
         return responseComposer.composeStandard(validatedMessage, state, questionDecision, rawInput);
+    }
+
+    private boolean isIntroducingNewComplaint(String text, ClinicalConversationState state) {
+        if (text == null) return false;
+        String lower = text.toLowerCase();
+
+        // 1. Explicit request to check another symptom
+        if (lower.contains("check another") || lower.contains("new symptom") || lower.contains("another symptom")
+                || lower.contains("another problem") || lower.contains("other symptom") || lower.contains("different problem")) {
+            return true;
+        }
+
+        // 2. User introduces an organ system different from what's currently in state.getSymptoms()
+        boolean hasEye = lower.contains("eye") || lower.contains("blur") || lower.contains("vision");
+        boolean hasHead = lower.contains("headache") || lower.contains("head pain") || lower.contains("migraine");
+        boolean hasFever = lower.contains("fever") || lower.contains("bukhar") || lower.contains("chills");
+        boolean hasCough = lower.contains("cough") || lower.contains("phlegm") || lower.contains("khansi");
+        boolean hasStomach = lower.contains("stomach") || lower.contains("abdomen") || lower.contains("belly") || lower.contains("cramp");
+        boolean hasThroat = lower.contains("throat") || lower.contains("gala") || lower.contains("swallow");
+        boolean hasRash = lower.contains("rash") || lower.contains("itch") || lower.contains("hives");
+        boolean hasDiarrhea = lower.contains("diarrhea") || lower.contains("loose motion");
+        boolean hasJoint = lower.contains("joint") || lower.contains("knee") || lower.contains("back");
+        boolean hasChest = lower.contains("chest");
+        boolean hasUrinary = lower.contains("urin") || lower.contains("urnie") || lower.contains("pee") || lower.contains("bladder") || lower.contains("dysuria");
+        boolean hasCut = lower.contains("cut") || lower.contains("wound") || lower.contains("lacerat") || lower.contains("bleed") || lower.contains("kat gaya");
+        boolean hasBurn = ((lower.contains("burn") || lower.contains("blister")) && !lower.contains("urin") && !lower.contains("pee") && !lower.contains("dysuria") && !lower.contains("heartburn")) || lower.contains("scald") || lower.contains("jal gaya");
+        boolean hasSprain = lower.contains("sprain") || lower.contains("twist") || lower.contains("moch");
+        boolean hasDental = lower.contains("tooth") || lower.contains("teeth") || lower.contains("dant");
+
+        // If active state already had symptoms, check if incoming text specifies a NEW distinct symptom system:
+        if (state.getSymptoms() != null && !state.getSymptoms().isEmpty()) {
+            if (hasCut && !state.getSymptoms().containsKey("laceration_wound")) return true;
+            if (hasBurn && !state.getSymptoms().containsKey("burn_injury")) return true;
+            if (hasSprain && !state.getSymptoms().containsKey("sprain_strain")) return true;
+            if (hasDental && !state.getSymptoms().containsKey("dental_pain")) return true;
+            if (hasEye && !state.getSymptoms().containsKey("conjunctivitis_symptoms") && !state.getSymptoms().containsKey("eye_symptoms")) return true;
+            if (hasHead && !state.getSymptoms().containsKey("headache")) return true;
+            if (hasFever && !state.getSymptoms().containsKey("fever")) return true;
+            if (hasCough && !state.getSymptoms().containsKey("cough")) return true;
+            if (hasStomach && !state.getSymptoms().containsKey("abdominal_pain")) return true;
+            if (hasThroat && !state.getSymptoms().containsKey("sore_throat")) return true;
+            if (hasRash && !state.getSymptoms().containsKey("rash")) return true;
+            if (hasDiarrhea && !state.getSymptoms().containsKey("diarrhea")) return true;
+            if (hasJoint && !state.getSymptoms().containsKey("joint_pain") && !state.getSymptoms().containsKey("back_pain")) return true;
+            if (hasChest && !state.getSymptoms().containsKey("chest_symptoms")) return true;
+            if (hasUrinary && !state.getSymptoms().containsKey("dysuria")) return true;
+        }
+
+        return false;
     }
 
     public static AdaptiveClinicalConversationEngine createDefault() {

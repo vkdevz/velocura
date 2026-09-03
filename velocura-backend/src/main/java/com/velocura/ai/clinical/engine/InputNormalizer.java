@@ -2,6 +2,7 @@ package com.velocura.ai.clinical.engine;
 
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -78,7 +79,31 @@ public class InputNormalizer {
         // Colloquial fillers
         processed = processed.replaceAll("(?i)\\b(bhai|yaar|ji|kya\\s*kru|kya\\s*karein|hai\\s*na|plz|pls)\\b", " ");
 
-        // 2. Unit and Vitals Normalization
+        // 2. Fuzzy spelling correction for clinical terms (e.g. fingr -> finger, urnie -> urine)
+        String[] tokens = processed.split("\\s+");
+        StringBuilder reconstructed = new StringBuilder(" ");
+        for (String tok : tokens) {
+            String cleanTok = tok.replaceAll("[^a-zA-Z]", "").toLowerCase();
+            if (cleanTok.length() >= 4 && !MEDICAL_CORRECTION_VOCABULARY.contains(cleanTok)) {
+                String bestMatch = tok;
+                int minDistance = Integer.MAX_VALUE;
+                for (String vocab : MEDICAL_CORRECTION_VOCABULARY) {
+                    if (cleanTok.charAt(0) != vocab.charAt(0)) continue;
+                    int dist = levenshteinDistance(cleanTok, vocab);
+                    int threshold = (cleanTok.length() <= 4) ? 1 : 2;
+                    if (dist <= threshold && dist < minDistance) {
+                        minDistance = dist;
+                        bestMatch = vocab;
+                    }
+                }
+                reconstructed.append(bestMatch).append(" ");
+            } else if (!tok.isBlank()) {
+                reconstructed.append(tok).append(" ");
+            }
+        }
+        processed = reconstructed.toString();
+
+        // 3. Unit and Vitals Normalization
         StringBuilder vitalsFound = new StringBuilder();
 
         Matcher tempFMatcher = TEMP_FAHRENHEIT.matcher(raw);
@@ -109,5 +134,33 @@ public class InputNormalizer {
 
         String cleaned = processed.replaceAll("\\s+", " ").trim();
         return new NormalizedInput(raw, cleaned, vitalsFound.toString().trim());
+    }
+
+    private static final List<String> MEDICAL_CORRECTION_VOCABULARY = List.of(
+        "finger", "thumb", "toe", "foot", "feet", "hand", "head", "headache", "stomach", "urine",
+        "throat", "cough", "fever", "bleed", "bleeding", "wound", "sprain", "tooth", "teeth", "chest",
+        "ankle", "knee", "wrist", "elbow", "shoulder", "burn", "burning", "numbness", "dizziness"
+    );
+
+    private static int levenshteinDistance(String a, String b) {
+        if (a == null || b == null) return Integer.MAX_VALUE;
+        int lenA = a.length();
+        int lenB = b.length();
+        if (Math.abs(lenA - lenB) > 2) return 3;
+
+        int[] prev = new int[lenB + 1];
+        int[] curr = new int[lenB + 1];
+
+        for (int j = 0; j <= lenB; j++) prev[j] = j;
+
+        for (int i = 1; i <= lenA; i++) {
+            curr[0] = i;
+            for (int j = 1; j <= lenB; j++) {
+                int cost = (a.charAt(i - 1) == b.charAt(j - 1)) ? 0 : 1;
+                curr[j] = Math.min(Math.min(curr[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
+            }
+            System.arraycopy(curr, 0, prev, 0, lenB + 1);
+        }
+        return prev[lenB];
     }
 }
