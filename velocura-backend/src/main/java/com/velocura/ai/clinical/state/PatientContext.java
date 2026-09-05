@@ -63,4 +63,8 @@ public class PatientContext implements Serializable {
     public boolean isThirdParty() {
         return userRole != UserRole.SELF && !"self".equalsIgnoreCase(relationship);
     }
+
+    public boolean isGeriatric() {
+        return ageYears != null && ageYears >= 65.0;
+    }
 }

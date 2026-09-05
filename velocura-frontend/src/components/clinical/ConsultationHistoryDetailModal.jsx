@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Button from "../ui/Button";
 import Badge from "../ui/Badge";
+import { exportFhirBundle } from "../../api/velocuraApi";
 
 export default function ConsultationHistoryDetailModal({
   isOpen,
@@ -27,6 +28,26 @@ export default function ConsultationHistoryDetailModal({
   if (!isOpen || !session) return null;
 
   const [activeTab, setActiveTab] = useState("triage"); // "triage" | "transcript"
+  const [exportingFhir, setExportingFhir] = useState(false);
+
+  const handleExportFhir = async () => {
+    setExportingFhir(true);
+    try {
+      const bundle = await exportFhirBundle(session.sessionId);
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(bundle, null, 2));
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `fhir-bundle-${session.sessionId || "triage"}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    } catch (err) {
+      console.error("Failed to export FHIR bundle:", err);
+      alert("Could not export FHIR R4 bundle. Please try again.");
+    } finally {
+      setExportingFhir(false);
+    }
+  };
 
   // Safely parse JSON payload fields
   let parsedMessages = [];
@@ -449,9 +470,21 @@ export default function ConsultationHistoryDetailModal({
             </Button>
           ) : <div />}
 
-          <Button variant="primary" size="sm" onClick={onClose}>
-            Close Record
-          </Button>
+          <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleExportFhir}
+              loading={exportingFhir}
+              title="Download official HL7 FHIR R4 JSON document for hospital EHR interoperability"
+            >
+              <FileText size={14} /> Export HL7 FHIR R4
+            </Button>
+
+            <Button variant="primary" size="sm" onClick={onClose}>
+              Close Record
+            </Button>
+          </div>
         </div>
       </div>
     </div>

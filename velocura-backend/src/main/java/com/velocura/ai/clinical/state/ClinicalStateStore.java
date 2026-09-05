@@ -38,6 +38,11 @@ public class ClinicalStateStore {
                 .build());
     }
 
+    public ClinicalConversationState get(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) return null;
+        return stateCache.get(sessionId);
+    }
+
     public void save(ClinicalConversationState state) {
         if (state == null || state.getConversationId() == null) return;
         state.setLastUpdated(System.currentTimeMillis());

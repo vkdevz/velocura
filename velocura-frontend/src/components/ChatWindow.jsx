@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowUp, Sparkles, Activity, FileText, AlertCircle, Mic, MicOff, AlertTriangle, User, Phone, CheckCircle2, RotateCcw, Archive } from "lucide-react";
-import { sendChatMessage, resetChatSession } from "../api/velocuraApi";
+import { ArrowUp, Sparkles, Activity, FileText, AlertCircle, Mic, MicOff, AlertTriangle, User, Phone, CheckCircle2, RotateCcw, Archive, Paperclip, Download } from "lucide-react";
+import { sendChatMessage, resetChatSession, uploadLabReport, uploadImageSymptom, exportFhirBundle } from "../api/velocuraApi";
 import api from "../api";
 import TriageCard from "./TriageCard";
 import TypingIndicator from "./ui/TypingIndicator";
@@ -46,6 +46,89 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
 
   const initialSentRef = useRef(false);
   const sessionIdRef = useRef(`session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
+  const fileInputRef = useRef(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+
+  const handleExportFhirChat = async () => {
+    try {
+      const bundle = await exportFhirBundle(sessionIdRef.current);
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(bundle, null, 2));
+      const dl = document.createElement("a");
+      dl.setAttribute("href", dataStr);
+      dl.setAttribute("download", `fhir-bundle-${sessionIdRef.current}.json`);
+      document.body.appendChild(dl);
+      dl.click();
+      dl.remove();
+    } catch (e) {
+      console.error(e);
+      alert("Could not export FHIR R4 document.");
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFile(true);
+
+    const userMsg = {
+      id: `user-file-${Date.now()}`,
+      role: "user",
+      text: `📎 Uploaded document for diagnostic intake: ${file.name}`,
+      timestamp: new Date().toISOString()
+    };
+    setMessages((prev) => [...prev, userMsg]);
+
+    try {
+      if (file.type === "application/pdf" || file.name.endsWith(".pdf") || file.name.toLowerCase().includes("report") || file.name.toLowerCase().includes("lab")) {
+        const labRes = await uploadLabReport(file, sessionIdRef.current);
+        const bms = labRes.biomarkers || [];
+        let summaryMsg = `🔬 Diagnostic Lab Report Analyzed\n\n` + (labRes.summaryInterpretation || "");
+        if (bms.length > 0) {
+          summaryMsg += `\n\nIdentified Biomarkers:\n` + bms.map(b => `• ${b.name}: ${b.value} ${b.unit} [${b.status}] (Reference: ${b.normalRange})`).join("\n");
+        }
+        if (labRes.redFlagAlerts?.length > 0) {
+          summaryMsg += `\n\n⚠️ Critical Alerts:\n` + labRes.redFlagAlerts.map(r => `• ${r}`).join("\n");
+        }
+        const asstMsg = {
+          id: `asst-lab-${Date.now()}`,
+          role: "assistant",
+          text: summaryMsg,
+          timestamp: new Date().toISOString(),
+          isEmergency: labRes.redFlagAlerts?.length > 0
+        };
+        setMessages((prev) => [...prev, asstMsg]);
+      } else {
+        const imgRes = await uploadImageSymptom(file, "Visible clinical symptom photograph", sessionIdRef.current);
+        let imgMsg = `📸 Visual Symptom Evaluation Complete\n\n` +
+          `• Anatomical Region: ${imgRes.anatomicalRegion}\n` +
+          `• Morphology: ${imgRes.primaryMorphology}\n` +
+          `• Erythema: ${imgRes.erythemaLevel}\n` +
+          `• Infection Signs: ${imgRes.signsOfInfection ? "Present" : "None detected"}\n` +
+          `• Impression: ${imgRes.clinicalImpression}\n\n` +
+          `Guidance: ${imgRes.triageRecommendation}`;
+        const asstMsg = {
+          id: `asst-img-${Date.now()}`,
+          role: "assistant",
+          text: imgMsg,
+          timestamp: new Date().toISOString(),
+          isEmergency: imgRes.emergencySigns
+        };
+        setMessages((prev) => [...prev, asstMsg]);
+      }
+    } catch (err) {
+      console.error("Multi-modal upload failed:", err);
+      const errMsg = {
+        id: `asst-err-${Date.now()}`,
+        role: "assistant",
+        text: "Could not process the uploaded file. Please verify it is a valid PDF lab report or symptom image.",
+        timestamp: new Date().toISOString()
+      };
+      setMessages((prev) => [...prev, errMsg]);
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   useEffect(() => {
     scrollToBottom();
@@ -515,6 +598,16 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
                       <RotateCcw size={15} />
                       <span>Start New Consultation</span>
                     </button>
+                    <button
+                      type="button"
+                      className={s.viewHistoryBtn}
+                      onClick={handleExportFhirChat}
+                      style={{ cursor: "pointer" }}
+                      title="Download HL7 FHIR R4 JSON document"
+                    >
+                      <Download size={15} />
+                      <span>Export HL7 FHIR R4</span>
+                    </button>
                     <a
                       href="/patient/dashboard#chat-history"
                       className={s.viewHistoryBtn}
@@ -571,6 +664,27 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
               rows={1}
               disabled={loading}
             />
+
+            {/* Hidden File Input for Multi-Modal Intake */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf,image/*"
+              style={{ display: "none" }}
+              onChange={handleFileUpload}
+            />
+
+            {/* Multi-Modal Attachment Button */}
+            <button
+              type="button"
+              className={s.micBtn}
+              onClick={() => fileInputRef.current?.click()}
+              title={uploadingFile ? "Analyzing document..." : "Upload Lab Report (PDF) or Lesion Photograph"}
+              aria-label="Upload Lab Report or Lesion Photograph"
+              disabled={loading || uploadingFile}
+            >
+              <Paperclip size={16} className={uploadingFile ? "animate-spin" : ""} />
+            </button>
 
             {/* Voice Dictation Button */}
             <button

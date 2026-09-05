@@ -402,5 +402,107 @@
       "Severe shortness of breath, audible wheezing, or chest retraction while breathing",
       "High persistent fever > 102°F lasting more than 3 days with chest pain"
     ]
+  },
+  {
+    "id": "DENGUE_ARBOVIRAL",
+    "icdCode": "1D20",
+    "condition": "Dengue / Arboviral Febrile Syndrome",
+    "department": "Infectious Disease / General Medicine",
+    "keywords": ["dengue", "dengu", "platelet", "thrombocytopenia", "retro-orbital", "breakbone fever", "bone ache", "high fever", "fever", "petechiae", "joint pain", "body ache"],
+    "anatomicalSites": ["body", "head", "joints", "blood"],
+    "summary": "Arboviral infection transmitted by Aedes mosquitoes characterized by acute high fever, severe retro-orbital headache, myalgia, and thrombocytopenia.",
+    "source": "WHO Guidelines for Dengue Diagnosis, Treatment, Prevention and Control",
+    "questions": [
+      {
+        "prompt": "How many days has the fever been present, and do you have retro-orbital pain or body rash?",
+        "replies": ["Fever 1-2 days", "Fever 3-5 days", "Retro-orbital eye pain", "Body rash or petechiae"]
+      }
+    ],
+    "safeMeasures": [
+      "Maintain aggressive oral hydration with ORS, coconut water, and clean fluids (minimum 2.5 to 3 liters/day)",
+      "Bed rest and strict monitoring of daily Complete Blood Count (CBC) with platelet count",
+      "Strictly avoid Aspirin, Ibuprofen, Diclofenac, or any NSAIDs as they exacerbate bleeding risk"
+    ],
+    "suggestedOtc": [
+      {
+        "saltName": "Paracetamol 500mg-650mg",
+        "indication": "Safe antipyretic for high fever and arthralgia in suspected arboviral illness",
+        "dosage": "1 tablet every 6 hours PRN for fever > 100.4F (do not exceed 3000mg/day)",
+        "contraindications": "Do not combine with any NSAID (Ibuprofen/Aspirin) or duplicate paracetamol formulations"
+      }
+    ],
+    "redFlags": [
+      "Spontaneous mucosal bleeding from gums, nose, or petechial purple skin spots",
+      "Severe persistent abdominal pain or continuous persistent vomiting",
+      "Rapid drop in platelet count below 50,000 cells/mcL or clinical fluid accumulation / shock"
+    ]
+  },
+  {
+    "id": "ACUTE_CORONARY_SYNDROME",
+    "icdCode": "BA41",
+    "condition": "Acute Coronary Syndrome / Acute Myocardial Infarction",
+    "department": "Cardiology / Emergency Medicine",
+    "keywords": ["chest pain", "crushing chest pain", "angina", "coronary", "myocardial", "infarction", "sweating", "diaphoresis", "shortness of breath", "radiation to left arm", "arm pain", "jaw pain", "substernal"],
+    "anatomicalSites": ["chest", "heart", "left arm", "jaw"],
+    "summary": "Life-threatening acute reduction of myocardial blood flow manifesting as unstable angina or myocardial infarction.",
+    "source": "ACC/AHA Guidelines for the Management of Patients With Acute Coronary Syndromes",
+    "questions": [
+      {
+        "prompt": "Does the chest pain radiate to your left arm, neck, or jaw, or cause sweating or breathlessness?",
+        "replies": ["Radiating to left arm/jaw", "Associated diaphoresis/sweating", "Shortness of breath", "Sharp and worsens with breathing"]
+      }
+    ],
+    "safeMeasures": [
+      "Immediately sit down, rest, and remain calm; avoid any physical exertion",
+      "Activate Emergency Medical Services (EMS / 108 / 911) immediately",
+      "Chew soluble Aspirin 300mg if available, provided no allergy or active bleeding exists"
+    ],
+    "suggestedOtc": [
+      {
+        "saltName": "Aspirin 300mg (Emergency Antiplatelet)",
+        "indication": "Immediate chewable antiplatelet loading dose upon emergency dispatcher confirmation",
+        "dosage": "1 tablet (300mg) chewed immediately pending emergency medical transport",
+        "contraindications": "Active gastrointestinal bleeding, severe aspirin allergy, or suspected aortic dissection"
+      }
+    ],
+    "redFlags": [
+      "Crushing retrosternal chest tightness radiating to left arm, neck, or jaw",
+      "Accompanying diaphoresis, nausea, syncope, or profound dyspnea",
+      "Sudden hemodynamic collapse or rhythm disturbances"
+    ]
+  },
+  {
+    "id": "ALLERGIC_CONTACT_DERMATITIS",
+    "icdCode": "EK00",
+    "condition": "Allergic Contact Dermatitis / Acute Eczematous Reaction",
+    "department": "Dermatology",
+    "keywords": ["rash", "dermatitis", "erythema", "pruritic", "skin itching", "papules", "vesicular", "swelling", "contact dermatitis", "allergic rash"],
+    "anatomicalSites": ["skin", "wrist", "hands", "face"],
+    "summary": "Type IV delayed hypersensitivity skin inflammation triggered by external allergen or irritant contact.",
+    "source": "American Academy of Dermatology (AAD) Contact Dermatitis Guidelines",
+    "questions": [
+      {
+        "prompt": "Did the rash appear after exposure to specific metals, plants, cosmetics, or new soaps?",
+        "replies": ["Metal or jewelry exposure", "Cosmetics or fragrances", "Severe itching and small blisters", "Spreading to other body sites"]
+      }
+    ],
+    "safeMeasures": [
+      "Discontinue contact with suspected allergen/irritant immediately",
+      "Wash affected skin gently with cool water and mild soap-free cleanser",
+      "Apply cool compresses for 10-15 minutes to reduce itching and inflammation"
+    ],
+    "suggestedOtc": [
+      {
+        "saltName": "Hydrocortisone 1% Cream",
+        "indication": "Mild topical corticosteroid to soothe pruritus and localized erythema",
+        "dosage": "Apply thin layer to affected area twice daily for up to 7 days",
+        "contraindications": "Open infected wounds, fungal lesions, or ocular application"
+      }
+    ],
+    "redFlags": [
+      "Rapidly spreading erythema with warmth, purulence, or systemic fever (cellulitis)",
+      "Facial or periorbital swelling with respiratory difficulty (anaphylaxis)",
+      "Extensive skin blistering covering > 10% body surface area"
+    ]
   }
 ]

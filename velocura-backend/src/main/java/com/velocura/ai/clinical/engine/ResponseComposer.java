@@ -20,6 +20,17 @@ import java.util.regex.Pattern;
 @Component
 public class ResponseComposer {
 
+    private final BayesianDifferentialEngine bayesianDifferentialEngine;
+
+    public ResponseComposer() {
+        this(null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public ResponseComposer(BayesianDifferentialEngine bayesianDifferentialEngine) {
+        this.bayesianDifferentialEngine = bayesianDifferentialEngine;
+    }
+
     public ChatResponse composeEmergency(
             SafetyScreeningResult emergencyResult,
             ClinicalConversationState state) {
@@ -242,6 +253,18 @@ public class ResponseComposer {
             home.add(new HomeCareRemedy("Adequate oral hydration and rest", "Supports immune clearance"));
             otc.add(new OtcMedication("Paracetamol 500mg", "Antipyretic and mild analgesic", "1 tablet as needed for body ache (max 3g/day)", "Hepatic impairment"));
             redFlags.add("High persistent fever above 103F");
+        }
+
+        // Apply Bayesian Differential Diagnosis engine when available for rich probabilistic stratification
+        if (bayesianDifferentialEngine != null && state != null && !"CRITICAL".equalsIgnoreCase(risk)) {
+            try {
+                List<DifferentialDiagnosis> bayesianDiffs = bayesianDifferentialEngine.computeDifferentials(state, rawInput);
+                if (bayesianDiffs != null && !bayesianDiffs.isEmpty()) {
+                    diffs = bayesianDiffs;
+                }
+            } catch (Exception e) {
+                // Keep deterministic fallback diffs
+            }
         }
 
         return TriageResponse.builder()

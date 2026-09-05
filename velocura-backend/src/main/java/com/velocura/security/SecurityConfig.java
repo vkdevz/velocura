@@ -82,7 +82,7 @@ public class SecurityConfig {
                 })
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/api/chat/**", "/api/health", "/favicon.ico", "/").permitAll()
+                .requestMatchers("/api/auth/**", "/api/chat/**", "/api/clinical/**", "/api/fhir/**", "/api/abdm/**", "/.well-known/**", "/api/health", "/favicon.ico", "/").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/api/conversations/**").authenticated()
                 .requestMatchers("/api/prescriptions/**").authenticated()

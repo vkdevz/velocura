@@ -21,8 +21,15 @@ import {
   RefreshCw,
   MessageSquare,
   MessageCircle,
-  Phone
+  Phone,
+  Sparkles,
+  Download,
+  Copy,
+  ThumbsUp,
+  ThumbsDown,
+  Check
 } from "lucide-react";
+import { getSoapNoteForAppointment, exportFhirAppointment, submitClinicalValidation } from "../api/velocuraApi";
 import s from "../components/layout/WorkspaceShell.module.css";
 
 const DOCTOR_TABS = [
@@ -59,6 +66,14 @@ export default function DoctorDashboard() {
   const [medication, setMedication] = useState("");
   const [dosage, setDosage] = useState("");
   const [instructions, setInstructions] = useState("");
+
+  // AI Clinical Co-Pilot (SOAP Note) & Validation Flywheel state
+  const [soapNote, setSoapNote] = useState(null);
+  const [loadingSoap, setLoadingSoap] = useState(false);
+  const [exportingFhirId, setExportingFhirId] = useState(null);
+  const [validationRatings, setValidationRatings] = useState({});
+  const [confirmedDxInput, setConfirmedDxInput] = useState("");
+  const [activeValidationAppt, setActiveValidationAppt] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -159,6 +174,82 @@ export default function DoctorDashboard() {
     } catch (err) {
       console.error(err);
       setToast({ message: "Failed to update appointment status.", type: "error" });
+    }
+  };
+
+  const handleLoadSoapNote = async (appt) => {
+    const apptId = appt.id || appt.appointmentId;
+    setLoadingSoap(true);
+    setConsultationAppt(appt);
+    try {
+      const note = await getSoapNoteForAppointment(apptId);
+      setSoapNote(note);
+      setActiveTab("prescriptions");
+      setToast({ message: "AI Clinical Co-Pilot generated SOAP note.", type: "success" });
+    } catch (err) {
+      console.error(err);
+      setToast({ message: "Failed to load SOAP note. You can still prescribe directly.", type: "error" });
+    } finally {
+      setLoadingSoap(false);
+    }
+  };
+
+  const handleApplySoapToPrescription = () => {
+    if (!soapNote) return;
+    setDiagnosis(`${soapNote.primaryDiagnosis} (ICD-11: ${soapNote.primaryIcd11 || "MD11"})`);
+    setSymptoms(soapNote.chiefComplaint + (soapNote.pertinentPositives?.length ? `. Positives: ${soapNote.pertinentPositives.join(", ")}` : ""));
+    setTreatment(soapNote.recommendedLabOrders?.join("; ") || "Routine clinical follow-up");
+    setMedication(soapNote.suggestedPharmacotherapy?.[0] || "Paracetamol 650mg");
+    setDosage("As directed by attending physician");
+    setInstructions((soapNote.supportiveMeasures?.join(". ") || "") + (soapNote.redFlagReturnPrecautions?.length ? ` Red flags: ${soapNote.redFlagReturnPrecautions.join(". ")}` : ""));
+    setToast({ message: "Applied AI SOAP Note into prescription fields!", type: "success" });
+  };
+
+  const handleCopySoap = () => {
+    if (!soapNote?.fullFormattedNote) return;
+    navigator.clipboard.writeText(soapNote.fullFormattedNote);
+    setToast({ message: "Clinical SOAP Note copied to clipboard.", type: "success" });
+  };
+
+  const handleExportFhirAppt = async (apptId) => {
+    setExportingFhirId(apptId);
+    try {
+      const bundle = await exportFhirAppointment(apptId);
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(bundle, null, 2));
+      const dl = document.createElement("a");
+      dl.setAttribute("href", dataStr);
+      dl.setAttribute("download", `fhir-appointment-${apptId}.json`);
+      document.body.appendChild(dl);
+      dl.click();
+      dl.remove();
+      setToast({ message: "HL7 FHIR R4 Bundle downloaded.", type: "success" });
+    } catch (err) {
+      console.error(err);
+      setToast({ message: "Failed to export FHIR bundle.", type: "error" });
+    } finally {
+      setExportingFhirId(null);
+    }
+  };
+
+  const handleSubmitValidation = async (appt, status, customDx = "") => {
+    const apptId = appt.id || appt.appointmentId;
+    try {
+      await submitClinicalValidation({
+        appointmentId: apptId,
+        doctorUserId: user?.id,
+        doctorName: `Dr. ${user?.firstName || "Doctor"} ${user?.lastName || ""}`.trim(),
+        aiPrimaryDiagnosis: soapNote?.primaryDiagnosis || appt.reason || "Clinical Intake",
+        aiIcdCode: soapNote?.primaryIcd11 || "MD11",
+        aiConfidence: soapNote?.primaryConfidenceScore ? `${soapNote.primaryConfidenceScore}%` : "HIGH",
+        agreementStatus: status,
+        physicianConfirmedDiagnosis: customDx || (status === "AGREE" ? (soapNote?.primaryDiagnosis || appt.reason) : "Confirmed Diagnosis"),
+        clinicalNotes: "Physician verified in consultation workspace."
+      });
+      setValidationRatings(prev => ({ ...prev, [apptId]: status }));
+      setToast({ message: `Clinical ground truth recorded: ${status}`, type: "success" });
+    } catch (err) {
+      console.error(err);
+      setToast({ message: "Failed to record validation feedback.", type: "error" });
     }
   };
 
@@ -349,6 +440,30 @@ export default function DoctorDashboard() {
                             </Button>
 
                             <Button
+                              variant="tinted"
+                              size="sm"
+                              onClick={() => handleLoadSoapNote(a)}
+                              loading={loadingSoap && consultationAppt?.id === apptId}
+                              title="AI Clinical Co-Pilot (SOAP Note)"
+                              aria-label="AI Clinical Co-Pilot (SOAP Note)"
+                              style={{ minWidth: "36px", padding: "6px 10px", color: "var(--accent)" }}
+                            >
+                              <Sparkles size={14} />
+                            </Button>
+
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleExportFhirAppt(apptId)}
+                              loading={exportingFhirId === apptId}
+                              title="Export HL7 FHIR R4 Document"
+                              aria-label="Export HL7 FHIR R4 Document"
+                              style={{ minWidth: "36px", padding: "6px 10px" }}
+                            >
+                              <Download size={14} />
+                            </Button>
+
+                            <Button
                               variant="secondary"
                               size="sm"
                               onClick={() => setActiveChatAppt(a)}
@@ -418,6 +533,98 @@ export default function DoctorDashboard() {
         <div className={s.panelCard}>
           <h2 className={s.panelTitle}>Prescription & Directives Pad</h2>
           <p className={s.panelDesc}>Record diagnosis, treatment directives, and medication instructions</p>
+
+          {/* AI Clinical Co-Pilot (SOAP Note) & Validation Card */}
+          {soapNote && (
+            <div style={{
+              background: "var(--bg-elevated-2)",
+              border: "1px solid var(--accent)",
+              borderRadius: "var(--radius-xl)",
+              padding: "var(--space-4)",
+              marginBottom: "var(--space-4)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--space-3)"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "var(--space-2)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                  <Sparkles size={18} color="var(--accent)" />
+                  <span style={{ fontWeight: "var(--weight-semibold)", fontSize: "var(--text-md)" }}>
+                    AI Clinical Co-Pilot: {soapNote.primaryDiagnosis}
+                  </span>
+                  <Badge tone="blue">ICD-11: {soapNote.primaryIcd11 || "MD11"}</Badge>
+                  <Badge tone="green">{soapNote.primaryConfidenceScore ? `${soapNote.primaryConfidenceScore}% Bayesian Confidence` : "High Precision"}</Badge>
+                </div>
+                <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                  <Button variant="primary" size="sm" onClick={handleApplySoapToPrescription}>
+                    <Check size={14} /> 1-Click Apply to Form
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={handleCopySoap}>
+                    <Copy size={14} /> Copy SOAP Note
+                  </Button>
+                </div>
+              </div>
+
+              {/* SOAP Breakdown Mini Grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "var(--space-3)", fontSize: "var(--text-xs)" }}>
+                <div style={{ background: "var(--fill-secondary)", padding: "var(--space-3)", borderRadius: "var(--radius-md)" }}>
+                  <strong style={{ color: "var(--accent)" }}>S (Subjective):</strong> {soapNote.subjectiveHpi}
+                </div>
+                <div style={{ background: "var(--fill-secondary)", padding: "var(--space-3)", borderRadius: "var(--radius-md)" }}>
+                  <strong style={{ color: "var(--accent)" }}>O (Objective):</strong> {soapNote.objectiveVitals} {soapNote.labBiomarkers?.join("; ")}
+                </div>
+                <div style={{ background: "var(--fill-secondary)", padding: "var(--space-3)", borderRadius: "var(--radius-md)" }}>
+                  <strong style={{ color: "var(--accent)" }}>A (Assessment):</strong> {soapNote.primaryDiagnosis} (Risk: {soapNote.riskLevel})
+                </div>
+                <div style={{ background: "var(--fill-secondary)", padding: "var(--space-3)", borderRadius: "var(--radius-md)" }}>
+                  <strong style={{ color: "var(--accent)" }}>P (Plan):</strong> {soapNote.suggestedPharmacotherapy?.join("; ") || "Supportive Care"}
+                </div>
+              </div>
+
+              {/* Closed-Loop Physician Validation Flywheel Bar */}
+              <div style={{
+                borderTop: "1px solid var(--separator)",
+                paddingTop: "var(--space-3)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "var(--space-2)"
+              }}>
+                <span style={{ fontSize: "var(--text-xs)", color: "var(--label-secondary)", fontWeight: "var(--weight-medium)" }}>
+                  Closed-Loop Clinical Validation Flywheel: Did the AI capture the primary condition correctly?
+                </span>
+                <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                  <Button
+                    variant={validationRatings[consultationAppt?.id || "temp"] === "AGREE" ? "primary" : "secondary"}
+                    size="sm"
+                    onClick={() => handleSubmitValidation(consultationAppt || { id: 1, reason: soapNote.primaryDiagnosis }, "AGREE")}
+                  >
+                    <ThumbsUp size={13} /> Agree (Accurate)
+                  </Button>
+                  <Button
+                    variant={validationRatings[consultationAppt?.id || "temp"] === "PARTIALLY_AGREE" ? "primary" : "secondary"}
+                    size="sm"
+                    onClick={() => handleSubmitValidation(consultationAppt || { id: 1, reason: soapNote.primaryDiagnosis }, "PARTIALLY_AGREE")}
+                  >
+                    Partially
+                  </Button>
+                  <Button
+                    variant={validationRatings[consultationAppt?.id || "temp"] === "DISAGREE" ? "critical" : "secondary"}
+                    size="sm"
+                    onClick={() => {
+                      const confirmed = prompt("Enter confirmed actual diagnosis for clinical flywheel benchmark:", "");
+                      if (confirmed) {
+                        handleSubmitValidation(consultationAppt || { id: 1, reason: soapNote.primaryDiagnosis }, "DISAGREE", confirmed);
+                      }
+                    }}
+                  >
+                    <ThumbsDown size={13} /> Disagree
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSavePrescription} style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", maxWidth: "560px" }}>
             <Input

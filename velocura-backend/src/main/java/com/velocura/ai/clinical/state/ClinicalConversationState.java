@@ -75,6 +75,9 @@ public class ClinicalConversationState implements Serializable {
     private List<String> redFlags = new ArrayList<>();
 
     @Builder.Default
+    private Set<String> negatedFindings = new LinkedHashSet<>();
+
+    @Builder.Default
     private ClinicalRiskLevel currentRiskLevel = ClinicalRiskLevel.LOW;
 
     @Builder.Default
