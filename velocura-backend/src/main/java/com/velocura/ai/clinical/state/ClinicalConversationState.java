@@ -100,6 +100,12 @@ public class ClinicalConversationState implements Serializable {
     @Builder.Default
     private long lastUpdated = System.currentTimeMillis();
 
+    @Builder.Default
+    private Set<String> askedQuestionIds = new HashSet<>();
+
+    @Builder.Default
+    private Set<String> askedDimensions = new HashSet<>();
+
     public void addFact(String key, ClinicalFact fact) {
         if (knownFacts == null) knownFacts = new LinkedHashMap<>();
         knownFacts.put(key, fact);
@@ -124,6 +130,20 @@ public class ClinicalConversationState implements Serializable {
         }
     }
 
+    public void recordAskedQuestion(String id, String dimension, String text) {
+        if (id != null && !id.isBlank()) {
+            if (askedQuestionIds == null) askedQuestionIds = new HashSet<>();
+            askedQuestionIds.add(id.toLowerCase(Locale.ROOT));
+        }
+        if (dimension != null && !dimension.isBlank()) {
+            if (askedDimensions == null) askedDimensions = new HashSet<>();
+            askedDimensions.add(dimension.toLowerCase(Locale.ROOT));
+        }
+        if (text != null && !text.isBlank()) {
+            recordAnsweredQuestion(text);
+        }
+    }
+
     public boolean wasQuestionAnsweredOrAsked(String keyPattern) {
         if (answeredQuestions == null || keyPattern == null) return false;
         String kp = keyPattern.toLowerCase();
@@ -137,22 +157,60 @@ public class ClinicalConversationState implements Serializable {
     }
 
     public boolean isQuestionOrTopicAsked(String id, String dimension, String text) {
+        if (id != null && askedQuestionIds != null && askedQuestionIds.contains(id.toLowerCase(Locale.ROOT))) {
+            return true;
+        }
+        if (dimension != null && askedDimensions != null && askedDimensions.contains(dimension.toLowerCase(Locale.ROOT))) {
+            return true;
+        }
         if (id != null && wasQuestionAnsweredOrAsked(id)) return true;
         if (dimension != null && wasQuestionAnsweredOrAsked(dimension)) return true;
         if (text != null) {
             if (wasQuestionAnsweredOrAsked(text)) return true;
+            if (isSemanticTopicAsked(text)) return true;
             if (lastQuestion != null) {
-                String lq = lastQuestion.toLowerCase();
-                String t = text.toLowerCase();
+                String lq = lastQuestion.toLowerCase(Locale.ROOT);
+                String t = text.toLowerCase(Locale.ROOT);
                 if (lq.contains(t) || t.contains(lq)) return true;
             }
             if (answeredQuestions != null) {
                 for (String q : answeredQuestions) {
-                    String ql = q.toLowerCase();
-                    String t = text.toLowerCase();
+                    String ql = q.toLowerCase(Locale.ROOT);
+                    String t = text.toLowerCase(Locale.ROOT);
                     if (ql.contains(t) || t.contains(ql)) return true;
                 }
             }
+        }
+        return false;
+    }
+
+    public boolean isSemanticTopicAsked(String text) {
+        if (text == null) return false;
+        String t = text.toLowerCase(Locale.ROOT);
+        // Bleeding / petechiae / hemorrhage topic
+        if ((t.contains("bleed") || t.contains("petechiae") || t.contains("red spots") || t.contains("gums") || t.contains("nosebleed") || t.contains("bruising")) &&
+            (wasQuestionAnsweredOrAsked("bleed") || wasQuestionAnsweredOrAsked("petechiae") || wasQuestionAnsweredOrAsked("red spots") || wasQuestionAnsweredOrAsked("spots"))) {
+            return true;
+        }
+        // Fever duration / temperature / chills topic
+        if ((t.contains("how high") || t.contains("temperature") || t.contains("how many days") || t.contains("days has the high fever") || t.contains("chills")) &&
+            (wasQuestionAnsweredOrAsked("temperature") || wasQuestionAnsweredOrAsked("how long") || wasQuestionAnsweredOrAsked("how many days") || wasQuestionAnsweredOrAsked("fever been present"))) {
+            return true;
+        }
+        // Weight bearing / Ottawa rules topic
+        if ((t.contains("weight") || t.contains("walk") || t.contains("bear weight") || t.contains("take 4 steps")) &&
+            (wasQuestionAnsweredOrAsked("weight") || wasQuestionAnsweredOrAsked("walk") || wasQuestionAnsweredOrAsked("steps"))) {
+            return true;
+        }
+        // Burn appearance / depth topic
+        if ((t.contains("burn look") || t.contains("blister") || t.contains("charred") || t.contains("white/charred")) &&
+            (wasQuestionAnsweredOrAsked("burn look") || wasQuestionAnsweredOrAsked("blister") || wasQuestionAnsweredOrAsked("charred"))) {
+            return true;
+        }
+        // GI bleed / vomiting blood / stool color topic
+        if ((t.contains("coffee-ground") || t.contains("blood") || t.contains("tarry") || t.contains("black stool")) &&
+            (wasQuestionAnsweredOrAsked("coffee-ground") || wasQuestionAnsweredOrAsked("tarry") || wasQuestionAnsweredOrAsked("black stool"))) {
+            return true;
         }
         return false;
     }

@@ -5,6 +5,7 @@ import com.velocura.ai.clinical.knowledge.LocalClinicalEntityRegistry;
 import com.velocura.ai.clinical.model.PrescriptionProtocol;
 import com.velocura.ai.clinical.model.RxMedicationItem;
 import com.velocura.ai.clinical.safety.PharmacologicalSafetyMatrix;
+import com.velocura.ai.clinical.state.NextAction;
 import com.velocura.ai.clinical.state.PatientContext;
 import com.velocura.dto.ChatRequest;
 import com.velocura.dto.ChatResponse;
@@ -62,6 +63,26 @@ public class ClinicalPrescriptionAndFollowUpTests {
         // Turn 2 MUST NOT repeat "I understand you are experiencing fever and..."
         assertFalse(msg2.contains("I understand you are experiencing"),
                 "Follow-up turns must not re-recite all previously mentioned symptoms");
+
+        // Turn 3: User answers with petechiae
+        ChatResponse turn3 = conversationEngine.processTurn(
+                new ChatRequest("Small red spots or petechiae", null, session)
+        );
+        assertNotNull(turn3);
+        String msg3 = turn3.getClinicalMessage();
+        assertNotNull(msg3);
+
+        // Turn 3 MUST NOT re-ask bleeding or petechiae questions that were already asked/answered
+        assertFalse(msg3.contains("bleeding gums, nosebleeds, small red spots"),
+                "Engine must not re-ask discriminator questions that were already addressed!");
+
+        // Turn 4: Triage should conclude and provide differential assessment
+        ChatResponse turn4 = conversationEngine.processTurn(
+                new ChatRequest("1 to 3 days", null, session)
+        );
+        assertNotNull(turn4);
+        assertEquals("ANSWER", turn4.getNextAction(),
+                "Triage should reach stop condition and conclude assessment without endless question looping");
     }
 
     @Test

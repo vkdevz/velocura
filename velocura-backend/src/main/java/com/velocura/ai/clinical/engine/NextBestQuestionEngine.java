@@ -29,12 +29,20 @@ public class NextBestQuestionEngine {
 
     public static class QuestionDecision {
         private final boolean shouldAsk;
+        private final String questionId;
+        private final String dimension;
         private final String questionText;
         private final List<String> quickReplies;
         private final NextAction nextAction;
 
         public QuestionDecision(boolean shouldAsk, String questionText, List<String> quickReplies, NextAction nextAction) {
+            this(shouldAsk, null, null, questionText, quickReplies, nextAction);
+        }
+
+        public QuestionDecision(boolean shouldAsk, String questionId, String dimension, String questionText, List<String> quickReplies, NextAction nextAction) {
             this.shouldAsk = shouldAsk;
+            this.questionId = questionId;
+            this.dimension = dimension;
             this.questionText = questionText;
             this.quickReplies = quickReplies != null ? quickReplies : new ArrayList<>();
             this.nextAction = nextAction;
@@ -48,38 +56,33 @@ public class NextBestQuestionEngine {
         );
 
         public static QuestionDecision stopAsking(NextAction action) {
-            return new QuestionDecision(false, null, POST_CONSULTATION_REPLIES, action);
+            return new QuestionDecision(false, null, null, null, POST_CONSULTATION_REPLIES, action);
         }
 
         public boolean isShouldAsk() { return shouldAsk; }
+        public String getQuestionId() { return questionId; }
+        public String getDimension() { return dimension; }
         public String getQuestionText() { return questionText; }
         public List<String> getQuickReplies() { return quickReplies; }
         public NextAction getNextAction() { return nextAction; }
     }
 
     public QuestionDecision evaluateNextQuestion(ClinicalConversationState state) {
-        if (state == null) {
+        ClinicalIntent intent = state.getIntent();
+
+        // 1. General Greeting or Casual
+        if (intent == ClinicalIntent.GENERAL_CONVERSATION) {
             return QuestionDecision.stopAsking(NextAction.ANSWER);
         }
 
-        ClinicalIntent intent = state.getIntent();
-
-        // 1. Intents that require NO questioning (immediate answer/action)
-        if (intent == ClinicalIntent.EDUCATIONAL || intent == ClinicalIntent.EMERGENCY
-                || intent == ClinicalIntent.SELF_CARE || intent == ClinicalIntent.MEDICATION_INFORMATION) {
-            return QuestionDecision.stopAsking(intent == ClinicalIntent.EMERGENCY ? NextAction.ESCALATE : NextAction.ANSWER);
-        }
-
-        if (intent == ClinicalIntent.GENERAL_CONVERSATION) {
-            List<String> replies = List.of("I have symptoms to check", "Medication questions", "General health query");
-            return new QuestionDecision(false, null, replies, NextAction.ANSWER);
-        }
-
-        // 2. Ambiguous single-word symptom -> CLARIFICATION
-        if (intent == ClinicalIntent.CLARIFICATION) {
+        // 2. Educational Query
+        if (intent == ClinicalIntent.EDUCATIONAL) {
+            if (state.wasQuestionAnsweredOrAsked("general health information")) {
+                return QuestionDecision.stopAsking(NextAction.ANSWER);
+            }
             String q = "Are you asking for general health information about this, or are you currently experiencing these symptoms yourself?";
             List<String> replies = List.of("Currently experiencing it", "Just general information");
-            return new QuestionDecision(true, q, replies, NextAction.CLARIFY);
+            return new QuestionDecision(true, "EDUCATIONAL_CLARIFY", "intent", q, replies, NextAction.CLARIFY);
         }
 
         // 3. Medication Safety
@@ -90,7 +93,7 @@ public class NextBestQuestionEngine {
                 if (!state.wasQuestionAnsweredOrAsked("exact medicine name")) {
                     String q = "To advise you safely, could you share the exact name, brand, or active ingredient on the packaging?";
                     List<String> replies = List.of("I have the packaging", "I only know the color", "I don't know the name");
-                    return new QuestionDecision(true, q, replies, NextAction.VERIFY);
+                    return new QuestionDecision(true, "MED_EXACT_NAME", "medication", q, replies, NextAction.VERIFY);
                 }
             } else if (state.getMedications().size() >= 2) {
                 // Two or more medications specified (e.g. drug-drug interaction query) -> answer directly
@@ -100,7 +103,7 @@ public class NextBestQuestionEngine {
                 if (!state.isFactKnown("other_medications") && !state.wasQuestionAnsweredOrAsked("other medicines")) {
                     String q = "Are you currently taking any other prescription medications or do you have any allergies?";
                     List<String> replies = List.of("No other medicines", "Taking other medications", "I have drug allergies");
-                    return new QuestionDecision(true, q, replies, NextAction.VERIFY);
+                    return new QuestionDecision(true, "MED_OTHER_MEDS", "allergies", q, replies, NextAction.VERIFY);
                 }
             }
             // Stop condition for medication safety
@@ -112,15 +115,16 @@ public class NextBestQuestionEngine {
             if (!state.isFactKnown("test_context") && !state.wasQuestionAnsweredOrAsked("symptoms with reading")) {
                 String q = "Are you experiencing any symptoms along with this reading, such as headache, dizziness, or chest discomfort?";
                 List<String> replies = List.of("No symptoms", "Mild headache", "Dizziness", "Chest discomfort");
-                return new QuestionDecision(true, q, replies, NextAction.ASSESS);
+                return new QuestionDecision(true, "TEST_CONTEXT", "symptoms", q, replies, NextAction.ASSESS);
             }
             return QuestionDecision.stopAsking(NextAction.ANSWER);
         }
 
         // 5. Symptom Assessment & Follow-up
         if (intent == ClinicalIntent.SYMPTOM_ASSESSMENT || intent == ClinicalIntent.FOLLOW_UP) {
-            // STOP CONDITION: If turnCount >= 5 or if primary dimensions are collected, provide complete guidance
-            if (state.getTurnCount() >= 5 && state.getLastQuestion() != null && !state.getLastQuestion().isBlank()) {
+            // STOP CONDITION: If turnCount >= 3 or if 2 clinical questions were already asked, conclude triage!
+            int answeredCount = state.getAnsweredQuestions() != null ? state.getAnsweredQuestions().size() : 0;
+            if (state.getTurnCount() >= 3 || answeredCount >= 2) {
                 return QuestionDecision.stopAsking(NextAction.ANSWER);
             }
 
@@ -133,14 +137,14 @@ public class NextBestQuestionEngine {
             if (state.getSymptoms().isEmpty()) {
                 String q = "Please describe the symptoms you are experiencing (such as fever, cough, headache, stomach discomfort, or rash) and when they started.";
                 List<String> replies = List.of("Fever and body ache", "Cough or sore throat", "Stomach pain or nausea", "Headache");
-                return new QuestionDecision(true, q, replies, NextAction.ASK);
+                return new QuestionDecision(true, "INTAKE_SYMPTOMS", "intake", q, replies, NextAction.ASK);
             }
 
             // 1. Patient Context & Intent: "Who is having these problems... or just wanna know about them"
             if (!state.getPatientContext().isClarified() && !state.wasQuestionAnsweredOrAsked("who is experiencing")) {
                 String q = "To evaluate this safely and give you the most accurate medical advice: Who is experiencing these symptoms, or are you looking for general medical information?";
                 List<String> replies = List.of("Currently experiencing it", "My child or infant", "My parent / elderly", "Just general information");
-                return new QuestionDecision(true, q, replies, NextAction.CLARIFY);
+                return new QuestionDecision(true, "INTAKE_PATIENT", "context", q, replies, NextAction.CLARIFY);
             }
 
             // 2. Timeline / Duration: "time"
@@ -148,28 +152,23 @@ public class NextBestQuestionEngine {
                 if (state.getSymptoms().containsKey("fever")) {
                     String q = "How high has your temperature been, and how long have you had the fever?";
                     List<String> replies = List.of("Around 100°F - 101°F", "102°F or higher", "Haven't measured", "Started today");
-                    return new QuestionDecision(true, q, replies, NextAction.ASK);
+                    return new QuestionDecision(true, "FEVER_TIMELINE", "duration", q, replies, NextAction.ASK);
                 }
                 String q = "How long have these symptoms been present, and when did they first start?";
                 List<String> replies = List.of("Started today", "Past 1–2 days", "3–5 days", "More than a week");
-                return new QuestionDecision(true, q, replies, NextAction.ASK);
+                return new QuestionDecision(true, "GENERAL_TIMELINE", "duration", q, replies, NextAction.ASK);
             }
 
-            // 2.5 Dynamic Clinical Discriminators from 11k Local Registry
+            // 2.5 Dynamic Clinical Discriminators from 11k Local Registry (Ask at most 1 top discriminator!)
             if (registry != null && !state.getSymptoms().isEmpty()) {
                 List<com.velocura.ai.clinical.model.ClinicalEntity> candidates = registry.findCandidates(state.getSymptoms().keySet());
                 if (!candidates.isEmpty()) {
-                    List<String> candidateIcds = candidates.stream()
-                            .map(com.velocura.ai.clinical.model.ClinicalEntity::getIcd11Code)
-                            .toList();
-
-                    for (String icd : candidateIcds) {
-                        com.velocura.ai.clinical.model.ClinicalEntity entity = registry.getEntity(icd);
-                        if (entity == null || entity.getDiscriminatorQuestions() == null) continue;
-
-                        for (com.velocura.ai.clinical.model.DiscriminatorQuestion dq : entity.getDiscriminatorQuestions()) {
+                    // Only inspect the top primary candidate entity to avoid looping across hundreds of dataset conditions
+                    com.velocura.ai.clinical.model.ClinicalEntity topCandidate = candidates.get(0);
+                    if (topCandidate != null && topCandidate.getDiscriminatorQuestions() != null) {
+                        for (com.velocura.ai.clinical.model.DiscriminatorQuestion dq : topCandidate.getDiscriminatorQuestions()) {
                             if (!state.isQuestionOrTopicAsked(dq.getId(), dq.getDimension(), dq.getQuestionText())) {
-                                return new QuestionDecision(true, dq.getQuestionText(), dq.getQuickReplies(), NextAction.ASK);
+                                return new QuestionDecision(true, dq.getId(), dq.getDimension(), dq.getQuestionText(), dq.getQuickReplies(), NextAction.ASK);
                             }
                         }
                     }

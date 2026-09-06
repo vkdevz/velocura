@@ -135,7 +135,7 @@ public class AdaptiveClinicalConversationEngine {
         if (questionDecision.isShouldAsk()) {
             state.setCurrentPhase(ClinicalPhase.ASSESSMENT);
             state.setLastQuestion(questionDecision.getQuestionText());
-            state.recordAnsweredQuestion(questionDecision.getQuestionText());
+            state.recordAskedQuestion(questionDecision.getQuestionId(), questionDecision.getDimension(), questionDecision.getQuestionText());
         } else {
             state.setCurrentPhase(ClinicalPhase.GUIDANCE);
         }
