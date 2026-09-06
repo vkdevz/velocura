@@ -64,6 +64,17 @@ public class PatientContext implements Serializable {
         return userRole != UserRole.SELF && !"self".equalsIgnoreCase(relationship);
     }
 
+    public boolean isPediatric() {
+        if (isPediatric) return true;
+        if (ageYears != null && ageYears < 18.0) return true;
+        if (ageMonths != null && ageMonths < 216) return true;
+        if (relationship != null) {
+            String r = relationship.toLowerCase();
+            return r.contains("child") || r.contains("infant") || r.contains("baby") || r.contains("son") || r.contains("daughter") || r.contains("kid");
+        }
+        return false;
+    }
+
     public boolean isGeriatric() {
         return ageYears != null && ageYears >= 65.0;
     }

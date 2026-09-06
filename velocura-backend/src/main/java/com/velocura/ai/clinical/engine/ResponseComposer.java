@@ -21,14 +21,18 @@ import java.util.regex.Pattern;
 public class ResponseComposer {
 
     private final BayesianDifferentialEngine bayesianDifferentialEngine;
+    private final com.velocura.ai.clinical.knowledge.LocalClinicalEntityRegistry localClinicalEntityRegistry;
 
     public ResponseComposer() {
-        this(null);
+        this(null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
-    public ResponseComposer(BayesianDifferentialEngine bayesianDifferentialEngine) {
+    public ResponseComposer(
+            BayesianDifferentialEngine bayesianDifferentialEngine,
+            com.velocura.ai.clinical.knowledge.LocalClinicalEntityRegistry localClinicalEntityRegistry) {
         this.bayesianDifferentialEngine = bayesianDifferentialEngine;
+        this.localClinicalEntityRegistry = localClinicalEntityRegistry;
     }
 
     public ChatResponse composeEmergency(
@@ -283,6 +287,24 @@ public class ResponseComposer {
             }
         }
 
+        String topIcd = !diffs.isEmpty() ? diffs.get(0).getIcdCode() : "MG30";
+        String topDxName = !diffs.isEmpty() ? diffs.get(0).getCondition() : "Acute Medical Presentation";
+        List<String> reportedSymptoms = new ArrayList<>();
+        if (state != null && state.getSymptoms() != null) {
+            reportedSymptoms.addAll(state.getSymptoms().keySet());
+        }
+        if (rawInput != null) reportedSymptoms.add(rawInput);
+
+        com.velocura.ai.clinical.model.PrescriptionProtocol rx = null;
+        if (localClinicalEntityRegistry != null) {
+            rx = localClinicalEntityRegistry.generatePrescription(
+                topIcd,
+                topDxName,
+                state != null ? state.getPatientContext() : null,
+                reportedSymptoms
+            );
+        }
+
         return TriageResponse.builder()
                 .doctorMessage(message)
                 .riskLevel(risk)
@@ -293,6 +315,7 @@ public class ResponseComposer {
                 .suggestedOtc("CRITICAL".equalsIgnoreCase(risk) ? new ArrayList<>() : otc)
                 .redFlags(redFlags)
                 .followUpAdvice("Monitor over next 24-48 hours. Consult a specialist if symptoms persist.")
+                .digitalPrescription(rx)
                 .build();
     }
 }

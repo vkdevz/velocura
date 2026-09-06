@@ -314,24 +314,29 @@ public class ClinicalReasoningEngine {
         if (state.getSymptoms().containsKey("dizziness")) symptomNames.add("dizziness");
 
         String patientRefVerb = patient.isThirdParty() ? ("your " + patient.getRelationship() + " is") : "you are";
-        if (symptomNames.isEmpty()) {
-            msg.append("I am here as your clinical physician to evaluate this with you calmly and thoroughly. ");
-        } else {
-            String symptomText = String.join(" and ", symptomNames);
-            msg.append("I understand ").append(patientRefVerb).append(" experiencing ").append(symptomText).append(". As a doctor, let's look at this carefully together. ");
-        }
-
-        if (!evidenceList.isEmpty()) {
-            msg.append(evidenceList.get(0).getSummary()).append(" ");
-        }
+        int turnCount = state.getTurnCount();
 
         if (questionDecision.isShouldAsk()) {
-            msg.append(questionDecision.getQuestionText());
+            if (turnCount > 1) {
+                // Natural, concise follow-up transition without repeating previous symptoms or pathophysiological jargon
+                msg.append("Thank you for clarifying. ").append(questionDecision.getQuestionText());
+            } else {
+                if (symptomNames.isEmpty()) {
+                    msg.append("To evaluate your condition safely: ").append(questionDecision.getQuestionText());
+                } else {
+                    String symptomText = String.join(" and ", symptomNames);
+                    msg.append("I understand ").append(patientRefVerb).append(" experiencing ").append(symptomText)
+                       .append(". To evaluate this carefully: ").append(questionDecision.getQuestionText());
+                }
+            }
         } else {
+            // Final triage conclusion
+            String symptomText = symptomNames.isEmpty() ? "these symptoms" : String.join(" and ", symptomNames);
+            msg.append("Based on the evaluation of ").append(symptomText).append(", here is your clinical assessment and recommended care plan. ");
             if (!evidenceList.isEmpty() && !evidenceList.get(0).getSafeMeasures().isEmpty()) {
                 msg.append("Recommended immediate self-care: ").append(String.join(", ", evidenceList.get(0).getSafeMeasures())).append(". ");
             } else {
-                msg.append("Stay well-hydrated, rest in a comfortable environment, and monitor your symptoms closely. ");
+                msg.append("Stay well-hydrated, rest comfortably, and follow the care directives below. ");
             }
             msg.append("If symptoms persist or worsen, please consult a healthcare professional for an in-person evaluation.");
         }

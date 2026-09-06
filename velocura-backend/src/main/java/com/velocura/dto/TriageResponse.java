@@ -23,6 +23,7 @@ public class TriageResponse {
     private List<String> redFlags;
     private String specialistDepartment;
     private String followUpAdvice;
+    private com.velocura.ai.clinical.model.PrescriptionProtocol digitalPrescription;
 
     // Backward-compatibility and convenience fields
     private String intent;

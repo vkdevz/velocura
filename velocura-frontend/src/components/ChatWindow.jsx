@@ -554,7 +554,7 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
                           <span>Patient: {msg.patientRelationship}</span>
                         </div>
                       )}
-                      {msg.text && (
+                      {msg.text && (!msg.triageData || msg.text !== msg.triageData.doctorMessage) && (
                         <div className={s.assistantBubble} style={{ marginBottom: "12px", maxWidth: "100%" }}>
                           <div className={s.bubbleText}>{msg.text}</div>
                         </div>

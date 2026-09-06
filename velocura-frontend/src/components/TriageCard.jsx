@@ -56,6 +56,7 @@ export default function TriageCard({ data, triageCard, triage }) {
   const redFlags = payload.redFlags || [];
   const specialistDept = payload.specialistDepartment || payload.recommendedDepartment;
   const followUp = payload.followUpAdvice;
+  const digitalPrescription = payload.digitalPrescription || payload.prescription;
 
   return (
     <article className={s.card} style={{"--risk-border": risk.border}}
@@ -134,6 +135,137 @@ export default function TriageCard({ data, triageCard, triage }) {
               );
             })}
           </ul>
+        </Section>
+      )}
+
+      {/* Digital Prescription (℞) */}
+      {digitalPrescription && (
+        <Section title="Clinical Digital Prescription (℞)" defaultOpen={true}>
+          <div className={s.rxContainer}>
+            <div className={s.rxCard}>
+              <div className={s.rxHeader}>
+                <div className={s.rxHeaderLeft}>
+                  <span className={s.rxSymbol}>℞</span>
+                  <div>
+                    <div className={s.rxTitle}>{digitalPrescription.primaryDiagnosis || "Clinical Prescription Protocol"}</div>
+                    <div className={s.rxSub}>
+                      {digitalPrescription.icd11Code && `ICD-11: ${digitalPrescription.icd11Code} • `}
+                      {digitalPrescription.prescriptionId || "VeloCura CDSS Rx"}
+                    </div>
+                  </div>
+                </div>
+                <span className={s.rxBadge}>Clinical CDSS Verified</span>
+              </div>
+
+              {/* Medication Table */}
+              {digitalPrescription.medications && digitalPrescription.medications.length > 0 && (
+                <div className={s.rxTableWrap}>
+                  <table className={s.rxTable}>
+                    <thead>
+                      <tr>
+                        <th>Medication</th>
+                        <th>Strength &amp; Form</th>
+                        <th>Dosage &amp; Frequency</th>
+                        <th>Duration &amp; Instructions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {digitalPrescription.medications.map((m, idx) => (
+                        <tr key={idx}>
+                          <td>
+                            <div className={s.rxMedCol}>
+                              <span className={s.rxMedTitle}>{m.saltName}</span>
+                              {m.brandReference && <span className={s.rxBrandRef}>Ref: {m.brandReference}</span>}
+                              <span className={`${s.rxTypeTag} ${m.prescriptionOnly ? s.rxTypeTagRx : s.rxTypeTagOtc}`}>
+                                {m.prescriptionOnly ? "Prescription (Rx)" : "Supportive (OTC)"}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <div>{m.strength}</div>
+                            <div className={s.rxBrandRef}>{m.formulation} • {m.route}</div>
+                          </td>
+                          <td className={s.rxDosage}>{m.dosageFrequency}</td>
+                          <td>
+                            <div>{m.duration}</div>
+                            {m.instructions && <div className={s.rxInstructions}>{m.instructions}</div>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Strict Contraindications Box */}
+              {digitalPrescription.contraindicatedMedications && digitalPrescription.contraindicatedMedications.length > 0 && (
+                <div className={s.rxWarnBox}>
+                  <div className={s.rxWarnTitle}>
+                    <AlertTriangle size={14} />
+                    <span>Strict Pharmacological Contraindications</span>
+                  </div>
+                  {digitalPrescription.contraindicatedMedications.map((warn, wIdx) => (
+                    <p key={wIdx} className={s.rxWarnItem}>⛔ {warn}</p>
+                  ))}
+                </div>
+              )}
+
+              {/* Supportive Care */}
+              {digitalPrescription.supportiveCare && digitalPrescription.supportiveCare.length > 0 && (
+                <div className={s.rxSupportive}>
+                  <div className={s.rxSupportiveTitle}>Clinical Hydration &amp; Supportive Protocol</div>
+                  {digitalPrescription.supportiveCare.map((sup, sIdx) => (
+                    <p key={sIdx} className={s.rxSupportiveItem}>✔ {sup}</p>
+                  ))}
+                </div>
+              )}
+
+              {/* Diagnostic Lab Orders */}
+              {digitalPrescription.diagnosticLabOrders && digitalPrescription.diagnosticLabOrders.length > 0 && (
+                <div className={s.rxLabsWrap}>
+                  <span className={s.rxLabTitle}>Recommended Diagnostic Laboratory Investigations</span>
+                  <div className={s.rxLabPills}>
+                    {digitalPrescription.diagnosticLabOrders.map((lab, lIdx) => (
+                      <span key={lIdx} className={s.rxLabPill}>🔬 {lab}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Footer Actions */}
+              <div className={s.rxFooterActions}>
+                <span className={s.rxSignoffNote}>
+                  {digitalPrescription.authorizedBy || "VeloCura CDSS v2.8"} • Digital Clinical Decision Support
+                </span>
+                <div className={s.rxActionBtns}>
+                  <button
+                    type="button"
+                    className={s.rxActionBtn}
+                    onClick={() => {
+                      const blob = new Blob([JSON.stringify(digitalPrescription, null, 2)], { type: "application/json" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `velocura-rx-${digitalPrescription.prescriptionId || "protocol"}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    Download Rx JSON
+                  </button>
+                  <button
+                    type="button"
+                    className={`${s.rxActionBtn} ${s.rxActionBtnPrimary}`}
+                    onClick={() => {
+                      window.location.href = "/consultations";
+                    }}
+                  >
+                    1-Click Doctor Review
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </Section>
       )}
 

@@ -16,6 +16,17 @@ import java.util.List;
 @Component
 public class NextBestQuestionEngine {
 
+    private final com.velocura.ai.clinical.knowledge.LocalClinicalEntityRegistry registry;
+
+    public NextBestQuestionEngine() {
+        this(null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public NextBestQuestionEngine(com.velocura.ai.clinical.knowledge.LocalClinicalEntityRegistry registry) {
+        this.registry = registry;
+    }
+
     public static class QuestionDecision {
         private final boolean shouldAsk;
         private final String questionText;
@@ -142,6 +153,27 @@ public class NextBestQuestionEngine {
                 String q = "How long have these symptoms been present, and when did they first start?";
                 List<String> replies = List.of("Started today", "Past 1–2 days", "3–5 days", "More than a week");
                 return new QuestionDecision(true, q, replies, NextAction.ASK);
+            }
+
+            // 2.5 Dynamic Clinical Discriminators from 11k Local Registry
+            if (registry != null && !state.getSymptoms().isEmpty()) {
+                List<com.velocura.ai.clinical.model.ClinicalEntity> candidates = registry.findCandidates(state.getSymptoms().keySet());
+                if (!candidates.isEmpty()) {
+                    List<String> candidateIcds = candidates.stream()
+                            .map(com.velocura.ai.clinical.model.ClinicalEntity::getIcd11Code)
+                            .toList();
+                    java.util.Set<String> askedQuestions = new java.util.HashSet<>(state.getKnownFacts().keySet());
+                    if (state.getLastQuestion() != null) askedQuestions.add(state.getLastQuestion());
+
+                    java.util.Optional<com.velocura.ai.clinical.model.DiscriminatorQuestion> dynamicDq =
+                            registry.findNextDiscriminator(candidateIcds, askedQuestions);
+                    if (dynamicDq.isPresent()) {
+                        com.velocura.ai.clinical.model.DiscriminatorQuestion dq = dynamicDq.get();
+                        if (!state.wasQuestionAnsweredOrAsked(dq.getId()) && !state.wasQuestionAnsweredOrAsked(dq.getDimension())) {
+                            return new QuestionDecision(true, dq.getQuestionText(), dq.getQuickReplies(), NextAction.ASK);
+                        }
+                    }
+                }
             }
 
             // 3. Frequency & Pattern: "frequency"
