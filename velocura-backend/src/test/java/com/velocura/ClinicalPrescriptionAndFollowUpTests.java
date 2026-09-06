@@ -9,6 +9,7 @@ import com.velocura.ai.clinical.state.NextAction;
 import com.velocura.ai.clinical.state.PatientContext;
 import com.velocura.dto.ChatRequest;
 import com.velocura.dto.ChatResponse;
+import com.velocura.dto.DifferentialDiagnosis;
 import com.velocura.dto.TriageResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -192,5 +193,42 @@ public class ClinicalPrescriptionAndFollowUpTests {
         assertEquals("1D20", rx.getIcd11Code());
         assertFalse(rx.getMedications().isEmpty(), "Digital prescription must have medications");
         assertTrue(rx.getMedications().stream().anyMatch(m -> m.getSaltName().contains("Paracetamol")), "Must prescribe Paracetamol");
+    }
+
+    @Test
+    public void testSprainAnkleDoesNotDiagnoseGastritis() {
+        String session = "test-sprain-" + System.currentTimeMillis();
+
+        // Turn 1: Ankle sprain
+        conversationEngine.processTurn(
+                new ChatRequest("I twisted my ankle playing soccer and have swelling", null, session)
+        );
+
+        // Turn 2: Follow-up response
+        conversationEngine.processTurn(
+                new ChatRequest("Currently experiencing it", null, session)
+        );
+
+        // Turn 3: Duration response -> concluding triage
+        ChatResponse finalResponse = conversationEngine.processTurn(
+                new ChatRequest("Started today", null, session)
+        );
+
+        assertNotNull(finalResponse);
+        TriageResponse triage = finalResponse.getTriage();
+        assertNotNull(triage, "Sprain consultation must return TriageResponse");
+
+        // Primary diagnosis MUST be Sprain (FB50.0), NOT Gastritis (DD90)!
+        assertFalse(triage.getDifferentialDiagnoses().isEmpty(), "Must have differentials");
+        DifferentialDiagnosis topDx = triage.getDifferentialDiagnoses().get(0);
+        assertEquals("FB50.0", topDx.getIcdCode(), "Twisted ankle MUST diagnose Sprain (FB50.0), never Gastritis (DD90)");
+        assertFalse(topDx.getCondition().toLowerCase().contains("gastritis"), "Must not diagnose Gastritis for an ankle injury!");
+
+        // Prescription must contain Topical Diclofenac Gel
+        PrescriptionProtocol rx = triage.getDigitalPrescription();
+        assertNotNull(rx, "Must have digital prescription for sprain");
+        assertEquals("FB50.0", rx.getIcd11Code());
+        assertTrue(rx.getMedications().stream().anyMatch(m -> m.getSaltName().toLowerCase().contains("diclofenac")),
+                "Sprain prescription must prescribe Topical Diclofenac Gel");
     }
 }

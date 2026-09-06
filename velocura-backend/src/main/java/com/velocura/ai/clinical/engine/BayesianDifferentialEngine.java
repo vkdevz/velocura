@@ -64,8 +64,24 @@ public class BayesianDifferentialEngine {
             // 1. Positive Keyword & Symptom Matching (LR+ Multipliers)
             for (String kw : def.getKeywords()) {
                 String lkw = kw.toLowerCase();
-                if (lowerInput.contains(lkw) || symptoms.containsKey(lkw)) {
-                    sc.posteriorOdds *= 2.8;
+                boolean matches = lowerInput.contains(lkw);
+                if (!matches && symptoms != null) {
+                    for (String symKey : symptoms.keySet()) {
+                        String sk = symKey.toLowerCase();
+                        if (sk.equals(lkw) || sk.contains(lkw) || lkw.contains(sk)
+                                || (sk.equals("sprain_strain") && (lkw.contains("sprain") || lkw.contains("twist") || lkw.contains("joint")))
+                                || (sk.equals("laceration_wound") && (lkw.contains("cut") || lkw.contains("wound") || lkw.contains("lacerat")))
+                                || (sk.equals("burn_injury") && lkw.contains("burn"))
+                                || (sk.equals("dysuria") && (lkw.contains("urin") || lkw.contains("dysuria")))
+                                || (sk.equals("dental_pain") && (lkw.contains("tooth") || lkw.contains("teeth") || lkw.contains("dental")))
+                                || ((sk.equals("eye_symptoms") || sk.equals("conjunctivitis_symptoms")) && (lkw.contains("eye") || lkw.contains("conjunctiv") || lkw.contains("blur")))) {
+                            matches = true;
+                            break;
+                        }
+                    }
+                }
+                if (matches) {
+                    sc.posteriorOdds *= 3.2;
                     sc.supporting.add("Patient reported hallmark symptom: " + kw);
                 }
             }
@@ -180,6 +196,39 @@ public class BayesianDifferentialEngine {
             } else if (symptoms.containsKey("eye_symptoms") || symptoms.containsKey("conjunctivitis_symptoms")) {
                 sc.posteriorOdds *= 4.0;
                 sc.supporting.add("Ocular redness, discharge, or irritation reported");
+            }
+        }
+
+        // Sprain / Orthopedic Joint Strain
+        if (cond.contains("sprain") || cond.contains("strain") || cond.contains("ligament") || cond.contains("ankle")) {
+            if (symptoms.containsKey("sprain_strain") || symptoms.containsKey("joint_pain")) {
+                sc.posteriorOdds *= 6.0;
+                sc.supporting.add("Traumatic joint distortion / ligamentous strain reported");
+            }
+            if (symptoms.containsKey("fever")) {
+                sc.posteriorOdds *= 0.15;
+            }
+        } else if (symptoms.containsKey("sprain_strain") && !symptoms.containsKey("fever")) {
+            // An isolated ankle sprain strongly refutes gastritis and arboviral illnesses!
+            if (cond.contains("gastritis") || cond.contains("dyspepsia") || cond.contains("dengue") || cond.contains("cystitis")) {
+                sc.posteriorOdds *= 0.05;
+                sc.refuting.add("Isolated focal traumatic joint injury refutes acute visceral gastrointestinal / systemic etiology");
+            }
+        }
+
+        // Gastritis / Dyspepsia
+        if (cond.contains("gastritis") || cond.contains("dyspepsia") || cond.contains("acid")) {
+            if (symptoms.containsKey("abdominal_pain")) {
+                sc.posteriorOdds *= 4.5;
+                sc.supporting.add("Epigastric discomfort and upper gastrointestinal acid irritation reported");
+            }
+        }
+
+        // Urinary Tract / Cystitis
+        if (cond.contains("cystitis") || cond.contains("uti") || cond.contains("urinary")) {
+            if (symptoms.containsKey("dysuria")) {
+                sc.posteriorOdds *= 5.0;
+                sc.supporting.add("Dysuria / burning micturition reported");
             }
         }
     }

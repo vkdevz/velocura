@@ -280,7 +280,12 @@ public class ResponseComposer {
             try {
                 List<DifferentialDiagnosis> bayesianDiffs = bayesianDifferentialEngine.computeDifferentials(state, rawInput);
                 if (bayesianDiffs != null && !bayesianDiffs.isEmpty()) {
-                    diffs = bayesianDiffs;
+                    DifferentialDiagnosis topB = bayesianDiffs.get(0);
+                    if (topB.getSupportingEvidence() != null && !topB.getSupportingEvidence().isEmpty()) {
+                        diffs = bayesianDiffs;
+                    } else if (diffs.isEmpty()) {
+                        diffs = bayesianDiffs;
+                    }
                 }
             } catch (Exception e) {
                 // Keep deterministic fallback diffs
