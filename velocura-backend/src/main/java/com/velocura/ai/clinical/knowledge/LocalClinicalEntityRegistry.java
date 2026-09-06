@@ -27,12 +27,41 @@ public class LocalClinicalEntityRegistry {
     public void init() {
         log.info("[CLINICAL REGISTRY] Initializing local 11k clinical knowledge base and discriminator graph...");
         registerCoreClinicalEntities();
-        log.info("[CLINICAL REGISTRY] Registered {} clinical entities with discriminator questions and prescription protocols.", entityByIcd.size());
+        load11kDataset();
+        log.info("[CLINICAL REGISTRY] Total registered entities in local clinical knowledge base: {}", entityByIcd.size());
+    }
+
+    private void load11kDataset() {
+        try {
+            org.springframework.core.io.Resource resource = new org.springframework.core.io.ClassPathResource("knowledge/icd11_core_11k.json.gz");
+            if (!resource.exists()) {
+                resource = new org.springframework.core.io.ClassPathResource("knowledge/icd11_core_11k.json");
+            }
+            if (resource.exists()) {
+                java.io.InputStream in = resource.getInputStream();
+                if (resource.getFilename() != null && resource.getFilename().endsWith(".gz")) {
+                    in = new java.util.zip.GZIPInputStream(in);
+                }
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                com.fasterxml.jackson.core.type.TypeReference<List<ClinicalEntity>> typeRef = new com.fasterxml.jackson.core.type.TypeReference<>() {};
+                List<ClinicalEntity> list = mapper.readValue(in, typeRef);
+                for (ClinicalEntity ce : list) {
+                    registerEntity(ce);
+                }
+                log.info("[CLINICAL REGISTRY] Successfully ingested {} WHO ICD-11 entities from dataset resource.", list.size());
+            }
+        } catch (Exception e) {
+            log.warn("[CLINICAL REGISTRY] Failed to load 11k dataset resource: {}", e.getMessage());
+        }
     }
 
     public ClinicalEntity getEntity(String icdCode) {
         if (icdCode == null) return null;
         return entityByIcd.get(icdCode.trim().toUpperCase(Locale.ROOT));
+    }
+
+    public int getTotalRegisteredEntities() {
+        return entityByIcd.size();
     }
 
     public List<ClinicalEntity> findCandidates(Collection<String> symptoms) {

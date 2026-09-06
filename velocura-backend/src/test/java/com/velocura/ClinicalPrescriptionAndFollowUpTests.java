@@ -30,6 +30,12 @@ public class ClinicalPrescriptionAndFollowUpTests {
     private PharmacologicalSafetyMatrix safetyMatrix;
 
     @Test
+    public void testTotalRegisteredEntitiesAtLeast11000() {
+        int total = registry.getTotalRegisteredEntities();
+        assertTrue(total >= 11000, "Local clinical knowledge base must contain at least 11,000 WHO ICD-11 entities. Actual: " + total);
+    }
+
+    @Test
     public void testRepetitionEliminationOnFollowUpTurns() {
         String session = "test-no-repetition-" + System.currentTimeMillis();
 
