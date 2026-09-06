@@ -168,7 +168,7 @@ public class ClinicalInformationExtractor {
             state.getSymptoms().put("cold_symptoms", ClinicalFact.userReported("cold_symptoms", "present", turn));
             state.addFact("cold_symptoms", ClinicalFact.userReported("cold_symptoms", "present", turn));
         }
-        if (text.contains("ear") && (text.contains("pain") || text.contains("ache") || text.contains("block") || text.contains("discharge"))) {
+        if (Pattern.compile("(?i)\\b(ear|ears|kaan)\\b").matcher(text).find() && (text.contains("pain") || text.contains("ache") || text.contains("block") || text.contains("discharge"))) {
             state.getSymptoms().put("ear_pain", ClinicalFact.userReported("ear_pain", "present", turn));
             state.addFact("ear_pain", ClinicalFact.userReported("ear_pain", "present", turn));
         }
@@ -180,9 +180,16 @@ public class ClinicalInformationExtractor {
             state.getSymptoms().put("dysuria", ClinicalFact.userReported("dysuria", "present", turn));
             state.addFact("dysuria", ClinicalFact.userReported("dysuria", "present", turn));
         }
-        if (text.contains("eye") || text.contains("blur") || text.contains("vision")) {
+        if (text.contains("retro-orbital") || text.contains("behind eye") || text.contains("behind my eye") || text.contains("pain behind")) {
+            state.getSymptoms().put("retro_orbital_pain", ClinicalFact.userReported("retro_orbital_pain", "present", turn));
+            state.addFact("retro_orbital_pain", ClinicalFact.userReported("retro_orbital_pain", "present", turn));
+        } else if (text.contains("eye strain") || text.contains("blurry vision") || text.contains("itchy eye") || text.contains("red eye") || text.contains("watery eye") || text.contains("conjunctiv") || (Pattern.compile("(?i)\\b(blur|vision|digital\\s*strain)\\b").matcher(text).find() && !text.contains("sprain"))) {
             state.getSymptoms().put("eye_symptoms", ClinicalFact.userReported("eye_symptoms", "present", turn));
             state.addFact("eye_symptoms", ClinicalFact.userReported("eye_symptoms", "present", turn));
+        }
+        if (text.contains("petechiae") || text.contains("red spot") || text.contains("purple spot") || text.contains("blood spot")) {
+            state.getSymptoms().put("petechiae_rash", ClinicalFact.userReported("petechiae_rash", "present", turn));
+            state.addFact("petechiae_rash", ClinicalFact.userReported("petechiae_rash", "present", turn));
         }
         if (text.contains("back") && text.contains("pain")) {
             state.getSymptoms().put("back_pain", ClinicalFact.userReported("back_pain", "present", turn));
@@ -213,8 +220,8 @@ public class ClinicalInformationExtractor {
             }
         }
 
-        // Sprains & Strains
-        if (text.contains("sprain") || text.contains("twist") || text.contains("twisted") || text.contains("moch") || text.contains("rolled")) {
+        // Sprains & Strains (Must NOT match "eye strain" or digital strain)
+        if ((text.contains("sprain") || text.contains("twist") || text.contains("twisted") || text.contains("moch") || text.contains("rolled")) && !text.contains("eye strain")) {
             if (!isNegated(text, "sprain")) {
                 state.getSymptoms().put("sprain_strain", ClinicalFact.userReported("sprain_strain", "present", turn));
                 state.addFact("sprain_strain", ClinicalFact.userReported("sprain_strain", "present", turn));

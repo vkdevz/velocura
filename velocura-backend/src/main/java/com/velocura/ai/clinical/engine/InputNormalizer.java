@@ -69,6 +69,13 @@ public class InputNormalizer {
         processed = processed.replaceAll("(?i)\\bjalan\\b", "burning");
         processed = processed.replaceAll("(?i)\\bkhujli\\b", "itching");
 
+        // Dengue & Arboviral key clinical phrases
+        processed = processed.replaceAll("(?i)\\b(?:pain\\s*(?:behind|in\\s*back\\s*of)\\s*(?:my\\s*)?eyes?|hurts?\\s*behind\\s*(?:my\\s*)?eyes?)\\b", "retro-orbital pain");
+        processed = processed.replaceAll("(?i)\\b(?:small|tiny|purple|dark)?\\s*red\\s*spots?\\b", "petechiae rash");
+        processed = processed.replaceAll("(?i)\\bjoint\\s*(?:aches?|hurts?)\\b", "joint pain");
+        processed = processed.replaceAll("(?i)\\bbody\\s*(?:aches?|hurts?)\\b", "body ache");
+        processed = processed.replaceAll("(?i)\\bbone\\s*breaking\\s*pain\\b", "breakbone fever");
+
         // Hindi Script (Devanagari) basics
         processed = processed.replaceAll("बुखार", "fever");
         processed = processed.replaceAll("दर्द", "pain");

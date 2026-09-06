@@ -114,7 +114,6 @@ public class ResponseComposer {
     private TriageResponse buildStructuredTriage(String message, ClinicalConversationState state, String rawInput) {
         StringBuilder symptomContext = new StringBuilder();
         if (rawInput != null) symptomContext.append(rawInput.toLowerCase()).append(" ");
-        if (message != null) symptomContext.append(message.toLowerCase()).append(" ");
         if (state != null && state.getSymptoms() != null) {
             for (String s : state.getSymptoms().keySet()) {
                 symptomContext.append(s.toLowerCase()).append(" ");
@@ -129,8 +128,25 @@ public class ResponseComposer {
         List<OtcMedication> otc = new ArrayList<>();
         List<String> redFlags = new ArrayList<>();
 
+        boolean hasDengueSigns = (lower.contains("dengue") || lower.contains("retro-orbital") || lower.contains("pain behind") ||
+                lower.contains("petechiae") || lower.contains("red spot") || lower.contains("breakbone") ||
+                (state != null && state.getSymptoms() != null &&
+                        (state.getSymptoms().containsKey("retro_orbital_pain") || state.getSymptoms().containsKey("petechiae_rash")))) ||
+                (lower.contains("fever") && (lower.contains("joint") || lower.contains("body ache")));
+
         boolean hasCutWord = Pattern.compile("(?i)\\b(cut|cuts|cutting|wound|wounds|lacerat|laceration|kat\\s*gaya|laceration_wound)\\b").matcher(lower).find();
-        if (hasCutWord) {
+
+        if (hasDengueSigns) {
+            dept = "Infectious Disease / Internal Medicine";
+            risk = "HIGH";
+            diffs.add(new DifferentialDiagnosis("1D20", "Dengue / Arboviral Febrile Syndrome", "HIGH", "Classic syndrome of acute fever, retro-orbital pain, arthralgia, and petechial signs"));
+            home.add(new HomeCareRemedy("Aggressive oral hydration with ORS, tender coconut water, and clean fluids (2.5 to 3L daily)", "Prevents hypovolemic dehydration and tracks hematocrit"));
+            home.add(new HomeCareRemedy("Complete physical bed rest and daily CBC platelet count monitoring", "Conserves hemodynamic reserves and monitors thrombocytopenia"));
+            otc.add(new OtcMedication("Paracetamol 500mg-650mg", "Safe antipyretic for high fever and arthralgia in suspected arboviral illness", "1 tablet every 6 hours PRN for fever > 100.4°F (max 3000mg/day)", "STRICT CONTRAINDICATION: Avoid Aspirin, Ibuprofen, Diclofenac or any NSAIDs as they exacerbate bleeding!"));
+            redFlags.add("Spontaneous mucosal bleeding from gums, nose, or petechial purple skin spots");
+            redFlags.add("Severe persistent abdominal pain or continuous persistent vomiting");
+            redFlags.add("Rapid drop in platelet count below 50,000 cells/mcL or clinical fluid accumulation");
+        } else if (hasCutWord) {
             dept = "Emergency Medicine / Surgery";
             risk = "MEDIUM";
             diffs.add(new DifferentialDiagnosis("NE81.0", "Acute Laceration / Open Wound", "HIGH", "Cutaneous laceration with dermal disruption"));
@@ -147,7 +163,7 @@ public class ResponseComposer {
             otc.add(new OtcMedication("Silver Sulfadiazine 1% Cream / Pure Aloe Vera Gel", "Soothing antimicrobial barrier for superficial burns", "Apply thin layer to cooled clean burn 1-2 times daily", "Sulfa allergy; avoid near eyes"));
             redFlags.add("Burn larger than palm size or involving face, hands, feet, or moving joints");
             redFlags.add("Third-degree burn with white, charred, or numb skin");
-        } else if (lower.contains("sprain") || lower.contains("twist") || lower.contains("moch") || lower.contains("sprain_strain")) {
+        } else if ((lower.contains("sprain") || lower.contains("twist") || lower.contains("moch") || lower.contains("sprain_strain")) && !lower.contains("eye strain")) {
             dept = "Orthopedics";
             risk = "MILD";
             diffs.add(new DifferentialDiagnosis("FB50.0", "Acute Sprain / Joint Strain", "HIGH", "Traumatic ligamentous stretching or strain"));

@@ -157,32 +157,30 @@ public class BayesianDifferentialEngine {
         String cond = def.getCondition().toLowerCase();
 
         if (cond.contains("dengue") && symptoms.containsKey("fever")) {
-            sc.posteriorOdds *= 2.2;
+            sc.posteriorOdds *= 2.5;
             sc.supporting.add("High acute fever presence increases arboviral suspicion");
-            if (symptoms.containsKey("headache")) {
-                sc.posteriorOdds *= 1.8;
-                sc.supporting.add("Associated cephalalgia / retro-orbital discomfort reported");
+            if (symptoms.containsKey("headache") || symptoms.containsKey("retro_orbital_pain")) {
+                sc.posteriorOdds *= 2.5;
+                sc.supporting.add("Associated retro-orbital discomfort / cephalalgia reported");
+            }
+            if (symptoms.containsKey("joint_pain")) {
+                sc.posteriorOdds *= 2.2;
+                sc.supporting.add("Severe arthralgia / breakbone joint ache reported");
+            }
+            if (symptoms.containsKey("petechiae_rash") || symptoms.containsKey("rash")) {
+                sc.posteriorOdds *= 3.0;
+                sc.supporting.add("Cutaneous petechial micro-hemorrhage rash documented");
             }
         }
 
-        if (cond.contains("urinary") && symptoms.containsKey("dysuria")) {
-            sc.posteriorOdds *= 4.5;
-            sc.supporting.add("Dysuria / burning micturition is hallmark for lower urinary tract involvement");
-        }
-
-        if (cond.contains("gastritis") && symptoms.containsKey("abdominal_pain")) {
-            sc.posteriorOdds *= 3.0;
-            sc.supporting.add("Epigastric / abdominal distress reported");
-        }
-
-        if (cond.contains("migraine") && symptoms.containsKey("headache")) {
-            sc.posteriorOdds *= 2.5;
-            sc.supporting.add("Prominent unilateral / severe cephalalgia documented");
-        }
-
-        if (cond.contains("conjunctivitis") && (symptoms.containsKey("eye_symptoms") || symptoms.containsKey("conjunctivitis_symptoms"))) {
-            sc.posteriorOdds *= 4.0;
-            sc.supporting.add("Ocular redness, discharge, or irritation reported");
+        if (cond.contains("conjunctivitis") || cond.contains("asthenopia") || cond.contains("eye strain")) {
+            if (symptoms.containsKey("fever")) {
+                sc.posteriorOdds *= 0.15; // 85% penalty: systemic fever strongly contradicts isolated digital eye strain
+                sc.refuting.add("Presence of systemic fever strongly contradicts isolated digital display eye strain");
+            } else if (symptoms.containsKey("eye_symptoms") || symptoms.containsKey("conjunctivitis_symptoms")) {
+                sc.posteriorOdds *= 4.0;
+                sc.supporting.add("Ocular redness, discharge, or irritation reported");
+            }
         }
     }
 

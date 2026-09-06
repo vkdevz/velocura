@@ -191,4 +191,41 @@ public class ChatIntegrationTests {
         TriageResponse triage = resp.getTriage();
         assertFalse(triage.getSpecialistDepartment().toLowerCase().contains("dermatology"), "Negated rash must not route to Dermatology");
     }
+
+    @Test
+    public void testDengueArboviralSyndromeSafetyAndRouting() {
+        // High fever + retro-orbital pain + joint aches + petechiae on forearm
+        ResponseEntity<ChatResponse> entity = chatController.chat(
+            new ChatRequest("I have had a high fever for 3 days, severe pain behind my eyes, intense joint aches, and small red spots on my forearm", null, "session-dengue-eval")
+        );
+        assertEquals(200, entity.getStatusCode().value());
+        ChatResponse resp = entity.getBody();
+        assertNotNull(resp);
+
+        // If triage is already composed or follow-up question is asked
+        if (resp.getTriage() != null) {
+            TriageResponse triage = resp.getTriage();
+            // Should be infectious disease / internal medicine / viral
+            assertTrue(triage.getSpecialistDepartment().toLowerCase().contains("infectious")
+                    || triage.getSpecialistDepartment().toLowerCase().contains("medicine")
+                    || triage.getSpecialistDepartment().toLowerCase().contains("pediatric"),
+                "Department should be Infectious Disease or Internal Medicine, got: " + triage.getSpecialistDepartment());
+
+            // Top differential diagnosis should be Dengue / Arboviral syndrome (1D20)
+            assertEquals("1D20", triage.getDifferentialDiagnoses().get(0).getIcdCode(), "Primary diagnosis must be Dengue / Arboviral (1D20)");
+
+            // Strictly NO NSAIDs (Diclofenac, Ibuprofen, Aspirin) due to Dengue hemorrhagic risk
+            boolean hasNsaid = triage.getSuggestedOtc().stream()
+                .anyMatch(o -> o.getSaltName().toLowerCase().contains("diclofenac")
+                            || o.getSaltName().toLowerCase().contains("ibuprofen")
+                            || o.getSaltName().toLowerCase().contains("aspirin"));
+            assertFalse(hasNsaid, "Strictly NO NSAIDs must be suggested for suspected Dengue");
+        } else {
+            // Next best question must focus on fever duration, bleeding, or bruising, NOT eye strain
+            String text = resp.getClinicalMessage() != null ? resp.getClinicalMessage() : "";
+            assertFalse(text.toLowerCase().contains("contact allergens"), "Must not ask eye strain allergen questions");
+            assertFalse(text.toLowerCase().contains("sprain"), "Must not ask sprain questions");
+        }
+    }
 }
+

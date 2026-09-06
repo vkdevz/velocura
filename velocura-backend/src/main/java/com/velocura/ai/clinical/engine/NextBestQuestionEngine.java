@@ -146,7 +146,14 @@ public class NextBestQuestionEngine {
 
             // 3. Frequency & Pattern: "frequency"
             if (!hasProgression && !state.wasQuestionAnsweredOrAsked("pattern") && !state.wasQuestionAnsweredOrAsked("frequency") && !state.wasQuestionAnsweredOrAsked("throbbing") && !state.wasQuestionAnsweredOrAsked("abdominal discomfort") && !state.wasQuestionAnsweredOrAsked("swallowing") && !state.wasQuestionAnsweredOrAsked("dry or producing") && !state.wasQuestionAnsweredOrAsked("burning or pain") && !state.wasQuestionAnsweredOrAsked("eye redness") && !state.wasQuestionAnsweredOrAsked("bleeding") && !state.wasQuestionAnsweredOrAsked("burn look") && !state.wasQuestionAnsweredOrAsked("weight on the limb") && !state.wasQuestionAnsweredOrAsked("hot or cold fluids")) {
-                if (state.getSymptoms().containsKey("laceration_wound")) {
+                boolean hasDengueSigns = state.getSymptoms().containsKey("fever") &&
+                        (state.getSymptoms().containsKey("retro_orbital_pain") || state.getSymptoms().containsKey("joint_pain") || state.getSymptoms().containsKey("petechiae_rash"));
+
+                if (hasDengueSigns || state.getSymptoms().containsKey("retro_orbital_pain")) {
+                    String q = "How many days has the fever been present, and have you noticed any bleeding, bruising, or severe abdominal pain?";
+                    List<String> replies = List.of("Fever 1-3 days", "Fever 4-7 days", "Severe joint & body aches", "Small red spots or petechiae");
+                    return new QuestionDecision(true, q, replies, NextAction.ASK);
+                } else if (state.getSymptoms().containsKey("laceration_wound")) {
                     String q = "Is the bleeding controlled with direct pressure, or is it bleeding continuously or spurting?";
                     List<String> replies = List.of("Bleeding has stopped", "Bleeding with pressure", "Bleeding continuously", "Spurting bright red blood");
                     return new QuestionDecision(true, q, replies, NextAction.ASK);
