@@ -135,4 +135,25 @@ public class ClinicalConversationState implements Serializable {
         }
         return false;
     }
+
+    public boolean isQuestionOrTopicAsked(String id, String dimension, String text) {
+        if (id != null && wasQuestionAnsweredOrAsked(id)) return true;
+        if (dimension != null && wasQuestionAnsweredOrAsked(dimension)) return true;
+        if (text != null) {
+            if (wasQuestionAnsweredOrAsked(text)) return true;
+            if (lastQuestion != null) {
+                String lq = lastQuestion.toLowerCase();
+                String t = text.toLowerCase();
+                if (lq.contains(t) || t.contains(lq)) return true;
+            }
+            if (answeredQuestions != null) {
+                for (String q : answeredQuestions) {
+                    String ql = q.toLowerCase();
+                    String t = text.toLowerCase();
+                    if (ql.contains(t) || t.contains(ql)) return true;
+                }
+            }
+        }
+        return false;
+    }
 }

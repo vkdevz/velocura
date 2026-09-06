@@ -162,15 +162,15 @@ public class NextBestQuestionEngine {
                     List<String> candidateIcds = candidates.stream()
                             .map(com.velocura.ai.clinical.model.ClinicalEntity::getIcd11Code)
                             .toList();
-                    java.util.Set<String> askedQuestions = new java.util.HashSet<>(state.getKnownFacts().keySet());
-                    if (state.getLastQuestion() != null) askedQuestions.add(state.getLastQuestion());
 
-                    java.util.Optional<com.velocura.ai.clinical.model.DiscriminatorQuestion> dynamicDq =
-                            registry.findNextDiscriminator(candidateIcds, askedQuestions);
-                    if (dynamicDq.isPresent()) {
-                        com.velocura.ai.clinical.model.DiscriminatorQuestion dq = dynamicDq.get();
-                        if (!state.wasQuestionAnsweredOrAsked(dq.getId()) && !state.wasQuestionAnsweredOrAsked(dq.getDimension())) {
-                            return new QuestionDecision(true, dq.getQuestionText(), dq.getQuickReplies(), NextAction.ASK);
+                    for (String icd : candidateIcds) {
+                        com.velocura.ai.clinical.model.ClinicalEntity entity = registry.getEntity(icd);
+                        if (entity == null || entity.getDiscriminatorQuestions() == null) continue;
+
+                        for (com.velocura.ai.clinical.model.DiscriminatorQuestion dq : entity.getDiscriminatorQuestions()) {
+                            if (!state.isQuestionOrTopicAsked(dq.getId(), dq.getDimension(), dq.getQuestionText())) {
+                                return new QuestionDecision(true, dq.getQuestionText(), dq.getQuickReplies(), NextAction.ASK);
+                            }
                         }
                     }
                 }
@@ -181,7 +181,7 @@ public class NextBestQuestionEngine {
                 boolean hasDengueSigns = state.getSymptoms().containsKey("fever") &&
                         (state.getSymptoms().containsKey("retro_orbital_pain") || state.getSymptoms().containsKey("joint_pain") || state.getSymptoms().containsKey("petechiae_rash"));
 
-                if (hasDengueSigns || state.getSymptoms().containsKey("retro_orbital_pain")) {
+                if ((hasDengueSigns || state.getSymptoms().containsKey("retro_orbital_pain")) && !state.isQuestionOrTopicAsked("dengue_bleeding", "bleeding", "bleeding, bruising")) {
                     String q = "How many days has the fever been present, and have you noticed any bleeding, bruising, or severe abdominal pain?";
                     List<String> replies = List.of("Fever 1-3 days", "Fever 4-7 days", "Severe joint & body aches", "Small red spots or petechiae");
                     return new QuestionDecision(true, q, replies, NextAction.ASK);
