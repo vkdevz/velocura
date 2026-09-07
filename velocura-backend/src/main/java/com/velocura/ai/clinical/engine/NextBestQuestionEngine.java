@@ -77,12 +77,14 @@ public class NextBestQuestionEngine {
 
         // 2. Educational Query
         if (intent == ClinicalIntent.EDUCATIONAL) {
-            if (state.wasQuestionAnsweredOrAsked("general health information")) {
-                return QuestionDecision.stopAsking(NextAction.ANSWER);
-            }
-            String q = "Are you asking for general health information about this, or are you currently experiencing these symptoms yourself?";
+            return QuestionDecision.stopAsking(NextAction.ANSWER);
+        }
+
+        // 2b. Clarification for ambiguous symptoms
+        if (intent == ClinicalIntent.CLARIFICATION) {
+            String q = "To give you the most relevant information, are you currently experiencing this symptom yourself, or looking for general health information?";
             List<String> replies = List.of("Currently experiencing it", "Just general information");
-            return new QuestionDecision(true, "EDUCATIONAL_CLARIFY", "intent", q, replies, NextAction.CLARIFY);
+            return new QuestionDecision(true, "CLARIFY_EXPERIENCING", "intent", q, replies, NextAction.CLARIFY);
         }
 
         // 3. Medication Safety

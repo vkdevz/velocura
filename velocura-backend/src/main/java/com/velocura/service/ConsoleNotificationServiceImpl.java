@@ -100,7 +100,7 @@ public class ConsoleNotificationServiceImpl implements NotificationService {
         logger.info("SMTP EMAIL OUTBOX [Security OTP Verification]");
         logger.info("TO: {}", toEmail);
         logger.info("SUBJECT: {}", subject);
-        logger.info("BODY: {}", body);
+        logger.info("BODY: Use OTP code [REDACTED] to complete your sign-in / registration verification. Expires in 5 minutes.");
         logger.info("------------------------------------------------------------");
 
         sendEmail(toEmail, subject, body);

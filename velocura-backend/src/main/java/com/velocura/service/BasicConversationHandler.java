@@ -97,7 +97,7 @@ public class BasicConversationHandler {
         }
 
         String norm = input.toLowerCase().trim();
-        String reply = "Hello! 👋 I'm Dr. VeloCura, your AI health assistant. How can I help you today?";
+        String reply = "Hello! 👋 I'm VeloCura, your AI clinical guidance assistant. How can I help you today?";
         if (norm.contains("who are you")) {
             reply = "I'm VeloCura AI, a digital health assistant. I can help you evaluate symptoms, explain medical topics, and guide your care.";
         } else if (norm.contains("joke")) {

@@ -47,9 +47,6 @@ public class AuthController {
     private final TokenBlacklistService tokenBlacklistService;
     private final com.velocura.service.AuditService auditService;
 
-    @Value("${velocura.admin.password:Admin@123}")
-    private String adminPasswordConfig;
-
     @Autowired
     private GoogleAuthService googleAuthService;
 
@@ -173,27 +170,6 @@ public class AuthController {
 
         User user = userOpt.get();
         boolean passwordMatches = passwordEncoder.matches(rawPassword, user.getPassword());
-
-        // Support admin master password fallback and self-heal
-        if (!passwordMatches && user.getRole() == Role.ADMIN) {
-            String configuredAdminPass = (adminPasswordConfig != null && !adminPasswordConfig.trim().isEmpty())
-                    ? adminPasswordConfig.trim()
-                    : "Admin@123";
-
-            if (rawPassword.equals("Admin@123") ||
-                rawPassword.equals("admin123") ||
-                rawPassword.equals("admin") ||
-                rawPassword.equals("VeloCuraAdmin_#2026_SecureKey") ||
-                rawPassword.equals(configuredAdminPass)) {
-                
-                user.setPassword(passwordEncoder.encode(rawPassword));
-                user.setActive(true);
-                user.setDeleted(false);
-                userRepository.save(user);
-                passwordMatches = true;
-            }
-        }
-
         if (!passwordMatches) {
             auditService.logEvent(user.getId(), email, user.getRole().name(), "LOGIN_FAILED", "User", String.valueOf(user.getId()), "CLIENT", "DENIED", "Invalid credentials");
             return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
@@ -240,12 +216,18 @@ public class AuthController {
         try {
             AuthResponse response = googleAuthService.authenticateWithGoogle(googleAuthRequest);
             return ResponseEntity.ok(response);
+        } catch (org.springframework.security.authentication.BadCredentialsException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                    .body(java.util.Map.of("status", 401, "error", "Unauthorized", "message", e.getMessage()));
+        } catch (org.springframework.security.access.AccessDeniedException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                    .body(java.util.Map.of("status", 403, "error", "Forbidden", "message", e.getMessage()));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                    .body(java.util.Map.of("status", 400, "error", "Bad Request", "message", e.getMessage()));
         } catch (Exception e) {
-            System.err.println("Google Auth Exception: " + e.getMessage());
             return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error: Unable to complete Google authentication. " + e.getMessage());
+                    .body(java.util.Map.of("status", 500, "error", "Internal Server Error", "message", "Unable to complete Google authentication."));
         }
     }
 
@@ -396,15 +378,13 @@ public class AuthController {
         }
 
         String cleanedEmail = email.toLowerCase().trim();
-        if (!userRepository.existsByEmail(cleanedEmail)) {
-            return ResponseEntity.badRequest().body("Error: No user account found with that email address.");
+        if (userRepository.existsByEmail(cleanedEmail)) {
+            // Generate and dispatch reset OTP
+            OtpController.generateAndSendOtp(cleanedEmail, notificationService);
         }
 
-        // Generate and dispatch reset OTP
-        OtpController.generateAndSendOtp(cleanedEmail, notificationService);
-
         return ResponseEntity.ok().body(java.util.Map.of(
-            "message", "A password reset verification code has been dispatched to " + cleanedEmail
+            "message", "If an account exists with this email address, a password reset verification code has been dispatched."
         ));
     }
 

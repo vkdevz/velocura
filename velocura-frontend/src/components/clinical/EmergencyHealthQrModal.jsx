@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
+import QRCode from "qrcode";
 import {
   ShieldAlert,
   X,
@@ -14,23 +15,40 @@ import Button from "../ui/Button";
 import Badge from "../ui/Badge";
 
 export default function EmergencyHealthQrModal({ isOpen, onClose, passport, user }) {
-  if (!isOpen) return null;
+  const canvasRef = useRef(null);
 
   const bloodGroup = passport?.bloodGroup || user?.bloodGroup || "O+ (Positive)";
   const allergies = passport?.allergies || "No known severe drug allergies";
   const emergencyContact = passport?.emergencyContact || "+1 (555) 911-0842 (Next of Kin)";
   const fullName = `${user?.firstName || "Valued"} ${user?.lastName || "Patient"}`.trim();
 
-  // Encoded emergency pass data payload
-  const qrDataPayload = encodeURIComponent(
-    `VELOCURA_ICE_PASS|NAME:${fullName}|BLOOD:${bloodGroup}|ALLERGIES:${allergies}|EMERGENCY:${emergencyContact}`
-  );
-
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${qrDataPayload}&bgcolor=ffffff&color=000000&margin=1`;
+  // Local QR rendering - Zero PHI network leakage
+  useEffect(() => {
+    if (isOpen && canvasRef.current) {
+      const rawPayload = `VELOCURA_ICE_PASS|NAME:${fullName}|BLOOD:${bloodGroup}|ALLERGIES:${allergies}|EMERGENCY:${emergencyContact}`;
+      QRCode.toCanvas(
+        canvasRef.current,
+        rawPayload,
+        {
+          width: 120,
+          margin: 1,
+          color: {
+            dark: "#000000",
+            light: "#ffffff"
+          }
+        },
+        (error) => {
+          if (error) console.error("Emergency QR local generation error:", error);
+        }
+      );
+    }
+  }, [isOpen, fullName, bloodGroup, allergies, emergencyContact]);
 
   const handlePrint = () => {
     window.print();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div
@@ -137,13 +155,9 @@ export default function EmergencyHealthQrModal({ isOpen, onClose, passport, user
                 justifyContent: "center"
               }}
             >
-              <img
-                src={qrCodeUrl}
-                alt="Emergency Medical QR Code"
-                style={{ width: "120px", height: "120px", objectFit: "contain", borderRadius: "var(--radius-sm)" }}
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
+              <canvas
+                ref={canvasRef}
+                style={{ width: "120px", height: "120px", display: "block", borderRadius: "var(--radius-sm)" }}
               />
             </div>
 

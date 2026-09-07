@@ -25,12 +25,13 @@ export default function ConsultationHistoryDetailModal({
   session,
   onStartNewWithComplaint
 }) {
-  if (!isOpen || !session) return null;
-
   const [activeTab, setActiveTab] = useState("triage"); // "triage" | "transcript"
   const [exportingFhir, setExportingFhir] = useState(false);
 
+  if (!isOpen || !session) return null;
+
   const handleExportFhir = async () => {
+    if (!session) return;
     setExportingFhir(true);
     try {
       const bundle = await exportFhirBundle(session.sessionId);

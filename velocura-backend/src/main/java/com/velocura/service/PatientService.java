@@ -22,6 +22,7 @@ public interface PatientService {
     PatientPassportDto getPatientPassport(String email);
     PatientPassportDto updatePatientPassport(String email, PatientPassportDto request);
     PatientPassportDto getPatientPassportById(Long patientId);
+    PatientPassportDto getPatientPassportForDoctor(String doctorEmail, Long patientId);
     List<VitalsDto> getVitals(String email);
     VitalsDto addVitals(String email, VitalsDto request);
 

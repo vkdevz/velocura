@@ -25,12 +25,32 @@ public class ClinicalAnswerValidator {
         "(?i)\\b(as\\s*an\\s*ai\\s*language\\s*model|as\\s*an\\s*artificial\\s*intelligence|i\\s*am\\s*just\\s*an\\s*ai)\\b"
     );
 
+    private final DeterministicSafetyKernel safetyKernel;
+
+    public ClinicalAnswerValidator(DeterministicSafetyKernel safetyKernel) {
+        this.safetyKernel = safetyKernel != null ? safetyKernel : new DeterministicSafetyKernel();
+    }
+
+    public ClinicalAnswerValidator() {
+        this(new DeterministicSafetyKernel());
+    }
+
     public String validateAndSanitize(String message, ClinicalConversationState state) {
-        if (message == null || message.isBlank()) {
-            return "Based on clinical guidelines, please monitor your symptoms closely and rest. If symptoms worsen or persist, please consult a healthcare professional.";
+        return validateAndSanitize(message, state, null);
+    }
+
+    public String validateAndSanitize(String message, ClinicalConversationState state, String rawInput) {
+        // Run authoritative deterministic safety kernel check first
+        DeterministicSafetyKernel.SafetyDecision decision = safetyKernel.evaluate(message, state, rawInput);
+        if (decision.isBlocked() || decision.isEscalate()) {
+            log.warn("[SAFETY GATE #2] Safety kernel triggered {}: {}", decision.getAction(), decision.getReasons());
+            return decision.getFinalMessage();
         }
 
-        String validated = message;
+        String validated = decision.getFinalMessage();
+        if (validated == null || validated.isBlank()) {
+            return "Based on clinical guidelines, please monitor your symptoms closely and rest. If symptoms worsen or persist, please consult a healthcare professional.";
+        }
 
         // 1. Strip robotic disclaimers
         if (ROBOTIC_DISCLAIMER.matcher(validated).find()) {

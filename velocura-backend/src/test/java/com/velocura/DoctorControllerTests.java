@@ -64,6 +64,7 @@ class DoctorControllerTests {
                 .medicalHistoryTimeline("[]")
                 .build();
 
+        Mockito.when(patientService.getPatientPassportForDoctor("doctor@velocura.com", 2L)).thenReturn(mockPassport);
         Mockito.when(patientService.getPatientPassportById(2L)).thenReturn(mockPassport);
 
         mockMvc.perform(get("/api/doctor/patient-passport/2"))

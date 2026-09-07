@@ -4,6 +4,7 @@ public enum ClinicalRiskLevel {
     CRITICAL,
     HIGH,
     MEDIUM,
+    MODERATE,
     LOW,
     MILD,
     UNKNOWN;

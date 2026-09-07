@@ -74,7 +74,7 @@ public class GeminiAiService {
             try {
                 String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + cleanKey;
 
-                String systemInstruction = "You are Dr. VeloCura, an elite AI Clinical Triage Physician and medical intelligence engine.\n\n" +
+                String systemInstruction = "You are VeloCura Clinical Intelligence, an evidence-based clinical reasoning and symptom triage assistant.\n\n" +
                         "OUTPUT WORKFLOW CONTRACT (MANDATORY):\n" +
                         "Every SYMPTOM_TRIAGE response MUST follow this exact dynamic clinical schema:\n" +
                         "1. doctorMessage: Clinical assessment summary (e.g., 'VeloCura AI Clinical Assessment: [Direct clinical observation and next steps]').\n" +
@@ -211,7 +211,7 @@ public class GeminiAiService {
             try {
                 String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + cleanKey;
 
-                String systemInstruction = "You are Dr. VeloCura, a senior clinical pathologist. Analyze the medical lab report text provided and generate a clear, structured HTML summary with abnormal markers, potential diagnostic indicators, lifestyle recommendations, and specialist consultation advice.";
+                String systemInstruction = "You are VeloCura Clinical Intelligence, an evidence-based medical lab analysis assistant. Analyze the medical lab report text provided and generate a clear, structured HTML summary with abnormal markers, potential diagnostic indicators, lifestyle recommendations, and specialist consultation advice.";
 
                 Map<String, Object> contentsPart = Map.of("text", "Lab Report Text:\n" + cleanReport);
                 Map<String, Object> parts = Map.of("parts", List.of(Map.of("text", systemInstruction)));
@@ -230,7 +230,7 @@ public class GeminiAiService {
                     JsonNode root = objectMapper.readTree(responseEntity.getBody());
                     JsonNode candidateTextNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
                     if (!candidateTextNode.isMissingNode()) {
-                        return candidateTextNode.asText().trim();
+                        return sanitizeHtml(candidateTextNode.asText().trim());
                     }
                 }
             } catch (Throwable t) {
@@ -238,7 +238,7 @@ public class GeminiAiService {
             }
         }
 
-        return "<div class='lab-analysis'>" +
+        String fallbackHtml = "<div class='lab-analysis'>" +
                "<h3>📋 VeloCura Automated Lab Report Analysis</h3>" +
                "<p><strong>Report Overview:</strong> Report text extracted successfully (" + cleanReport.length() + " characters).</p>" +
                "<ul>" +
@@ -246,5 +246,24 @@ public class GeminiAiService {
                "<li><strong>Recommendation:</strong> Schedule a follow-up consultation with your General Physician or Pathologist to review these lab values.</li>" +
                "</ul>" +
                "</div>";
+        return sanitizeHtml(fallbackHtml);
+    }
+
+    public String sanitizeHtml(String input) {
+        if (input == null || input.isBlank()) {
+            return "";
+        }
+        // Remove script tags and content
+        String clean = input.replaceAll("(?is)<script.*?>.*?</script>", "");
+        // Remove style tags and content
+        clean = clean.replaceAll("(?is)<style.*?>.*?</style>", "");
+        // Remove iframes and embedded objects
+        clean = clean.replaceAll("(?is)<iframe.*?>.*?</iframe>", "");
+        clean = clean.replaceAll("(?is)<(object|embed|applet|form|input|button).*?>.*?</\\1>", "");
+        // Remove inline event handlers (onerror, onload, onclick, onmouseover, etc.)
+        clean = clean.replaceAll("(?i)\\s*on\\w+\\s*=\\s*(\"[^\"]*\"|'[^']*'|[^\\s>]+)", "");
+        // Remove javascript: pseudo-protocols
+        clean = clean.replaceAll("(?i)javascript\\s*:", "");
+        return clean.trim();
     }
 }

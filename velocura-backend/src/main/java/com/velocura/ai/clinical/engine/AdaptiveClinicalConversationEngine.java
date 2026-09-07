@@ -1,11 +1,14 @@
 package com.velocura.ai.clinical.engine;
 
 import com.velocura.ai.clinical.safety.ClinicalAnswerValidator;
+import com.velocura.ai.clinical.safety.DeterministicSafetyKernel;
 import com.velocura.ai.clinical.safety.SafetyScreeningEngine;
 import com.velocura.ai.clinical.safety.SafetyScreeningResult;
 import com.velocura.ai.clinical.state.*;
 import com.velocura.dto.ChatRequest;
 import com.velocura.dto.ChatResponse;
+import java.util.ArrayList;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -31,6 +34,41 @@ public class AdaptiveClinicalConversationEngine {
     private final ClinicalAnswerValidator answerValidator;
     private final ResponseComposer responseComposer;
     private final ClinicalStateStore stateStore;
+    private final DeterministicSafetyKernel safetyKernel;
+    private final NextBestActionEngine actionEngine;
+    private final LongitudinalStateTracker longitudinalTracker;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AdaptiveClinicalConversationEngine(
+            InputNormalizer inputNormalizer,
+            SafetyScreeningEngine safetyScreeningEngine,
+            ConversationIntentDetector intentDetector,
+            PatientContextDetector patientContextDetector,
+            ClinicalInformationExtractor informationExtractor,
+            ContradictionDetector contradictionDetector,
+            NextBestQuestionEngine questionEngine,
+            ClinicalReasoningEngine reasoningEngine,
+            ClinicalAnswerValidator answerValidator,
+            ResponseComposer responseComposer,
+            ClinicalStateStore stateStore,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) DeterministicSafetyKernel safetyKernel,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) NextBestActionEngine actionEngine,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) LongitudinalStateTracker longitudinalTracker) {
+        this.inputNormalizer = inputNormalizer;
+        this.safetyScreeningEngine = safetyScreeningEngine;
+        this.intentDetector = intentDetector;
+        this.patientContextDetector = patientContextDetector;
+        this.informationExtractor = informationExtractor;
+        this.contradictionDetector = contradictionDetector;
+        this.questionEngine = questionEngine;
+        this.reasoningEngine = reasoningEngine;
+        this.answerValidator = answerValidator;
+        this.responseComposer = responseComposer;
+        this.stateStore = stateStore;
+        this.safetyKernel = safetyKernel != null ? safetyKernel : new DeterministicSafetyKernel();
+        this.actionEngine = actionEngine != null ? actionEngine : new NextBestActionEngine(questionEngine);
+        this.longitudinalTracker = longitudinalTracker != null ? longitudinalTracker : new LongitudinalStateTracker();
+    }
 
     public AdaptiveClinicalConversationEngine(
             InputNormalizer inputNormalizer,
@@ -44,17 +82,10 @@ public class AdaptiveClinicalConversationEngine {
             ClinicalAnswerValidator answerValidator,
             ResponseComposer responseComposer,
             ClinicalStateStore stateStore) {
-        this.inputNormalizer = inputNormalizer;
-        this.safetyScreeningEngine = safetyScreeningEngine;
-        this.intentDetector = intentDetector;
-        this.patientContextDetector = patientContextDetector;
-        this.informationExtractor = informationExtractor;
-        this.contradictionDetector = contradictionDetector;
-        this.questionEngine = questionEngine;
-        this.reasoningEngine = reasoningEngine;
-        this.answerValidator = answerValidator;
-        this.responseComposer = responseComposer;
-        this.stateStore = stateStore;
+        this(inputNormalizer, safetyScreeningEngine, intentDetector, patientContextDetector,
+             informationExtractor, contradictionDetector, questionEngine, reasoningEngine,
+             answerValidator, responseComposer, stateStore,
+             new DeterministicSafetyKernel(), new NextBestActionEngine(questionEngine), new LongitudinalStateTracker());
     }
 
     public ChatResponse processTurn(ChatRequest request) {
@@ -63,7 +94,8 @@ public class AdaptiveClinicalConversationEngine {
         ClinicalConversationState state = stateStore.getOrCreate(sessionId);
         state.setTurnCount(state.getTurnCount() + 1);
 
-        log.info("[CLINICAL ENGINE] Processing turn #{} for session: '{}'", state.getTurnCount(), state.getConversationId());
+        log.info("[CLINICAL ENGINE] Processing turn #{} (v{}) for session: '{}'",
+                state.getTurnCount(), state.getStateVersion(), state.getConversationId());
 
         // ─── STAGE 1: INPUT NORMALIZATION ─────────────────────────────────────
         InputNormalizer.NormalizedInput normalized = inputNormalizer.normalize(rawInput);
@@ -72,7 +104,33 @@ public class AdaptiveClinicalConversationEngine {
             state.getVitals().put("extracted", normalized.getExtractedVitals());
         }
 
-        // ─── STAGE 1.5: MULTI-TOPIC TRANSITION & COMPLAINT RESET ──────────────
+        // ─── STAGE 2: PATIENT CONTEXT DETECTION ──────────────────────────────
+        PatientContext updatedPatient = patientContextDetector.detectContext(normText, state.getPatientContext());
+        state.setPatientContext(updatedPatient);
+
+        // ─── STAGE 3: SAFETY GATE #1 (RUNS ON EVERY TURN - SUPREME EMERGENCY CHECK) ──
+        SafetyScreeningResult safetyResult = safetyScreeningEngine.screen(normText, state.getPatientContext());
+        if (safetyResult.isEmergency()) {
+            log.warn("[SAFETY GATE #1] Immediate emergency detected. Interrupting standard flow.");
+            state.setCurrentRiskLevel(ClinicalRiskLevel.CRITICAL);
+            state.setCurrentPhase(ClinicalPhase.ESCALATION);
+            state.setRecommendedAction(NextAction.EMERGENCY_ESCALATION);
+            state.getRedFlags().addAll(safetyResult.getRedFlags());
+            state.setRiskAssessment(ClinicalRiskAssessment.critical("Immediate emergency red flag detected in user input", safetyResult.getRedFlags()));
+            stateStore.save(state);
+            return responseComposer.composeEmergency(safetyResult, state);
+        }
+
+        // ─── STAGE 4: ADVERSARIAL PROMPT INJECTION DEFENSE ────────────────────
+        if (safetyKernel != null && safetyKernel.isPromptInjection(rawInput)) {
+            log.warn("[SAFETY KERNEL] Prompt injection detected. Enforcing deterministic safety barrier.");
+            DeterministicSafetyKernel.SafetyDecision injectBlock = safetyKernel.evaluate("", state, rawInput);
+            NextBestQuestionEngine.QuestionDecision stopDecision = NextBestQuestionEngine.QuestionDecision.stopAsking(NextAction.ANSWER);
+            stateStore.save(state);
+            return responseComposer.composeStandard(injectBlock.getFinalMessage(), state, stopDecision, rawInput);
+        }
+
+        // ─── STAGE 5: MULTI-TOPIC TRANSITION & COMPLAINT RESET ──────────────
         boolean explicitSwitch = normText.contains("new problem") || normText.contains("different issue") || normText.contains("start over") || normText.contains("another problem") || normText.contains("check another");
         if ((state.getCurrentPhase() == ClinicalPhase.GUIDANCE && isIntroducingNewComplaint(normText, state)) || explicitSwitch) {
             log.info("[CLINICAL ENGINE] New clinical complaint detected. Resetting active complaint context.");
@@ -87,29 +145,24 @@ public class AdaptiveClinicalConversationEngine {
             state.setRecommendedAction(NextAction.ASK);
         }
 
-        // ─── STAGE 2: PATIENT CONTEXT DETECTION ──────────────────────────────
-        PatientContext updatedPatient = patientContextDetector.detectContext(normText, state.getPatientContext());
-        state.setPatientContext(updatedPatient);
-
-        // ─── STAGE 3: SAFETY GATE #1 (RUNS ON EVERY TURN) ─────────────────────
-        SafetyScreeningResult safetyResult = safetyScreeningEngine.screen(normText, state.getPatientContext());
-        if (safetyResult.isEmergency()) {
-            log.warn("[SAFETY GATE #1] Immediate emergency detected. Interrupting standard flow.");
-            state.setCurrentRiskLevel(ClinicalRiskLevel.CRITICAL);
-            state.setCurrentPhase(ClinicalPhase.ESCALATION);
-            state.setRecommendedAction(NextAction.ESCALATE);
-            state.getRedFlags().addAll(safetyResult.getRedFlags());
-            stateStore.save(state);
-            return responseComposer.composeEmergency(safetyResult, state);
-        }
-
-        // ─── STAGE 4: CONTRADICTION DETECTION ─────────────────────────────────
+        // ─── STAGE 6: CONTRADICTION DETECTION & RESOLUTION ────────────────────
         ContradictionDetector.ContradictionResult contradiction = contradictionDetector.detect(normText, state);
         if (contradiction.hasContradiction()) {
-            log.info("[CONTRADICTION DETECTED] Prompting natural resolution for: {}", contradiction.getContradictedFact());
+            log.info("[CONTRADICTION DETECTED] Registering conflict and prompting natural resolution for: {}", contradiction.getContradictedFact());
             state.setCurrentPhase(ClinicalPhase.CLARIFICATION);
             state.setRecommendedAction(NextAction.CLARIFY);
             state.setLastQuestion(contradiction.getClarificationPrompt());
+
+            ClinicalContradiction cc = ClinicalContradiction.builder()
+                    .topic(contradiction.getContradictedFact())
+                    .earlierStatement(contradiction.getContradictedFact())
+                    .earlierTurn(Math.max(1, state.getTurnCount() - 1))
+                    .laterStatement(normText)
+                    .laterTurn(state.getTurnCount())
+                    .status("REQUIRES_CLARIFICATION")
+                    .build();
+            state.addContradiction(cc);
+
             stateStore.save(state);
 
             NextBestQuestionEngine.QuestionDecision decision = new NextBestQuestionEngine.QuestionDecision(
@@ -121,32 +174,71 @@ public class AdaptiveClinicalConversationEngine {
             return responseComposer.composeStandard(contradiction.getClarificationPrompt(), state, decision, rawInput);
         }
 
-        // ─── STAGE 5: INTENT DETECTION ────────────────────────────────────────
+        // ─── STAGE 7: INTENT DETECTION ────────────────────────────────────────
         ClinicalIntent intent = intentDetector.detectIntent(normText, state);
         state.setIntent(intent);
 
-        // ─── STAGE 6: CLINICAL INFORMATION EXTRACTION ─────────────────────────
+        // ─── STAGE 8: CLINICAL INFORMATION EXTRACTION & LONGITUDINAL TRACKING ─
+        ClinicalRiskLevel priorRisk = state.getCurrentRiskLevel();
+        List<String> priorSymptoms = new ArrayList<>(state.getSymptoms().keySet());
         informationExtractor.extractAndUpdate(normText, state);
+        List<String> currentSymptoms = new ArrayList<>(state.getSymptoms().keySet());
+        currentSymptoms.removeAll(priorSymptoms);
 
-        // ─── STAGE 7: NEXT BEST QUESTION ENGINE & STOP CONDITION ──────────────
-        NextBestQuestionEngine.QuestionDecision questionDecision = questionEngine.evaluateNextQuestion(state);
-        state.setRecommendedAction(questionDecision.getNextAction());
-
-        if (questionDecision.isShouldAsk()) {
-            state.setCurrentPhase(ClinicalPhase.ASSESSMENT);
-            state.setLastQuestion(questionDecision.getQuestionText());
-            state.recordAskedQuestion(questionDecision.getQuestionId(), questionDecision.getDimension(), questionDecision.getQuestionText());
-        } else {
-            state.setCurrentPhase(ClinicalPhase.GUIDANCE);
+        if (longitudinalTracker != null) {
+            longitudinalTracker.trackChanges(state, normText, currentSymptoms, priorRisk);
         }
 
-        // ─── STAGE 8: KNOWLEDGE RETRIEVAL & CLINICAL REASONING ────────────────
+        // ─── STAGE 9: NEXT BEST ACTION & VALUE-OF-INFORMATION ────────────────
+        NextBestActionEngine.ActionDecision actionDecision = null;
+        if (actionEngine != null) {
+            actionDecision = actionEngine.evaluateNextAction(state);
+            state.setRecommendedAction(actionDecision.getAction());
+        }
+
+        NextBestQuestionEngine.QuestionDecision questionDecision;
+        if (actionDecision != null && actionDecision.isShouldAsk()) {
+            state.setCurrentPhase(ClinicalPhase.ASSESSMENT);
+            state.setLastQuestion(actionDecision.getQuestionText());
+            state.recordAskedQuestion("Q_" + state.getTurnCount(), "voi_eval", actionDecision.getQuestionText());
+            questionDecision = new NextBestQuestionEngine.QuestionDecision(
+                true,
+                "Q_" + state.getTurnCount(),
+                "voi_eval",
+                actionDecision.getQuestionText(),
+                actionDecision.getQuickReplies(),
+                actionDecision.getAction()
+            );
+        } else {
+            questionDecision = questionEngine.evaluateNextQuestion(state);
+            state.setRecommendedAction(questionDecision.getNextAction());
+            if (questionDecision.isShouldAsk()) {
+                state.setCurrentPhase(ClinicalPhase.ASSESSMENT);
+                state.setLastQuestion(questionDecision.getQuestionText());
+                state.recordAskedQuestion(questionDecision.getQuestionId(), questionDecision.getDimension(), questionDecision.getQuestionText());
+            } else {
+                state.setCurrentPhase(ClinicalPhase.GUIDANCE);
+            }
+        }
+
+        // ─── STAGE 10: KNOWLEDGE RETRIEVAL, REASONING & SAFETY GATE #2 ────────
         ClinicalReasoningEngine.ReasoningOutput reasoning = reasoningEngine.reason(normText, state, questionDecision);
 
-        // ─── STAGE 9: SAFETY GATE #2 (ANSWER VALIDATION & SANITIZATION) ────────
-        String validatedMessage = answerValidator.validateAndSanitize(reasoning.getClinicalMessage(), state);
+        // Safety Gate #2: Enforce non-overrideable safety kernel boundaries
+        String validatedMessage = answerValidator.validateAndSanitize(reasoning.getClinicalMessage(), state, rawInput);
 
-        // ─── STAGE 10: RESPONSE COMPOSITION & STATE PERSISTENCE ───────────────
+        // Record Decision Trace
+        ClinicalDecisionTrace trace = ClinicalDecisionTrace.builder()
+                .turnNumber(state.getTurnCount())
+                .stateVersion(state.getStateVersion())
+                .factsConsidered(new ArrayList<>(state.getSymptoms().keySet()))
+                .riskFactorsIdentified(state.getRiskAssessment() != null ? state.getRiskAssessment().getRiskFactors() : List.of())
+                .redFlagsEvaluated(state.getRedFlags())
+                .actionDecided(state.getRecommendedAction().name())
+                .reasonForNextAction(actionDecision != null ? actionDecision.getRationale() : "Clinical guidance response")
+                .safetyKernelStatus("EVALUATED")
+                .build();
+
         stateStore.save(state);
         return responseComposer.composeStandard(validatedMessage, state, questionDecision, rawInput);
     }
@@ -217,14 +309,22 @@ public class AdaptiveClinicalConversationEngine {
             ));
 
         ClinicalReasoningEngine reasoning = new ClinicalReasoningEngine(knowledge);
-        ClinicalAnswerValidator validator = new ClinicalAnswerValidator();
+        DeterministicSafetyKernel safetyKernel = new DeterministicSafetyKernel();
+        ClinicalAnswerValidator validator = new ClinicalAnswerValidator(safetyKernel);
         ResponseComposer composer = new ResponseComposer();
         ClinicalStateStore store = new ClinicalStateStore();
+        NextBestActionEngine actionEngine = new NextBestActionEngine(questionEngine);
+        LongitudinalStateTracker tracker = new LongitudinalStateTracker();
 
         return new AdaptiveClinicalConversationEngine(
             normalizer, safety, intent, patient, extractor, contradiction,
-            questionEngine, reasoning, validator, composer, store
+            questionEngine, reasoning, validator, composer, store,
+            safetyKernel, actionEngine, tracker
         );
+    }
+
+    public ClinicalStateStore getStateStore() {
+        return stateStore;
     }
 }
 

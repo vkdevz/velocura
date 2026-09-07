@@ -29,7 +29,7 @@ public class SafetyScreeningEngine {
     );
 
     private static final Pattern NEURO_STROKE_EMERGENCY = Pattern.compile(
-        "(?i)\\b(stroke|facial\\s*droop|face\\s*droop|arm\\s*weakness|slurred\\s*speech|can't\\s*speak|cannot\\s*speak|sudden\\s*numbness\\s*on\\s*one\\s*side|sudden\\s*paralysis|sudden\\s*loss\\s*of\\s*vision|fast\\s*symptoms)\\b"
+        "(?i)\\b(stroke|facial\\s*(droop|numbness)|face\\s*droop|(arm|leg|unilateral|one[- ]sided)\\s*weakness|sudden\\s*weakness(\\s*on\\s*one\\s*side)?|slurred\\s*speech|can't\\s*speak|cannot\\s*speak|(speech|speaking)\\s*difficulty|trouble\\s*speaking|sudden\\s*(numbness\\s*on\\s*one\\s*side|paralysis|loss\\s*of\\s*vision|confusion|loss\\s*of\\s*balance|loss\\s*of\\s*coordination)|fast\\s*symptoms)\\b"
     );
 
     private static final Pattern CONSCIOUSNESS_SEIZURE = Pattern.compile(
@@ -41,7 +41,7 @@ public class SafetyScreeningEngine {
     );
 
     private static final Pattern ANAPHYLAXIS = Pattern.compile(
-        "(?i)\\b(anaphylaxis|throat\\s*closing|throat\\s*swelling|tongue\\s*swelling|swollen\\s*(lips|tongue|throat)\\s*after|allergic\\s*reaction.*(breathe|swallow|throat)|can't\\s*swallow.*allergic)\\b"
+        "(?i)\\b(anaphylaxis|severe\\s*allergic\\s*reaction|throat\\s*(closing|swelling)|(tongue|lip|lips)\\s*swelling|swollen\\s*(tongue|lip|lips|throat)|wheezing\\s*after\\s*(medication|medicine|pill|drug|taking)|(breathing\\s*difficulty|shortness\\s*of\\s*breath)\\s*after\\s*(exposure|medication|medicine|sting|bite|eating|food)|allergic\\s*reaction.*(breathe|swallow|throat|tongue|lip)|can't\\s*swallow.*allergic)\\b"
     );
 
     private static final Pattern BLEEDING_EMERGENCY = Pattern.compile(

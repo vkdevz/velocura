@@ -84,6 +84,44 @@ public class ResponseComposer {
         ChatResponse response = new ChatResponse();
         ClinicalIntent intent = state.getIntent();
 
+        boolean isCriticalEmergency = (state != null && state.getCurrentRiskLevel() == ClinicalRiskLevel.CRITICAL)
+                || (validatedMessage != null && (validatedMessage.contains("URGENT MEDICAL NOTICE")
+                    || validatedMessage.contains("emergency services")
+                    || validatedMessage.contains("Emergency Department")));
+
+        if (isCriticalEmergency) {
+            response.setEmergency(true);
+            response.setRiskLevel("CRITICAL");
+            response.setNextAction(NextAction.ESCALATE.name());
+            response.setPhase(ClinicalPhase.ESCALATION.name());
+            response.setQuickReplies(List.of("Called Emergency Services", "Need Immediate Telehealth", "Someone is with me"));
+            response.setClinicalMessage(validatedMessage);
+
+            if (state != null) {
+                state.setCurrentRiskLevel(ClinicalRiskLevel.CRITICAL);
+                state.setCurrentPhase(ClinicalPhase.ESCALATION);
+                state.setRecommendedAction(NextAction.EMERGENCY_ESCALATION);
+                if (state.getPatientContext() != null) {
+                    response.setPatientRelationship(state.getPatientContext().getRelationship());
+                }
+            }
+
+            TriageResponse triage = TriageResponse.builder()
+                    .doctorMessage(validatedMessage)
+                    .riskLevel("CRITICAL")
+                    .requiresImmediateTelehealth(true)
+                    .specialistDepartment("Emergency Medicine")
+                    .differentialDiagnoses(new ArrayList<>())
+                    .homeCareRemedies(List.of(new HomeCareRemedy("Rest in comfortable seated position", "Minimizes physiological exertion")))
+                    .suggestedOtc(new ArrayList<>())
+                    .redFlags(state != null && !state.getRedFlags().isEmpty() ? state.getRedFlags() : List.of("Immediate critical emergency criteria present"))
+                    .followUpAdvice("Call local emergency services immediately")
+                    .build();
+
+            response.setTriage(triage);
+            return response;
+        }
+
         response.setEmergency(false);
         response.setRiskLevel(state.getCurrentRiskLevel().name());
         response.setNextAction(questionDecision.getNextAction().name());

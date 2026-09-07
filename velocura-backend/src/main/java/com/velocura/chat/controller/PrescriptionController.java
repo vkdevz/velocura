@@ -74,9 +74,16 @@ public class PrescriptionController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(doctorUser.getRole().name());
+        if (!isAdmin && (conversation.getDoctorId() == null || !conversation.getDoctorId().equals(doctorUser.getId()))) {
+            log.warn("Doctor {} attempted to issue prescription for conversation {} owned by doctor {}",
+                    doctorUser.getId(), conversation.getId(), conversation.getDoctorId());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         Prescription prescription = new Prescription();
         prescription.setConversationId(conversation.getId());
-        prescription.setDoctorId(conversation.getDoctorId());
+        prescription.setDoctorId(isAdmin && conversation.getDoctorId() != null ? conversation.getDoctorId() : doctorUser.getId());
         prescription.setPatientId(conversation.getPatientId());
         prescription.setAppointmentId(conversation.getAppointmentId());
         prescription.setDiagnosis(request.getDiagnosis());
@@ -120,7 +127,26 @@ public class PrescriptionController {
     }
 
     @GetMapping("/conversation/{conversationId}")
-    public ResponseEntity<List<Prescription>> getByConversation(@PathVariable Long conversationId) {
+    public ResponseEntity<List<Prescription>> getByConversation(
+            @PathVariable Long conversationId,
+            Authentication authentication) {
+        if (authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        User caller = userRepository.findByEmailIgnoreCase(authentication.getName()).orElse(null);
+        if (caller == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Conversation conversation = conversationRepository.findById(conversationId).orElse(null);
+        if (conversation == null) {
+            return ResponseEntity.notFound().build();
+        }
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(caller.getRole().name());
+        boolean isDoctor = caller.getId().equals(conversation.getDoctorId());
+        boolean isPatient = caller.getId().equals(conversation.getPatientId());
+        if (!isAdmin && !isDoctor && !isPatient) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(prescriptionRepository.findByConversationId(conversationId));
     }
 
@@ -137,16 +163,33 @@ public class PrescriptionController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Prescription> getPrescriptionById(@PathVariable Long id) {
-        return prescriptionRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<Prescription> getPrescriptionById(
+            @PathVariable Long id,
+            Authentication authentication) {
+        if (authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        User caller = userRepository.findByEmailIgnoreCase(authentication.getName()).orElse(null);
+        if (caller == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Prescription prescription = prescriptionRepository.findById(id).orElse(null);
+        if (prescription == null) {
+            return ResponseEntity.notFound().build();
+        }
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(caller.getRole().name());
+        boolean isDoctor = caller.getId().equals(prescription.getDoctorId());
+        boolean isPatient = caller.getId().equals(prescription.getPatientId());
+        if (!isAdmin && !isDoctor && !isPatient) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(prescription);
     }
 
     @GetMapping("/{id}/pdf")
-    public ResponseEntity<Prescription> getPrescriptionPdfPlaceholder(@PathVariable Long id) {
-        return prescriptionRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<Prescription> getPrescriptionPdfPlaceholder(
+            @PathVariable Long id,
+            Authentication authentication) {
+        return getPrescriptionById(id, authentication);
     }
 }

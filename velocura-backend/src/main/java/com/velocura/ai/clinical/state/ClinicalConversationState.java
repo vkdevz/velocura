@@ -18,6 +18,14 @@ import java.util.*;
 public class ClinicalConversationState implements Serializable {
 
     private String conversationId;
+    private Long patientId;
+    private String patientEmail;
+
+    public ClinicalConversationState(String conversationId) {
+        this();
+        this.conversationId = conversationId;
+    }
+
     @Builder.Default
     private int turnCount = 0;
 
@@ -101,15 +109,79 @@ public class ClinicalConversationState implements Serializable {
     private long lastUpdated = System.currentTimeMillis();
 
     @Builder.Default
+    private int stateVersion = 1;
+
+    private String chiefConcern;
+
+    @Builder.Default
+    private String symptomTrajectory = "NEW"; // NEW, STABLE, WORSENING, IMPROVING, RESOLVED
+
+    @Builder.Default
+    private ClinicalRiskAssessment riskAssessment = ClinicalRiskAssessment.low();
+
+    @Builder.Default
+    private ClinicalUncertaintyProfile uncertaintyProfile = new ClinicalUncertaintyProfile();
+
+    @Builder.Default
+    private List<ClinicalContradiction> contradictions = new ArrayList<>();
+
+    @Builder.Default
+    private List<StateChangeDiff> changeHistory = new ArrayList<>();
+
+    @Builder.Default
     private Set<String> askedQuestionIds = new HashSet<>();
 
     @Builder.Default
     private Set<String> askedDimensions = new HashSet<>();
 
+    public void recordStateChange(StateChangeDiff diff) {
+        if (diff == null) return;
+        diff.setFromVersion(this.stateVersion);
+        this.stateVersion++;
+        diff.setToVersion(this.stateVersion);
+        diff.setTimestamp(System.currentTimeMillis());
+        if (this.changeHistory == null) this.changeHistory = new ArrayList<>();
+        this.changeHistory.add(diff);
+        this.lastUpdated = System.currentTimeMillis();
+    }
+
+    public void addContradiction(ClinicalContradiction contradiction) {
+        if (contradictions == null) contradictions = new ArrayList<>();
+        contradictions.add(contradiction);
+        if (conflictingFacts == null) conflictingFacts = new ArrayList<>();
+        conflictingFacts.add(contradiction.getTopic() + ": " + contradiction.getEarlierStatement() + " vs " + contradiction.getLaterStatement());
+        this.lastUpdated = System.currentTimeMillis();
+    }
+
     public void addFact(String key, ClinicalFact fact) {
         if (knownFacts == null) knownFacts = new LinkedHashMap<>();
         knownFacts.put(key, fact);
         if (unknownFacts != null) unknownFacts.remove(key);
+        if (uncertaintyProfile != null) uncertaintyProfile.resolveDimension(key);
+        this.lastUpdated = System.currentTimeMillis();
+    }
+
+    public void importPassportAllergies(List<String> passportAllergies, ProvenanceSource source) {
+        if (passportAllergies == null || passportAllergies.isEmpty()) return;
+        if (this.allergies == null) this.allergies = new ArrayList<>();
+        for (String a : passportAllergies) {
+            if (a != null && !a.isBlank() && !this.allergies.contains(a.trim())) {
+                this.allergies.add(a.trim());
+                this.addFact("allergy_" + a.trim().toLowerCase(), ClinicalFact.userReported("allergy", a.trim(), this.turnCount));
+            }
+        }
+        this.lastUpdated = System.currentTimeMillis();
+    }
+
+    public void importPassportHistory(List<String> passportHistory, ProvenanceSource source) {
+        if (passportHistory == null || passportHistory.isEmpty()) return;
+        if (this.medicalHistory == null) this.medicalHistory = new ArrayList<>();
+        for (String h : passportHistory) {
+            if (h != null && !h.isBlank() && !this.medicalHistory.contains(h.trim())) {
+                this.medicalHistory.add(h.trim());
+                this.addFact("history_" + h.trim().toLowerCase(), ClinicalFact.userReported("history", h.trim(), this.turnCount));
+            }
+        }
         this.lastUpdated = System.currentTimeMillis();
     }
 

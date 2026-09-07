@@ -43,7 +43,13 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
             addColumnIfNotExists(stmt, "patients", "allergies", "TEXT");
             addColumnIfNotExists(stmt, "patients", "medical_history_timeline", "TEXT");
 
-            // 4. Ensure consultation_messages table exists
+            // 4. Ensure appointments and clinical_sessions have optimistic locking version column and patient ownership columns
+            addColumnIfNotExists(stmt, "appointments", "version", "BIGINT DEFAULT 0");
+            addColumnIfNotExists(stmt, "clinical_sessions", "version", "BIGINT DEFAULT 0");
+            addColumnIfNotExists(stmt, "clinical_sessions", "patient_id", "BIGINT");
+            addColumnIfNotExists(stmt, "clinical_sessions", "patient_email", "VARCHAR(128)");
+
+            // 5. Ensure consultation_messages table exists
             try {
                 stmt.execute("CREATE TABLE IF NOT EXISTS consultation_messages ("
                         + "id BIGSERIAL PRIMARY KEY, "
@@ -55,10 +61,38 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
                         + "created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP)");
             } catch (Exception ignored) {}
 
+            // 6. Ensure high-performance query indexes exist
+            createIndexIfNotExists(stmt, "idx_appts_doc_time", "appointments", "doctor_id, appointment_time");
+            createIndexIfNotExists(stmt, "idx_appts_patient", "appointments", "patient_id");
+            createIndexIfNotExists(stmt, "idx_consult_appt", "consultation_messages", "appointment_id");
+            createIndexIfNotExists(stmt, "idx_presc_patient", "prescriptions", "patient_id");
+            createIndexIfNotExists(stmt, "idx_clin_sess_patient_id", "clinical_sessions", "patient_id");
+            createIndexIfNotExists(stmt, "idx_clin_sess_patient_email", "clinical_sessions", "patient_email");
+
+            // 7. Ensure Medical Knowledge Engine indexes exist
+            createIndexIfNotExists(stmt, "idx_m_concept_name", "medical_concepts", "canonical_name");
+            createIndexIfNotExists(stmt, "idx_m_concept_type", "medical_concepts", "concept_type");
+            createIndexIfNotExists(stmt, "idx_m_concept_status", "medical_concepts", "status");
+            createIndexIfNotExists(stmt, "idx_m_concept_jurisdiction", "medical_concepts", "jurisdiction");
+            createIndexIfNotExists(stmt, "idx_m_concept_batch", "medical_concepts", "batch_id");
+            createIndexIfNotExists(stmt, "idx_synonym_text", "medical_concept_synonyms", "synonym");
+            createIndexIfNotExists(stmt, "idx_term_sys_code", "terminology_mappings", "terminology_system, code");
+            createIndexIfNotExists(stmt, "idx_rel_source_type", "medical_relationships", "source_concept_id, relationship_type");
+            createIndexIfNotExists(stmt, "idx_rel_target_type", "medical_relationships", "target_concept_id, relationship_type");
+            createIndexIfNotExists(stmt, "idx_rel_status", "medical_relationships", "status");
+            createIndexIfNotExists(stmt, "idx_rel_batch", "medical_relationships", "batch_id");
+            createIndexIfNotExists(stmt, "idx_batch_status", "knowledge_import_batches", "status");
+
             System.out.println("SCHEMA MIGRATION: Schema migration executed successfully!");
         } catch (Exception e) {
             System.err.println("SCHEMA MIGRATION WARNING: " + e.getMessage());
         }
+    }
+
+    private void createIndexIfNotExists(Statement stmt, String indexName, String tableName, String columns) {
+        try {
+            stmt.execute("CREATE INDEX IF NOT EXISTS " + indexName + " ON " + tableName + " (" + columns + ")");
+        } catch (Exception ignored) {}
     }
 
     private void addColumnIfNotExists(Statement stmt, String tableName, String columnName, String columnDefinition) {

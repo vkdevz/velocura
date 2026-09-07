@@ -44,7 +44,16 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        configuration.setAllowedOrigins(List.of(
+            "http://localhost:5172",
+            "http://localhost:3000",
+            "http://127.0.0.1:5172",
+            "http://127.0.0.1:3000"
+        ));
+        configuration.setAllowedOriginPatterns(List.of(
+            "https://*.onrender.com",
+            "https://*.vercel.app"
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
         configuration.setExposedHeaders(List.of("Authorization", "Content-Type", "Retry-After"));
@@ -82,12 +91,33 @@ public class SecurityConfig {
                 })
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/api/chat/**", "/api/clinical/**", "/api/fhir/**", "/api/abdm/**", "/.well-known/**", "/api/health", "/favicon.ico", "/").permitAll()
+                // Public unauthenticated routes
+                .requestMatchers("/api/auth/**", "/api/chat", "/api/chat/**", "/api/clinical/status", "/api/health", "/favicon.ico", "/", "/.well-known/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
+
+                // Protected Clinical PHI routes
+                .requestMatchers("/api/clinical/fhir/**").hasAnyRole("DOCTOR", "PATIENT", "ADMIN")
+                .requestMatchers("/api/clinical/soap-note/**").hasAnyRole("DOCTOR", "PATIENT", "ADMIN")
+                .requestMatchers("/api/clinical/validation/**").hasAnyRole("DOCTOR", "ADMIN")
+                .requestMatchers("/api/clinical/intake/**").hasAnyRole("PATIENT", "DOCTOR", "ADMIN")
+                .requestMatchers("/api/clinical/diagnostic/**").hasAnyRole("DOCTOR", "PATIENT", "ADMIN")
+                .requestMatchers("/api/clinical/medication/**").hasAnyRole("DOCTOR", "PATIENT", "ADMIN")
+                .requestMatchers("/api/clinical/lab/**").hasAnyRole("DOCTOR", "PATIENT", "ADMIN")
+                .requestMatchers("/api/clinical/evidence/**").hasAnyRole("DOCTOR", "PATIENT", "ADMIN")
+                .requestMatchers("/api/clinical/benchmark/**").hasAnyRole("ADMIN", "DOCTOR")
+                .requestMatchers("/api/abdm/**").hasRole("ADMIN")
+
+                // Communication & Shared Care
                 .requestMatchers("/api/conversations/**").authenticated()
+                .requestMatchers("/api/consultations/**").authenticated()
                 .requestMatchers("/api/prescriptions/**").authenticated()
                 .requestMatchers("/uploads/chat-images/**").authenticated()
-                .requestMatchers("/api/admin/audit-logs/**").hasRole("ADMIN")
+
+                // Medical Knowledge Engine (MKE)
+                .requestMatchers("/api/medical-knowledge/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/medical-knowledge/**").authenticated()
+
+                // Role Protected Domain Portals
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/patient/**").hasRole("PATIENT")
                 .requestMatchers("/api/payments/**").hasRole("PATIENT")

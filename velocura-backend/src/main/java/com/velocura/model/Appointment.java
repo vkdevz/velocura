@@ -11,7 +11,11 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "appointments")
+@Table(name = "appointments", indexes = {
+        @Index(name = "idx_appointments_patient", columnList = "patient_id"),
+        @Index(name = "idx_appointments_doctor_time", columnList = "doctor_id, appointment_time"),
+        @Index(name = "idx_appointments_status", columnList = "status")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,6 +26,9 @@ public class Appointment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    private Long version;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "patient_id", nullable = false)

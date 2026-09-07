@@ -36,17 +36,17 @@ public class WhoIcd11FallbackService {
     }
 
     private TriageResponse generateCasualFallback(String query) {
-        String msg = "Hello! 👋 I am Dr. VeloCura, your board-certified digital health assistant. How can I assist you with your health questions or care guidance today?";
+        String msg = "Hello! 👋 I am VeloCura Clinical Assistant, your evidence-based health guidance assistant. How can I assist you with your health questions or care guidance today?";
         String norm = query != null ? query.toLowerCase().trim() : "";
 
         if (norm.contains("who are you") || norm.contains("identity")) {
-            msg = "I am Dr. VeloCura, an enterprise digital health assistant trained to provide evidence-based medical information, WHO ICD-11 symptom triage, and care recommendations.";
+            msg = "I am VeloCura Clinical Assistant, a clinical intelligence assistant trained to provide evidence-based medical information, WHO ICD-11 symptom triage, and care recommendations.";
         } else if (norm.contains("what can you do") || norm.contains("help")) {
             msg = "I am trained to evaluate active symptoms across all biological organ systems, classify risk levels (Mild, Moderate, Critical), offer WHO ICD-11 differentials, and recommend specialist consultations.";
         } else if (norm.contains("thank") || norm.contains("thanks")) {
             msg = "You are very welcome! Please feel free to ask if you have any additional health concerns or symptom updates.";
         } else if (norm.contains("bye")) {
-            msg = "Goodbye! Take good care of your health, and reach out to Dr. VeloCura whenever you need clinical guidance.";
+            msg = "Goodbye! Take good care of your health, and reach out to VeloCura whenever you need clinical guidance.";
         } else if (norm.contains("joke")) {
             msg = "Why did the computer visit the doctor? Because it had a virus! 💻🩺 How can I assist with your health today?";
         }

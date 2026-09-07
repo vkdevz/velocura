@@ -1,11 +1,7 @@
 package com.velocura.config;
 
-import com.velocura.model.Doctor;
-import com.velocura.model.Patient;
 import com.velocura.model.Role;
 import com.velocura.model.User;
-import com.velocura.repository.DoctorRepository;
-import com.velocura.repository.PatientRepository;
 import com.velocura.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,11 +9,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -30,7 +22,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Value("${velocura.admin.email:admin@velocura.com}")
     private String adminEmail;
 
-    @Value("${velocura.admin.password:Admin@123}")
+    @Value("${velocura.admin.password:}")
     private String adminPassword;
 
     @Autowired
@@ -42,37 +34,44 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Override
     public void run(String... args) {
         try {
-            String defaultPassword = (adminPassword != null && !adminPassword.trim().isEmpty()) ? adminPassword.trim() : "Admin@123";
-            List<String> adminEmails = List.of(
-                (adminEmail != null && !adminEmail.trim().isEmpty()) ? adminEmail.toLowerCase().trim() : "admin@velocura.com",
-                "developers.vkgroup@gmail.com"
-            );
+            String email = (adminEmail != null && !adminEmail.trim().isEmpty())
+                    ? adminEmail.toLowerCase().trim()
+                    : "admin@velocura.com";
 
-            for (String email : adminEmails) {
-                Optional<User> adminOpt = userRepository.findByEmailIgnoreCase(email);
-                if (adminOpt.isEmpty()) {
-                    User admin = User.builder()
-                            .email(email)
-                            .password(passwordEncoder.encode(defaultPassword))
-                            .firstName("System")
-                            .lastName("Administrator")
-                            .role(Role.ADMIN)
-                            .authProvider("LOCAL")
-                            .isActive(true)
-                            .isDeleted(false)
-                            .build();
-                    userRepository.save(admin);
-                    System.out.println("DATABASE SEEDER: Seeded Admin account [" + email + "] successfully!");
+            Optional<User> adminOpt = userRepository.findByEmailIgnoreCase(email);
+            if (adminOpt.isEmpty()) {
+                String generatedPassword = null;
+                String passwordToUse;
+                if (adminPassword != null && !adminPassword.trim().isEmpty()) {
+                    passwordToUse = adminPassword.trim();
                 } else {
-                    User admin = adminOpt.get();
+                    generatedPassword = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+                    passwordToUse = generatedPassword;
+                }
+
+                User admin = User.builder()
+                        .email(email)
+                        .password(passwordEncoder.encode(passwordToUse))
+                        .firstName("System")
+                        .lastName("Administrator")
+                        .role(Role.ADMIN)
+                        .authProvider("LOCAL")
+                        .isActive(true)
+                        .isDeleted(false)
+                        .build();
+                userRepository.save(admin);
+                System.out.println("DATABASE SEEDER: Seeded initial Admin account [" + email + "] successfully!");
+                if (generatedPassword != null) {
+                    System.out.println("DATABASE SEEDER: Bootstrap Admin password generated: [" + generatedPassword + "]. Please configure ADMIN_PASSWORD in environment.");
+                }
+            } else {
+                User admin = adminOpt.get();
+                if (!admin.isActive() || admin.isDeleted()) {
                     admin.setActive(true);
                     admin.setDeleted(false);
-                    admin.setRole(Role.ADMIN);
-                    admin.setAuthProvider("LOCAL");
-                    admin.setPassword(passwordEncoder.encode(defaultPassword));
                     userRepository.save(admin);
-                    System.out.println("DATABASE SEEDER: Verified and updated Admin account [" + email + "].");
                 }
+                System.out.println("DATABASE SEEDER: Verified Admin account [" + email + "].");
             }
         } catch (Exception e) {
             System.err.println("DATABASE SEEDER WARNING: Non-fatal seeder warning during startup: " + e.getMessage());

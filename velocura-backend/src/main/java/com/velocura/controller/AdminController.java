@@ -64,8 +64,8 @@ public class AdminController {
         if (email == null || email.trim().isEmpty()) {
             return ResponseEntity.badRequest().body("Email address is required.");
         }
-        String code = adminService.issueOtp(email);
-        return ResponseEntity.ok(java.util.Map.of("message", "Security code issued successfully.", "email", email, "code", code));
+        adminService.issueOtp(email);
+        return ResponseEntity.ok(java.util.Map.of("message", "Security code issued successfully and dispatched to " + email, "email", email));
     }
 
     @PostMapping("/otps/resend")
@@ -74,8 +74,8 @@ public class AdminController {
         if (email == null || email.trim().isEmpty()) {
             return ResponseEntity.badRequest().body("Email address is required.");
         }
-        String code = adminService.resendOtp(email);
-        return ResponseEntity.ok(java.util.Map.of("message", "Security code refreshed and sent to " + email, "email", email, "code", code));
+        adminService.resendOtp(email);
+        return ResponseEntity.ok(java.util.Map.of("message", "Security code refreshed and dispatched to " + email, "email", email));
     }
 
     @DeleteMapping("/otps/{email:.+}")
