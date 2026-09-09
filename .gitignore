@@ -9,6 +9,10 @@ target/
 *.local
 .env
 .env.*
+!.env.example
+
+# Legacy & Scratch
+medinexa/
 
 # Database & Logs
 *.log

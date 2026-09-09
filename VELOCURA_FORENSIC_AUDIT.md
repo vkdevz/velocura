@@ -17,11 +17,11 @@
 
 Velocura contains serious engineering effort, impressive clinical ambitions, and sophisticated UX elements (such as an Apple-inspired glassmorphic design, Bayesian likelihood formulas, and multi-turn state modeling). However, **a severe disconnect exists between what the documentation and UI claim and what the codebase actually executes:**
 
-1. **Catastrophic Authentication Bypass:** Any attacker can impersonate the Administrator (`admin@velocura.com`) or any patient/doctor without a password or valid token by calling `/api/auth/google` with a raw email string due to bypassed token verification in [`GoogleAuthServiceImpl.java:64-95`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/service/GoogleAuthServiceImpl.java#L64-L95).
-2. **Unauthenticated Public Leakage of Clinical Data & PHI:** Due to `.requestMatchers("/api/clinical/**").permitAll()` in [`SecurityConfig.java:85`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/security/SecurityConfig.java#L85), any unauthenticated external caller can download complete HL7 FHIR bundles and physician SOAP notes containing patient names and clinical records via [`FhirExportController.java:37-49`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/controller/FhirExportController.java#L37-L49) and [`SoapNoteController.java:22-44`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/controller/SoapNoteController.java#L22-L44).
-3. **Simulated Enterprise Integrations:** The Ayushman Bharat Digital Mission (ABDM) integration ([`AbdmIntegrationService.java`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/service/abdm/AbdmIntegrationService.java)) and SMART-on-FHIR launch broker ([`SmartOnFhirService.java`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/service/fhir/SmartOnFhirService.java)) are **100% mocked with hardcoded strings**. No real ABDM Gateway or EHR OAuth handshakes occur.
-4. **Failing Test Suite on Main:** The backend test suite currently **fails** (`./mvnw test` exits with code 1; 2 test failures in [`AdaptiveClinicalEngineTests.java`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/test/java/com/velocura/AdaptiveClinicalEngineTests.java)), contradicting the README's claim of a 100% passing test matrix.
-5. **PHI Leakage via Third-Party URL:** The Emergency Health QR modal ([`EmergencyHealthQrModal.jsx:29`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-frontend/src/components/clinical/EmergencyHealthQrModal.jsx#L29)) transmits unencrypted patient names, blood groups, allergies, and emergency phone numbers in plaintext query parameters to an external third-party utility server (`api.qrserver.com`).
+1. **Catastrophic Authentication Bypass:** Any attacker can impersonate the Administrator (`admin@velocura.com`) or any patient/doctor without a password or valid token by calling `/api/auth/google` with a raw email string due to bypassed token verification in [`GoogleAuthServiceImpl.java:64-95`](velocura-backend/src/main/java/com/velocura/service/GoogleAuthServiceImpl.java#L64-L95).
+2. **Unauthenticated Public Leakage of Clinical Data & PHI:** Due to `.requestMatchers("/api/clinical/**").permitAll()` in [`SecurityConfig.java:85`](velocura-backend/src/main/java/com/velocura/security/SecurityConfig.java#L85), any unauthenticated external caller can download complete HL7 FHIR bundles and physician SOAP notes containing patient names and clinical records via [`FhirExportController.java:37-49`](velocura-backend/src/main/java/com/velocura/controller/FhirExportController.java#L37-L49) and [`SoapNoteController.java:22-44`](velocura-backend/src/main/java/com/velocura/controller/SoapNoteController.java#L22-L44).
+3. **Simulated Enterprise Integrations:** The Ayushman Bharat Digital Mission (ABDM) integration ([`AbdmIntegrationService.java`](velocura-backend/src/main/java/com/velocura/service/abdm/AbdmIntegrationService.java)) and SMART-on-FHIR launch broker ([`SmartOnFhirService.java`](velocura-backend/src/main/java/com/velocura/service/fhir/SmartOnFhirService.java)) are **100% mocked with hardcoded strings**. No real ABDM Gateway or EHR OAuth handshakes occur.
+4. **Failing Test Suite on Main:** The backend test suite currently **fails** (`./mvnw test` exits with code 1; 2 test failures in [`AdaptiveClinicalEngineTests.java`](velocura-backend/src/test/java/com/velocura/AdaptiveClinicalEngineTests.java)), contradicting the README's claim of a 100% passing test matrix.
+5. **PHI Leakage via Third-Party URL:** The Emergency Health QR modal ([`EmergencyHealthQrModal.jsx:29`](velocura-frontend/src/components/clinical/EmergencyHealthQrModal.jsx#L29)) transmits unencrypted patient names, blood groups, allergies, and emergency phone numbers in plaintext query parameters to an external third-party utility server (`api.qrserver.com`).
 6. **Triple Architecture Duplication:** The repository contains three separate chat systems, three separate clinical triage rule engines, and two completely separate prescription entity models running in parallel without data synchronization.
 
 ---
@@ -32,11 +32,11 @@ Velocura contains serious engineering effort, impressive clinical ambitions, and
 
 * **Frontend:** React 19.2.8 (Single Page Application via Vite 6.4.3), Tailwind CSS v4.3.3, Vanilla CSS modules (`WorkspaceShell.module.css`, `ChatWindow.module.css`), Lucide React icons (`^1.30.0`), Axios (`^1.19.0`), StompJS (`^7.0.0`), SockJS-client (`^1.6.1`).
 * **Backend:** Java 21, Spring Boot 3.3.2. Framework modules: Spring Web, Spring Security, Spring Data JPA, Spring WebSocket, Spring Validation, Spring Mail.
-* **Database & Persistence:** Dual-mode architecture. Default local development uses H2 embedded file database (`jdbc:h2:file:./velocura_db`). Production configs support PostgreSQL 16 (via Render managed DB or Docker) and MySQL 8.0 (via `docker-compose.yml`). Schema management is dynamically executed via Hibernate `ddl-auto: update` and manual JDBC alterations in [`DatabaseSchemaMigration.java`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/config/DatabaseSchemaMigration.java).
-* **Authentication:** Stateless JSON Web Tokens (JJWT 0.12.5) signed with HMAC-SHA256. Role-Based Access Control (`ROLE_PATIENT`, `ROLE_DOCTOR`, `ROLE_ADMIN`). In-memory blacklisting for logout ([`TokenBlacklistService.java`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/security/TokenBlacklistService.java)).
+* **Database & Persistence:** Dual-mode architecture. Default local development uses H2 embedded file database (`jdbc:h2:file:./velocura_db`). Production configs support PostgreSQL 16 (via Render managed DB or Docker) and MySQL 8.0 (via `docker-compose.yml`). Schema management is dynamically executed via Hibernate `ddl-auto: update` and manual JDBC alterations in [`DatabaseSchemaMigration.java`](velocura-backend/src/main/java/com/velocura/config/DatabaseSchemaMigration.java).
+* **Authentication:** Stateless JSON Web Tokens (JJWT 0.12.5) signed with HMAC-SHA256. Role-Based Access Control (`ROLE_PATIENT`, `ROLE_DOCTOR`, `ROLE_ADMIN`). In-memory blacklisting for logout ([`TokenBlacklistService.java`](velocura-backend/src/main/java/com/velocura/security/TokenBlacklistService.java)).
 * **AI/LLM Providers:**
   1. Primary Cloud LLM: Google Gemini 2.0 Flash REST API (`gemini-2.0-flash`) via `generativelanguage.googleapis.com`.
-  2. Local Clinical Reasoning: Custom 10-stage `AdaptiveClinicalConversationEngine` paired with a 11,003-entity synthetic ICD-11 local registry ([`LocalClinicalEntityRegistry.java`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/ai/clinical/knowledge/LocalClinicalEntityRegistry.java)).
+  2. Local Clinical Reasoning: Custom 10-stage `AdaptiveClinicalConversationEngine` paired with a 11,003-entity synthetic ICD-11 local registry ([`LocalClinicalEntityRegistry.java`](velocura-backend/src/main/java/com/velocura/ai/clinical/knowledge/LocalClinicalEntityRegistry.java)).
   3. Legacy Fallback: `WhoIcd11FallbackService` (619 lines of hardcoded string responses).
 * **External APIs & Integrations:**
   * Google Gemini API (REST)
@@ -50,7 +50,7 @@ Velocura contains serious engineering effort, impressive clinical ambitions, and
   * `render.yaml` defining free-tier deployment on Render (Oregon region).
   * `.github/workflows/keep-alive.yml` running an automated 10-minute HTTP ping to prevent Render free-tier containers from spinning down.
 * **Storage & Caching:**
-  * File uploads: Local disk storage in `uploads/chat-images/` configured via [`FileUploadConfig.java`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/chat/config/FileUploadConfig.java).
+  * File uploads: Local disk storage in `uploads/chat-images/` configured via [`FileUploadConfig.java`](velocura-backend/src/main/java/com/velocura/chat/config/FileUploadConfig.java).
   * In-memory caches: `ConcurrentHashMap` instances used for clinical session state (`ClinicalStateStore`), rate limiting (`RateLimitingFilter`), OTPs (`OtpController`), active WebRTC rings (`TelehealthCallController`), and revoked tokens (`TokenBlacklistService`). **No Redis or Memcached exists.**
 
 ## 1.2 Complete Architecture Map
@@ -313,11 +313,11 @@ Tracing a patient message from submission to frontend render:
 
 | Call Location | Purpose | Model | Input Context | Expected Output | Validation | Fallback Mechanism | Healthcare Risk |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| [`ClinicalReasoningEngine.java:149`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/ai/clinical/engine/ClinicalReasoningEngine.java#L149) | Conversational triage prose & question phrasing | `gemini-2.0-flash` | System prompt, patient context, extracted facts, retrieved evidence, target question | Empathetic prose explaining assessment and asking question | `ClinicalAnswerValidator` (Gate #2) | Deterministic keyword-based reasoning ([`ClinicalReasoningEngine.java:170`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/ai/clinical/engine/ClinicalReasoningEngine.java#L170)) | LOW. Fallback is safe; output is validated for reassurance. |
-| [`GeminiAiService.java:123`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/ai/GeminiAiService.java#L123) | Full structured triage card generation (Legacy/Stand-alone) | `gemini-2.0-flash` | Clinical system prompt, sanitized user message, conversation history | Strict JSON conforming to triage schema | Jackson deserialization with enum tolerance | `generateLocalOfflineMock` / `WhoIcd11FallbackService` | MEDIUM. If JSON fails to parse, 503 error is thrown. |
-| [`GeminiAiService.java:98`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/ai/GeminiAiService.java#L98) | Medical Q&A educational responses | `gemini-2.0-flash` | Educational system prompt, sanitized question | Markdown explanation of disease or anatomy | None | Canned offline explanations in `generatePlainTextMock` | LOW. Does not prescribe or triage. |
-| [`GeminiAiService.java:111`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/ai/GeminiAiService.java#L111) | Casual conversational replies | `gemini-2.0-flash` | Casual assistant prompt, user greeting | Friendly greeting prose | None | Canned offline greeting | LOW. |
-| [`LabReportController.java:60`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/controller/LabReportController.java#L60) | Unstructured lab report analysis | `gemini-2.0-flash` | Raw extracted text from uploaded PDF | HTML formatted lab analysis | None | Canned offline lab summary | MEDIUM. Unsanitized HTML returned directly to client. |
+| [`ClinicalReasoningEngine.java:149`](velocura-backend/src/main/java/com/velocura/ai/clinical/engine/ClinicalReasoningEngine.java#L149) | Conversational triage prose & question phrasing | `gemini-2.0-flash` | System prompt, patient context, extracted facts, retrieved evidence, target question | Empathetic prose explaining assessment and asking question | `ClinicalAnswerValidator` (Gate #2) | Deterministic keyword-based reasoning ([`ClinicalReasoningEngine.java:170`](velocura-backend/src/main/java/com/velocura/ai/clinical/engine/ClinicalReasoningEngine.java#L170)) | LOW. Fallback is safe; output is validated for reassurance. |
+| [`GeminiAiService.java:123`](velocura-backend/src/main/java/com/velocura/ai/GeminiAiService.java#L123) | Full structured triage card generation (Legacy/Stand-alone) | `gemini-2.0-flash` | Clinical system prompt, sanitized user message, conversation history | Strict JSON conforming to triage schema | Jackson deserialization with enum tolerance | `generateLocalOfflineMock` / `WhoIcd11FallbackService` | MEDIUM. If JSON fails to parse, 503 error is thrown. |
+| [`GeminiAiService.java:98`](velocura-backend/src/main/java/com/velocura/ai/GeminiAiService.java#L98) | Medical Q&A educational responses | `gemini-2.0-flash` | Educational system prompt, sanitized question | Markdown explanation of disease or anatomy | None | Canned offline explanations in `generatePlainTextMock` | LOW. Does not prescribe or triage. |
+| [`GeminiAiService.java:111`](velocura-backend/src/main/java/com/velocura/ai/GeminiAiService.java#L111) | Casual conversational replies | `gemini-2.0-flash` | Casual assistant prompt, user greeting | Friendly greeting prose | None | Canned offline greeting | LOW. |
+| [`LabReportController.java:60`](velocura-backend/src/main/java/com/velocura/controller/LabReportController.java#L60) | Unstructured lab report analysis | `gemini-2.0-flash` | Raw extracted text from uploaded PDF | HTML formatted lab analysis | None | Canned offline lab summary | MEDIUM. Unsanitized HTML returned directly to client. |
 
 ---
 
@@ -325,14 +325,14 @@ Tracing a patient message from submission to frontend render:
 
 | Clinical Risk Area | Code Location | Severity | Current Protection | Realistic Failure Scenario |
 | :--- | :--- | :--- | :--- | :--- |
-| **Emergency Cardiac / Stroke Delay** | [`SafetyScreeningEngine.java:23-34`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/ai/clinical/safety/SafetyScreeningEngine.java#L23-L34) | **HIGH** | Regex-based pattern matching for chest pain, stroke, breathing failure | A patient expressing atypical cardiac symptoms (e.g. "severe burning in epigastrium with sudden cold sweats and jaw heaviness in a 60yo diabetic female") avoids the regex and is diagnosed with mild acid reflux. |
-| **Lethal NSAID Hemorrhage in Dengue** | [`PharmacologicalSafetyMatrix.java:42-49`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/ai/clinical/safety/PharmacologicalSafetyMatrix.java#L42-L49) | **CRITICAL** | `isBleedingRisk && isNsaid(saltLower)` blocks Aspirin/Ibuprofen | If Dengue fever is misclassified as generic viral fever, the safety matrix does not trigger, and an NSAID may be prescribed to a thrombocytopenic patient. |
-| **Pediatric Aspirin & Reye's Syndrome** | [`PharmacologicalSafetyMatrix.java:50-56`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/ai/clinical/safety/PharmacologicalSafetyMatrix.java#L50-L56) | **CRITICAL** | Blocks Aspirin if `patientContext.isPediatric()` is true | If a parent writes "My 4-year-old child has high fever" but the age regex fails to parse the number, `isPediatric` remains false, allowing Aspirin recommendations. |
-| **Prescription Generation by AI** | [`LocalClinicalEntityRegistry.java:101-126`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/ai/clinical/knowledge/LocalClinicalEntityRegistry.java#L101-L126) | **CRITICAL** | Auto-generates prescription protocols (Rx) with specific doses | In most jurisdictions (US, EU, India), autonomous AI generation of prescription protocols (even labeled "educational") constitutes **unauthorized practice of medicine** unless signed off by a licensed human physician. |
-| **Clinician Impersonation** | [`WhoIcd11FallbackService.java:39`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/service/WhoIcd11FallbackService.java#L39) | **HIGH** | None. The system prompt literally states: *"I am Dr. VeloCura, your board-certified digital health assistant."* | Violates medical advertising regulations; patients may reasonably believe they are communicating with an active licensed physician. |
-| **False Reassurance** | [`ClinicalAnswerValidator.java:20-22`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/ai/clinical/safety/ClinicalAnswerValidator.java#L20-L22) | **MEDIUM** | Regex checks for "don't worry, you are fine" | Subtle reassurance like "this is almost certainly nothing serious" is not caught by the rigid regex. |
-| **Synthetic 11k ICD-11 Dataset Errors** | [`icd11_core_11k.json`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/resources/knowledge/icd11_core_11k.json) | **HIGH** | None. Synthetic dataset ingested into registry. | In `icd11_core_11k.json`, codes like `NE96.0` are assigned to *"Malaria / Plasmodium febrile syndrome Type 497"* under *"Emergency Medicine / Trauma Surgery"*. In real WHO ICD-11, `N` codes represent physical trauma and external injuries, NOT infectious diseases. |
-| **Unvalidated Image Diagnosis** | [`MultiModalIntakeService.java:170`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/ai/clinical/intake/MultiModalIntakeService.java#L170) | **CRITICAL** | None. Ignores image file; generates diagnosis based on user text keywords. | A patient uploads an image of an aggressive melanoma or necrotizing fasciitis but writes "small bump on arm". The system returns "Mild maculopapular rash" and recommends moisturizing cream, resulting in fatal treatment delay. |
+| **Emergency Cardiac / Stroke Delay** | [`SafetyScreeningEngine.java:23-34`](velocura-backend/src/main/java/com/velocura/ai/clinical/safety/SafetyScreeningEngine.java#L23-L34) | **HIGH** | Regex-based pattern matching for chest pain, stroke, breathing failure | A patient expressing atypical cardiac symptoms (e.g. "severe burning in epigastrium with sudden cold sweats and jaw heaviness in a 60yo diabetic female") avoids the regex and is diagnosed with mild acid reflux. |
+| **Lethal NSAID Hemorrhage in Dengue** | [`PharmacologicalSafetyMatrix.java:42-49`](velocura-backend/src/main/java/com/velocura/ai/clinical/safety/PharmacologicalSafetyMatrix.java#L42-L49) | **CRITICAL** | `isBleedingRisk && isNsaid(saltLower)` blocks Aspirin/Ibuprofen | If Dengue fever is misclassified as generic viral fever, the safety matrix does not trigger, and an NSAID may be prescribed to a thrombocytopenic patient. |
+| **Pediatric Aspirin & Reye's Syndrome** | [`PharmacologicalSafetyMatrix.java:50-56`](velocura-backend/src/main/java/com/velocura/ai/clinical/safety/PharmacologicalSafetyMatrix.java#L50-L56) | **CRITICAL** | Blocks Aspirin if `patientContext.isPediatric()` is true | If a parent writes "My 4-year-old child has high fever" but the age regex fails to parse the number, `isPediatric` remains false, allowing Aspirin recommendations. |
+| **Prescription Generation by AI** | [`LocalClinicalEntityRegistry.java:101-126`](velocura-backend/src/main/java/com/velocura/ai/clinical/knowledge/LocalClinicalEntityRegistry.java#L101-L126) | **CRITICAL** | Auto-generates prescription protocols (Rx) with specific doses | In most jurisdictions (US, EU, India), autonomous AI generation of prescription protocols (even labeled "educational") constitutes **unauthorized practice of medicine** unless signed off by a licensed human physician. |
+| **Clinician Impersonation** | [`WhoIcd11FallbackService.java:39`](velocura-backend/src/main/java/com/velocura/service/WhoIcd11FallbackService.java#L39) | **HIGH** | None. The system prompt literally states: *"I am Dr. VeloCura, your board-certified digital health assistant."* | Violates medical advertising regulations; patients may reasonably believe they are communicating with an active licensed physician. |
+| **False Reassurance** | [`ClinicalAnswerValidator.java:20-22`](velocura-backend/src/main/java/com/velocura/ai/clinical/safety/ClinicalAnswerValidator.java#L20-L22) | **MEDIUM** | Regex checks for "don't worry, you are fine" | Subtle reassurance like "this is almost certainly nothing serious" is not caught by the rigid regex. |
+| **Synthetic 11k ICD-11 Dataset Errors** | [`icd11_core_11k.json`](velocura-backend/src/main/resources/knowledge/icd11_core_11k.json) | **HIGH** | None. Synthetic dataset ingested into registry. | In `icd11_core_11k.json`, codes like `NE96.0` are assigned to *"Malaria / Plasmodium febrile syndrome Type 497"* under *"Emergency Medicine / Trauma Surgery"*. In real WHO ICD-11, `N` codes represent physical trauma and external injuries, NOT infectious diseases. |
+| **Unvalidated Image Diagnosis** | [`MultiModalIntakeService.java:170`](velocura-backend/src/main/java/com/velocura/ai/clinical/intake/MultiModalIntakeService.java#L170) | **CRITICAL** | None. Ignores image file; generates diagnosis based on user text keywords. | A patient uploads an image of an aggressive melanoma or necrotizing fasciitis but writes "small bump on arm". The system returns "Mild maculopapular rash" and recommends moisturizing cream, resulting in fatal treatment delay. |
 
 ---
 
@@ -382,13 +382,13 @@ Tracing a patient message from submission to frontend render:
 ## 7.2 Database Deficiencies & Inconsistencies
 
 1. **Schema Duplication (Two Prescription Tables):**
-   * Table 1: `prescriptions` ([`Prescription.java`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/model/Prescription.java)) stores single-string AES-encrypted medications issued by doctors during appointments.
-   * Table 2: `chat_prescriptions` ([`com.velocura.chat.entity.Prescription.java`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/chat/entity/Prescription.java)) stores unencrypted line-item prescriptions with child table `prescription_items`. Neither table talks to the other.
+   * Table 1: `prescriptions` ([`Prescription.java`](velocura-backend/src/main/java/com/velocura/model/Prescription.java)) stores single-string AES-encrypted medications issued by doctors during appointments.
+   * Table 2: `chat_prescriptions` ([`com.velocura.chat.entity.Prescription.java`](velocura-backend/src/main/java/com/velocura/chat/entity/Prescription.java)) stores unencrypted line-item prescriptions with child table `prescription_items`. Neither table talks to the other.
 2. **Schema Duplication (Two Chat Message Tables):**
    * Table 1: `consultation_messages` stores appointment messages polled via REST.
    * Table 2: `chat_messages` stores conversation messages transmitted via STOMP WebSocket.
 3. **Missing Foreign Key Indexes:** Neither `appointments.patient_id`, `appointments.doctor_id`, nor `chat_messages.conversation_id` declare explicit database indexes in JPA annotations (`@Index`), leading to sequential table scans under high query volume.
-4. **Dangerous Production Migration Strategy:** The application relies on `hibernate.ddl-auto: update` in [`application.yml:15`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/resources/application.yml#L15). In production PostgreSQL deployments, `ddl-auto: update` can trigger non-deterministic table locks and cannot drop obsolete columns or rename modified attributes.
+4. **Dangerous Production Migration Strategy:** The application relies on `hibernate.ddl-auto: update` in [`application.yml:15`](velocura-backend/src/main/resources/application.yml#L15). In production PostgreSQL deployments, `ddl-auto: update` can trigger non-deterministic table locks and cannot drop obsolete columns or rename modified attributes.
 5. **Transient AI Conversation State:** Clinical triage conversations handled by `/api/chat` exist **only in memory** in `ClinicalStateStore` and are never saved to PostgreSQL unless the patient manually clicks "Archive Session".
 
 ---
@@ -398,7 +398,7 @@ Tracing a patient message from submission to frontend render:
 ## 8.1 Critical Vulnerabilities Discovered
 
 ### VULNERABILITY 1: Complete Authentication Bypass via Google SSO (CRITICAL)
-* **Location:** [`GoogleAuthServiceImpl.java:63-95`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/service/GoogleAuthServiceImpl.java#L63-L95)
+* **Location:** [`GoogleAuthServiceImpl.java:63-95`](velocura-backend/src/main/java/com/velocura/service/GoogleAuthServiceImpl.java#L63-L95)
 * **Vulnerability Type:** Insecure Authentication / Broken Object Level Access
 * **Attack Path:**
   The method `authenticateWithGoogle(GoogleAuthRequest request)` checks:
@@ -414,7 +414,7 @@ Tracing a patient message from submission to frontend render:
   ```
 
 ### VULNERABILITY 2: Public Exposure of Sensitive Clinical Records & FHIR Bundles (CRITICAL)
-* **Location:** [`SecurityConfig.java:85`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/security/SecurityConfig.java#L85)
+* **Location:** [`SecurityConfig.java:85`](velocura-backend/src/main/java/com/velocura/security/SecurityConfig.java#L85)
 * **Vulnerability Type:** Missing Function Level Access Control / IDOR
 * **Mechanism:**
   `SecurityConfig` explicitly permits all traffic to `/api/clinical/**`:
@@ -427,7 +427,7 @@ Tracing a patient message from submission to frontend render:
   * `POST /api/clinical/validation` -> Allows anyone to inject fake doctor reviews into the validation flywheel.
 
 ### VULNERABILITY 3: BOLA / IDOR in Doctor Patient Passport Access (HIGH)
-* **Location:** [`DoctorController.java:67-72`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/controller/DoctorController.java#L67-L72) & [`PatientServiceImpl.java:188-195`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/service/PatientServiceImpl.java#L188-L195)
+* **Location:** [`DoctorController.java:67-72`](velocura-backend/src/main/java/com/velocura/controller/DoctorController.java#L67-L72) & [`PatientServiceImpl.java:188-195`](velocura-backend/src/main/java/com/velocura/service/PatientServiceImpl.java#L188-L195)
 * **Vulnerability Type:** Broken Object Level Authorization
 * **Mechanism:**
   `getPatientPassportById(@PathVariable Long patientId)` fetches `patientRepository.findById(patientId)` without checking if the authenticated doctor has an active consultation or appointment with that patient.
@@ -442,7 +442,7 @@ Tracing a patient message from submission to frontend render:
 | **SQL Injection** | Spring Data JPA Parameterized Queries | Low risk across standard repositories. Dynamic schema alters in `DatabaseSchemaMigration.java` use string concatenation but use hardcoded identifiers. | **LOW** |
 | **Cross-Site Scripting (XSS)** | React automatic JSX escaping | Unsafe direct HTML injection risk in `LabReportController.java:60` which returns raw HTML strings from AI to be rendered in dashboard. | **MEDIUM** |
 | **Cross-Site Request Forgery (CSRF)** | `csrf(AbstractHttpConfigurer::disable)` | CSRF is disabled because authentication is Bearer-token based; however, tokens stored in `localStorage` are vulnerable to XSS token theft. | **MEDIUM** |
-| **Hardcoded Secrets** | Default secrets in properties | Default JWT secret (`404E...`), Admin password (`VeloCuraAdmin_#2026_SecureKey`), and AES secret (`VeloCura#Healthcare$SecureKey...`) exist as fallback defaults in source files. | **CRITICAL** |
+| **Hardcoded Secrets** | Default secrets in properties | Default JWT secret (`404E...`), Admin password (`[REDACTED_ADMIN_SECRET]`), and AES secret (`VeloCura#Healthcare$SecureKey...`) exist as fallback defaults in source files. | **CRITICAL** |
 | **Admin Password Auto-Reset** | `DatabaseSeeder.java:72` | Every time Spring Boot restarts, it forcibly re-encodes `adminPassword` back to the default `Admin@123` or config value, overwriting manual password changes. | **CRITICAL** |
 | **Predictable OTP Generation** | `OtpController.java:76` | Uses `java.util.Random` instead of `java.security.SecureRandom`. Cleartext OTP is printed to standard stdout (`System.out`). | **HIGH** |
 | **Cleartext OTP Leak via Admin API** | `AdminController.java:56` | `@GetMapping("/otps")` returns all active 6-digit OTP codes in plaintext JSON to any admin account. | **HIGH** |
@@ -458,7 +458,7 @@ Tracing a patient message from submission to frontend render:
 
 * **The `/chat` Route Disconnect:**
   * The documentation (`README.md`, `MIGRATED.md`) explicitly claims that `/chat` is the Clinical AI Symptom Triage interface.
-  * In [`App.jsx:41-43`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-frontend/src/App.jsx#L41-L43), `/chat` is mapped to `<ConversationListPage />` (the doctor-patient messaging list)!
+  * In [`App.jsx:41-43`](velocura-frontend/src/App.jsx#L41-L43), `/chat` is mapped to `<ConversationListPage />` (the doctor-patient messaging list)!
   * The actual Clinical AI Chat is mounted at `/triage` (`<ChatPage />`). A patient navigating to `/chat` expects AI triage and is presented with an empty doctor conversation list.
 * **Dead / Placeholder UI Elements:**
   * In `ChatRoom.jsx`, the voice call button triggers an alert prompt rather than directly establishing an audio stream if WebRTC permissions fail.
@@ -556,7 +556,7 @@ Execution of the official backend test suite (`./mvnw test`) reveals:
 
 ## 14.1 Architectural Bottlenecks (Identified & Estimated)
 
-1. **Large In-Memory Dataset:** The 11,003-entity ICD-11 dataset ([`icd11_core_11k.json`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/resources/knowledge/icd11_core_11k.json)) occupies 18 MB uncompressed JSON and is deserialized into Java objects in heap memory on startup, increasing JVM resident memory footprint by ~120 MB.
+1. **Large In-Memory Dataset:** The 11,003-entity ICD-11 dataset ([`icd11_core_11k.json`](velocura-backend/src/main/resources/knowledge/icd11_core_11k.json)) occupies 18 MB uncompressed JSON and is deserialized into Java objects in heap memory on startup, increasing JVM resident memory footprint by ~120 MB.
 2. **Synchronous Blocking REST Client:** `ClinicalReasoningEngine` and `GeminiAiService` use synchronous `RestTemplate.exchange()`. Under high concurrency, worker threads will block waiting for Gemini HTTP responses, causing rapid thread pool exhaustion.
 3. **In-Memory SimpleBroker Bottleneck:** `WebSocketConfig.java:21` enables Spring's in-memory `SimpleBroker`. This cannot scale horizontally; messages sent to node A cannot be received by users connected to node B without a Redis or RabbitMQ STOMP broker relay.
 4. **Single Large Frontend Bundle:** `npm run build` generates a single JavaScript chunk of **604.17 kB** (`index-BmwYVy7j.js`). Lack of route-based code splitting (`React.lazy`) creates slow initial page loads on mobile networks.
@@ -686,22 +686,22 @@ Execution of the official backend test suite (`./mvnw test`) reveals:
 ## 🔴 RED LIST — MUST FIX BEFORE ANY DEPLOYMENT
 
 1. **Fix Google SSO Account Takeover:**
-   * **Location:** [`GoogleAuthServiceImpl.java:63-95`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/service/GoogleAuthServiceImpl.java#L63-L95)
+   * **Location:** [`GoogleAuthServiceImpl.java:63-95`](velocura-backend/src/main/java/com/velocura/service/GoogleAuthServiceImpl.java#L63-L95)
    * **Fix:** Require and strictly validate `request.getIdToken()` against Google's API before issuing JWTs. Never fall back to unverified client-provided email.
 2. **Lock Down `/api/clinical/**` Endpoints:**
-   * **Location:** [`SecurityConfig.java:85`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/security/SecurityConfig.java#L85)
+   * **Location:** [`SecurityConfig.java:85`](velocura-backend/src/main/java/com/velocura/security/SecurityConfig.java#L85)
    * **Fix:** Remove `/api/clinical/**` from `permitAll()`. Require `@PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN')")` for FHIR exports and SOAP note generation.
 3. **Fix Failing Backend Tests:**
-   * **Location:** [`NextBestQuestionEngine.java:85, 257`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/ai/clinical/engine/NextBestQuestionEngine.java#L85)
+   * **Location:** [`NextBestQuestionEngine.java:85, 257`](velocura-backend/src/main/java/com/velocura/ai/clinical/engine/NextBestQuestionEngine.java#L85)
    * **Fix:** Align `evaluateNextQuestion` return actions with `AdaptiveClinicalEngineTests` assertions for ambiguous single-word and educational queries.
 4. **Eliminate PHI Leakage in QR Pass Generator:**
-   * **Location:** [`EmergencyHealthQrModal.jsx:29`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-frontend/src/components/clinical/EmergencyHealthQrModal.jsx#L29)
+   * **Location:** [`EmergencyHealthQrModal.jsx:29`](velocura-frontend/src/components/clinical/EmergencyHealthQrModal.jsx#L29)
    * **Fix:** Install `qrcode.react` and generate QR canvases entirely in browser memory. Never send PHI to external APIs.
 5. **Remove Hardcoded Default Passwords & Backdoor Admin Account:**
-   * **Location:** [`DatabaseSeeder.java:47-75`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/config/DatabaseSeeder.java#L47-L75)
+   * **Location:** [`DatabaseSeeder.java:47-75`](velocura-backend/src/main/java/com/velocura/config/DatabaseSeeder.java#L47-L75)
    * **Fix:** Remove hardcoded seeding of `developers.vkgroup@gmail.com` and stop overwriting existing admin passwords on application boot.
 6. **Fix Doctor Health Passport IDOR:**
-   * **Location:** [`DoctorController.java:67`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/controller/DoctorController.java#L67)
+   * **Location:** [`DoctorController.java:67`](velocura-backend/src/main/java/com/velocura/controller/DoctorController.java#L67)
    * **Fix:** Verify in `PatientServiceImpl` that the requesting doctor has an active or confirmed appointment with the requested `patientId`.
 
 ## 🟡 YELLOW LIST — IMPORTANT BUT NOT IMMEDIATELY FATAL
@@ -759,7 +759,7 @@ Execution of the official backend test suite (`./mvnw test`) reveals:
 # PHASE 23 — DEAD CODE & UNUSED SYSTEMS
 
 1. **`medinexa/` Folder:** The workspace root contains a `medinexa/` directory containing an old `.venv`, `.vscode`, `node_modules`, and a duplicate `velocura-backend` with an H2 lock file (`velocura_db.lock.db`). This is abandoned disk clutter.
-2. **`TestSecurityController.java`:** Test controller mounted at `/api/patient/test`, `/api/doctor/test`, `/api/admin/test` left in production source code ([`TestSecurityController.java:8`](file:///Users/pankajkumar/Desktop/PROJECT/resume-1/velocura-backend/src/main/java/com/velocura/controller/TestSecurityController.java#L8)).
+2. **`TestSecurityController.java`:** Test controller mounted at `/api/patient/test`, `/api/doctor/test`, `/api/admin/test` left in production source code ([`TestSecurityController.java:8`](velocura-backend/src/main/java/com/velocura/controller/TestSecurityController.java#L8)).
 3. **`ConsultationMessage.java` & `ConsultationChatController.java`:** Obsolete parallel chat system superseded by `com.velocura.chat`.
 4. **`KeepAliveScheduler.java`:** Scheduled task that executes `log.debug("Keep-alive ping fired")` every 10 minutes, which does not accomplish its documented goal of waking Render containers.
 5. **`LabReportController.java`:** Duplicates the functionality of `MultiModalIntakeController.java`.

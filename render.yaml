@@ -21,7 +21,7 @@ services:
       - key: ADMIN_EMAIL
         value: admin@velocura.com
       - key: ADMIN_PASSWORD
-        value: VeloCuraAdmin_#2026_SecureKey
+        sync: false
 
   # ============================================================================
   # REACT FRONTEND WEB SERVICE

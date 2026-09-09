@@ -13,7 +13,7 @@ velocura:
     api-key: test-key
   admin:
     email: admin@velocura.com
-    password: VeloCuraAdmin_#2026_SecureKey
+    password: testAdminPassword123!
 
 app:
   jwt:
