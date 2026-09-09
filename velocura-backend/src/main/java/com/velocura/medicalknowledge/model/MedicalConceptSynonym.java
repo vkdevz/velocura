@@ -42,6 +42,22 @@ public class MedicalConceptSynonym {
     @Column(name = "is_preferred", nullable = false)
     private boolean isPreferred = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "synonym_type", length = 32)
+    @Builder.Default
+    private SynonymType synonymType = SynonymType.OFFICIAL_SYNONYM;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "match_status", length = 32)
+    @Builder.Default
+    private SynonymMatchStatus matchStatus = SynonymMatchStatus.CONFIRMED;
+
+    @Column(name = "source", length = 128)
+    private String source;
+
+    @Column(name = "source_version", length = 64)
+    private String sourceVersion;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

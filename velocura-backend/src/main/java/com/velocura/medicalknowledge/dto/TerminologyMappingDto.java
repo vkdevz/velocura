@@ -26,6 +26,11 @@ public class TerminologyMappingDto {
     @Builder.Default
     private MappingType mappingType = MappingType.EXACT_MATCH;
 
+    private String mappingProvenance;
+
+    @Builder.Default
+    private com.velocura.medicalknowledge.model.Jurisdiction jurisdiction = com.velocura.medicalknowledge.model.Jurisdiction.GLOBAL;
+
     @Builder.Default
     private Double confidence = 1.0;
 }

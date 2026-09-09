@@ -52,30 +52,63 @@ public class ContradictionDetector {
         }
 
         // 2. Fever contradiction
-        ClinicalFact feverFact = state.getKnownFacts().get("fever");
-        if (feverFact != null) {
-            boolean wasAbsent = "absent".equalsIgnoreCase(feverFact.getValue());
-            boolean nowPresent = (text.contains("fever") || text.contains("bukhar") || text.contains("102") || text.contains("101"))
-                    && !text.contains("no fever") && !text.contains("without fever");
+        ClinicalFact feverFact = state.getKnownFacts() != null ? state.getKnownFacts().get("fever") : null;
+        boolean wasFeverAbsent = feverFact != null && "absent".equalsIgnoreCase(feverFact.getValue());
+        if (!wasFeverAbsent && state.getNegatedFindings() != null) {
+            wasFeverAbsent = state.getNegatedFindings().stream().anyMatch(n -> n.toLowerCase().contains("fever"));
+        }
+        if (!wasFeverAbsent && state.getSymptoms() != null && state.getSymptoms().containsKey("fever")) {
+            ClinicalFact sf = state.getSymptoms().get("fever");
+            wasFeverAbsent = sf != null && sf.getPresence() == com.velocura.ai.clinical.state.FactPresence.ABSENT_DENIED;
+        }
 
-            if (wasAbsent && nowPresent) {
-                String prompt = "Earlier you noted having no fever, but you mentioned fever just now. To clarify, do you currently have a fever or elevated temperature?";
+        boolean nowFeverPresent = (text.contains("fever") || text.contains("bukhar") || text.contains("102") || text.contains("101") || text.contains("39°") || text.contains("39 c") || text.contains("39c"))
+                && !text.contains("no fever") && !text.contains("without fever") && !text.contains("not have fever");
+
+        if (wasFeverAbsent && nowFeverPresent) {
+            String prompt = "Earlier you noted having no fever, but you mentioned fever just now. To clarify, do you currently have a fever or elevated temperature?";
+            if (state.getConflictingFacts() != null) {
                 state.getConflictingFacts().add("fever: previously reported absent, now reported present");
-                return new ContradictionResult(true, "fever", prompt);
             }
+            return new ContradictionResult(true, "fever", prompt);
         }
 
         // 3. Cough character contradiction (dry vs productive)
-        ClinicalFact coughFact = state.getKnownFacts().get("cough");
+        ClinicalFact coughFact = state.getKnownFacts() != null ? state.getKnownFacts().get("cough") : null;
         if (coughFact != null) {
             boolean wasDry = "dry".equalsIgnoreCase(coughFact.getValue());
             boolean nowWet = text.contains("phlegm") || text.contains("mucus") || text.contains("productive");
 
             if (wasDry && nowWet) {
                 String prompt = "You previously noted a dry cough. Has your cough now started producing phlegm or mucus?";
-                state.getConflictingFacts().add("cough: previously dry, now productive");
+                if (state.getConflictingFacts() != null) {
+                    state.getConflictingFacts().add("cough: previously dry, now productive");
+                }
                 return new ContradictionResult(true, "cough_type", prompt);
             }
+        }
+
+        // 4. Allergy history contradiction (Section 11 & Journey 7)
+        boolean previouslyNoAllergies = false;
+        if (state.getAllergies() != null) {
+            previouslyNoAllergies = state.getAllergies().stream().anyMatch(a -> {
+                String al = a.toLowerCase();
+                return al.contains("none") || al.contains("no known") || al.contains("no allerg");
+            });
+        }
+        if (!previouslyNoAllergies && state.getNegatedFindings() != null) {
+            previouslyNoAllergies = state.getNegatedFindings().stream().anyMatch(n -> n.toLowerCase().contains("allerg"));
+        }
+
+        boolean nowReportsAllergy = (text.contains("allergic to") || text.contains("allergy") || text.contains("anaphylaxis") || text.contains("allergic"))
+                && !text.contains("no allerg") && !text.contains("not allerg") && !text.contains("no known");
+
+        if (previouslyNoAllergies && nowReportsAllergy) {
+            String prompt = "Earlier you mentioned having no known allergies, but you just reported an allergy or reaction. To ensure your safety, please clarify your exact allergy history.";
+            if (state.getConflictingFacts() != null) {
+                state.getConflictingFacts().add("allergies: previously reported none/absent, now reported present");
+            }
+            return new ContradictionResult(true, "allergies", prompt);
         }
 
         return ContradictionResult.none();

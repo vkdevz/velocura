@@ -56,6 +56,15 @@ public class AuditLog {
     @Column(nullable = false, length = 20)
     private String status; // SUCCESS, DENIED, FAILED
 
+    @Column(name = "correlation_id", length = 64)
+    private String correlationId;
+
+    @Column(name = "event_type", length = 64)
+    private String eventType;
+
+    @Column(name = "version")
+    private Long version;
+
     @Column(columnDefinition = "TEXT")
     private String details;
 }

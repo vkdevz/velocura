@@ -34,6 +34,9 @@ public class ConceptImportDto {
     private Jurisdiction jurisdiction = Jurisdiction.GLOBAL;
 
     @Builder.Default
+    private com.velocura.medicalknowledge.model.ProvenanceClass provenanceClass = com.velocura.medicalknowledge.model.ProvenanceClass.REAL_AUTHORITATIVE;
+
+    @Builder.Default
     private List<String> synonyms = new ArrayList<>();
 
     @Builder.Default

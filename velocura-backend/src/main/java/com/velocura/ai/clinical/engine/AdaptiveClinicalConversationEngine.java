@@ -37,6 +37,8 @@ public class AdaptiveClinicalConversationEngine {
     private final DeterministicSafetyKernel safetyKernel;
     private final NextBestActionEngine actionEngine;
     private final LongitudinalStateTracker longitudinalTracker;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private UnifiedClinicalDecisionEngine unifiedDecisionEngine;
 
     @org.springframework.beans.factory.annotation.Autowired
     public AdaptiveClinicalConversationEngine(
@@ -91,6 +93,10 @@ public class AdaptiveClinicalConversationEngine {
     public ChatResponse processTurn(ChatRequest request) {
         String rawInput = request.getMessage() != null ? request.getMessage().trim() : "";
         String sessionId = request.getSessionId();
+        if ((sessionId == null || sessionId.isBlank()) && request.getConversationHistory() != null 
+                && !request.getConversationHistory().startsWith("{") && !request.getConversationHistory().startsWith("[")) {
+            sessionId = request.getConversationHistory();
+        }
         ClinicalConversationState state = stateStore.getOrCreate(sessionId);
         state.setTurnCount(state.getTurnCount() + 1);
 
@@ -104,21 +110,58 @@ public class AdaptiveClinicalConversationEngine {
             state.getVitals().put("extracted", normalized.getExtractedVitals());
         }
 
+        String lowerInput = normText.toLowerCase();
+        if (lowerInput.contains("no known drug allergies") || lowerInput.contains("no drug allergies") 
+                || lowerInput.contains("no known allergies") || lowerInput.contains("no allergies")) {
+            if (state.getAllergies() != null && state.getAllergies().stream().noneMatch(a -> a.toLowerCase().contains("none"))) {
+                state.getAllergies().add("None reported");
+            }
+            if (state.getNegatedFindings() != null) {
+                state.getNegatedFindings().add("allergies");
+            }
+        }
+
         // ─── STAGE 2: PATIENT CONTEXT DETECTION ──────────────────────────────
         PatientContext updatedPatient = patientContextDetector.detectContext(normText, state.getPatientContext());
         state.setPatientContext(updatedPatient);
 
         // ─── STAGE 3: SAFETY GATE #1 (RUNS ON EVERY TURN - SUPREME EMERGENCY CHECK) ──
         SafetyScreeningResult safetyResult = safetyScreeningEngine.screen(normText, state.getPatientContext());
-        if (safetyResult.isEmergency()) {
-            log.warn("[SAFETY GATE #1] Immediate emergency detected. Interrupting standard flow.");
+        boolean alreadyInEmergency = state.getCurrentPhase() == ClinicalPhase.ESCALATION 
+                || (state.getCurrentRiskLevel() != null && state.getCurrentRiskLevel().isEmergencyOrCritical());
+        if (safetyResult.isEmergency() || alreadyInEmergency) {
+            log.warn("[SAFETY GATE #1] Immediate emergency detected or maintained under emergency supremacy.");
             state.setCurrentRiskLevel(ClinicalRiskLevel.CRITICAL);
             state.setCurrentPhase(ClinicalPhase.ESCALATION);
             state.setRecommendedAction(NextAction.EMERGENCY_ESCALATION);
-            state.getRedFlags().addAll(safetyResult.getRedFlags());
-            state.setRiskAssessment(ClinicalRiskAssessment.critical("Immediate emergency red flag detected in user input", safetyResult.getRedFlags()));
+            if (safetyResult.getRedFlags() != null && !safetyResult.getRedFlags().isEmpty()) {
+                state.getRedFlags().addAll(safetyResult.getRedFlags());
+            }
             stateStore.save(state);
-            return responseComposer.composeEmergency(safetyResult, state);
+            SafetyScreeningResult effectiveSafety = safetyResult.isEmergency() 
+                    ? safetyResult 
+                    : SafetyScreeningResult.builder()
+                            .isEmergency(true)
+                            .riskLevel(ClinicalRiskLevel.CRITICAL)
+                            .emergencyReason("Acute emergency escalation maintained")
+                            .redFlags(state.getRedFlags() != null ? new ArrayList<>(state.getRedFlags()) : new ArrayList<>())
+                            .build();
+            ChatResponse emergencyResp = responseComposer.composeEmergency(effectiveSafety, state);
+            emergencyResp.setEmergency(true);
+            emergencyResp.setRiskLevel("CRITICAL");
+            emergencyResp.setNextAction("ESCALATE");
+            emergencyResp.setNextBestActionDetails(NextBestAction.emergency("Acute emergency red flag identified", state.getRedFlags()));
+            emergencyResp.setReasoningTraceId("TRACE-EMERGENCY-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+            emergencyResp.setKnowledgeSnapshotId(state.getActiveSnapshotId() != null ? state.getActiveSnapshotId() : "SNAP-GLOBAL-AUTHORITATIVE");
+            if (unifiedDecisionEngine != null) {
+                try {
+                    ClinicalReasoningResult reasoningResult = unifiedDecisionEngine.reason(rawInput, normText, state.getPatientContext(), state);
+                    if (reasoningResult != null) {
+                        emergencyResp.setReasoningResult(reasoningResult);
+                    }
+                } catch (Exception ignored) {}
+            }
+            return emergencyResp;
         }
 
         // ─── STAGE 4: ADVERSARIAL PROMPT INJECTION DEFENSE ────────────────────
@@ -127,19 +170,26 @@ public class AdaptiveClinicalConversationEngine {
             DeterministicSafetyKernel.SafetyDecision injectBlock = safetyKernel.evaluate("", state, rawInput);
             NextBestQuestionEngine.QuestionDecision stopDecision = NextBestQuestionEngine.QuestionDecision.stopAsking(NextAction.ANSWER);
             stateStore.save(state);
-            return responseComposer.composeStandard(injectBlock.getFinalMessage(), state, stopDecision, rawInput);
+            ChatResponse injectResp = responseComposer.composeStandard(injectBlock.getFinalMessage(), state, stopDecision, rawInput);
+            if (unifiedDecisionEngine != null) {
+                try {
+                    ClinicalReasoningResult reasoningResult = unifiedDecisionEngine.reason(rawInput, normText, state.getPatientContext(), state);
+                    if (reasoningResult != null) {
+                        injectResp.setReasoningResult(reasoningResult);
+                    }
+                } catch (Exception ignored) {}
+            }
+            return injectResp;
         }
 
         // ─── STAGE 5: MULTI-TOPIC TRANSITION & COMPLAINT RESET ──────────────
-        boolean explicitSwitch = normText.contains("new problem") || normText.contains("different issue") || normText.contains("start over") || normText.contains("another problem") || normText.contains("check another");
+        boolean explicitSwitch = normText.contains("new problem") || normText.contains("different issue") 
+                || normText.contains("start over") || normText.contains("another problem") 
+                || normText.contains("check another") || normText.contains("different problem") 
+                || normText.contains("that is resolved") || normText.contains("resolved");
         if ((state.getCurrentPhase() == ClinicalPhase.GUIDANCE && isIntroducingNewComplaint(normText, state)) || explicitSwitch) {
-            log.info("[CLINICAL ENGINE] New clinical complaint detected. Resetting active complaint context.");
-            state.getSymptoms().clear();
-            state.getTimeline().clear();
-            state.setSeverity(null);
-            state.setLastQuestion(null);
-            state.getAnsweredQuestions().clear();
-            state.getUserHypotheses().clear();
+            log.info("[CLINICAL ENGINE] New clinical complaint detected. Transitioning episode.");
+            state.startNewEpisode(normText);
             state.setTurnCount(1);
             state.setCurrentPhase(ClinicalPhase.ASSESSMENT);
             state.setRecommendedAction(NextAction.ASK);
@@ -171,7 +221,18 @@ public class AdaptiveClinicalConversationEngine {
                 java.util.List.of("Yes, experiencing now", "No, not experiencing"),
                 NextAction.CLARIFY
             );
-            return responseComposer.composeStandard(contradiction.getClarificationPrompt(), state, decision, rawInput);
+            ChatResponse contraResp = responseComposer.composeStandard(contradiction.getClarificationPrompt(), state, decision, rawInput);
+            if (unifiedDecisionEngine != null) {
+                try {
+                    ClinicalReasoningResult reasoningResult = unifiedDecisionEngine.reason(rawInput, normText, state.getPatientContext(), state);
+                    if (reasoningResult != null) {
+                        contraResp.setReasoningResult(reasoningResult);
+                        contraResp.setNextBestQuestion(reasoningResult.getNextBestQuestion());
+                        contraResp.setNextBestActionDetails(reasoningResult.getNextBestAction());
+                    }
+                } catch (Exception ignored) {}
+            }
+            return contraResp;
         }
 
         // ─── STAGE 7: INTENT DETECTION ────────────────────────────────────────
@@ -182,6 +243,9 @@ public class AdaptiveClinicalConversationEngine {
         ClinicalRiskLevel priorRisk = state.getCurrentRiskLevel();
         List<String> priorSymptoms = new ArrayList<>(state.getSymptoms().keySet());
         informationExtractor.extractAndUpdate(normText, state);
+        if (state.getChiefConcern() == null && !normText.isBlank()) {
+            state.setChiefConcern(normText);
+        }
         List<String> currentSymptoms = new ArrayList<>(state.getSymptoms().keySet());
         currentSymptoms.removeAll(priorSymptoms);
 
@@ -240,7 +304,33 @@ public class AdaptiveClinicalConversationEngine {
                 .build();
 
         stateStore.save(state);
-        return responseComposer.composeStandard(validatedMessage, state, questionDecision, rawInput);
+        ChatResponse resp = responseComposer.composeStandard(validatedMessage, state, questionDecision, rawInput);
+        if (unifiedDecisionEngine != null) {
+            try {
+                ClinicalReasoningResult reasoningResult = unifiedDecisionEngine.reason(rawInput, normText, state.getPatientContext(), state);
+                if (reasoningResult != null) {
+                    resp.setReasoningResult(reasoningResult);
+                    resp.setNextBestQuestion(reasoningResult.getNextBestQuestion());
+                    resp.setNextBestActionDetails(reasoningResult.getNextBestAction());
+                    resp.setReasoningTraceId(reasoningResult.getReasoningTraceId());
+                    resp.setKnowledgeSnapshotId(reasoningResult.getKnowledgeSnapshotId());
+                    if (reasoningResult.getRiskLevel() != null) {
+                        resp.setRiskLevel(reasoningResult.getRiskLevel().name());
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("[UNIFIED DECISION ENGINE] Execution note: {}", e.getMessage());
+            }
+        }
+        return resp;
+    }
+
+    public UnifiedClinicalDecisionEngine getUnifiedDecisionEngine() {
+        return this.unifiedDecisionEngine;
+    }
+
+    public void setUnifiedDecisionEngine(UnifiedClinicalDecisionEngine unifiedDecisionEngine) {
+        this.unifiedDecisionEngine = unifiedDecisionEngine;
     }
 
     private boolean isIntroducingNewComplaint(String text, ClinicalConversationState state) {

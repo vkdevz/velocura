@@ -28,7 +28,43 @@ public class MedicationInteractionEngine {
         List<InteractionFinding> findings = new ArrayList<>();
         Set<String> evaluatedPairs = new HashSet<>();
 
-        // Multi-drug evaluation: evaluate all pairs N * (N-1) / 2
+        // Map concept IDs to ingredient entities
+        Map<String, ActiveIngredient> ingredientById = new HashMap<>();
+        List<String> conceptIds = new ArrayList<>();
+        for (ActiveIngredient ing : ingredients) {
+            if (ing.getConceptId() != null && !ing.getConceptId().isBlank()) {
+                ingredientById.put(ing.getConceptId().toLowerCase(), ing);
+                conceptIds.add(ing.getConceptId());
+            }
+        }
+
+        // 1. Single indexed batch adjacency query: O(k + relevant_edges)
+        if (conceptIds.size() >= 2) {
+            try {
+                List<MedicalRelationship> batchRels = relationshipRepository.findInteractionsBetweenConcepts(
+                        conceptIds, RelationshipType.INTERACTS_WITH);
+                for (MedicalRelationship rel : batchRels) {
+                    if (rel.getSourceConcept() == null || rel.getTargetConcept() == null) continue;
+                    String sId = rel.getSourceConcept().getConceptId().toLowerCase();
+                    String tId = rel.getTargetConcept().getConceptId().toLowerCase();
+                    ActiveIngredient ingA = ingredientById.get(sId);
+                    ActiveIngredient ingB = ingredientById.get(tId);
+                    if (ingA != null && ingB != null) {
+                        String nameA = ingA.getCanonicalName().toLowerCase();
+                        String nameB = ingB.getCanonicalName().toLowerCase();
+                        String pairKey = nameA.compareTo(nameB) < 0 ? nameA + "::" + nameB : nameB + "::" + nameA;
+                        if (!evaluatedPairs.contains(pairKey)) {
+                            evaluatedPairs.add(pairKey);
+                            findings.add(buildFindingFromRelationship(rel, ingA.getCanonicalName(), ingB.getCanonicalName()));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("[INTERACTION ENGINE] Batch adjacency query error: {}", e.getMessage());
+            }
+        }
+
+        // 2. Evaluate remaining pairs against in-memory clinical baseline rules
         for (int i = 0; i < ingredients.size(); i++) {
             for (int j = i + 1; j < ingredients.size(); j++) {
                 ActiveIngredient ingA = ingredients.get(i);
@@ -37,7 +73,6 @@ public class MedicationInteractionEngine {
                 String nameA = ingA.getCanonicalName().toLowerCase();
                 String nameB = ingB.getCanonicalName().toLowerCase();
 
-                // Skip self-comparison of identical active ingredients (handled by duplicate therapy engine)
                 if (nameA.equals(nameB) || ingA.getConceptId().equalsIgnoreCase(ingB.getConceptId())) {
                     continue;
                 }
@@ -48,16 +83,9 @@ public class MedicationInteractionEngine {
                 }
                 evaluatedPairs.add(pairKey);
 
-                // 1. Search in local MKE graph
-                InteractionFinding finding = findRelationshipInteraction(ingA, ingB);
-                if (finding != null) {
-                    findings.add(finding);
-                } else {
-                    // 2. Check clinical baseline interactions
-                    InteractionFinding baseline = checkBaselineInteractions(nameA, nameB, ingA.getCanonicalName(), ingB.getCanonicalName());
-                    if (baseline != null) {
-                        findings.add(baseline);
-                    }
+                InteractionFinding baseline = checkBaselineInteractions(nameA, nameB, ingA.getCanonicalName(), ingB.getCanonicalName());
+                if (baseline != null) {
+                    findings.add(baseline);
                 }
             }
         }

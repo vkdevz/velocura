@@ -4,5 +4,6 @@ public enum RelationshipStatus {
     ACTIVE,
     DEPRECATED,
     SUPERSEDED,
-    PENDING_VALIDATION
+    PENDING_VALIDATION,
+    CONFLICTING
 }

@@ -60,6 +60,17 @@ public class PatientContext implements Serializable {
                 .build();
     }
 
+    public static PatientContext thirdParty(String relationship, double ageYears, String ageUnit) {
+        return PatientContext.builder()
+                .userRole(UserRole.FAMILY_MEMBER)
+                .relationship(relationship)
+                .ageYears(ageYears)
+                .isPediatric(ageYears < 18.0)
+                .isInfant(ageYears < 1.0)
+                .pregnancyStatus(PregnancyStatus.NOT_APPLICABLE)
+                .build();
+    }
+
     public boolean isThirdParty() {
         return userRole != UserRole.SELF && !"self".equalsIgnoreCase(relationship);
     }

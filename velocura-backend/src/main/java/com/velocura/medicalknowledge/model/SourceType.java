@@ -4,10 +4,12 @@ public enum SourceType {
     WHO,
     FDA,
     SNOMED,
+    SNOMED_CT,
     LOINC,
     RXNORM,
     DAILYMED,
     CLINICAL_GUIDELINE,
+    AUTHORITATIVE_GUIDELINE,
     PEER_REVIEWED,
     GOVERNMENT,
     REGULATORY,
@@ -15,3 +17,4 @@ public enum SourceType {
     SYNTHETIC_TEST,
     OTHER
 }
+

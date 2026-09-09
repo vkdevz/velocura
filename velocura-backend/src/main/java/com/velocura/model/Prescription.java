@@ -51,6 +51,14 @@ public class Prescription {
     @Convert(converter = com.velocura.security.crypto.EncryptedStringConverter.class)
     private String instructions;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    @Builder.Default
+    private PrescriptionStatus status = PrescriptionStatus.SIGNED;
+
+    @Version
+    private Long version;
+
     @CreatedDate
     @Column(name = "issued_at", nullable = false, updatable = false)
     private LocalDateTime issuedAt;

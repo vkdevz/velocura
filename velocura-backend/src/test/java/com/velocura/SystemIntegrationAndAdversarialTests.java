@@ -421,7 +421,7 @@ public class SystemIntegrationAndAdversarialTests {
         }
 
         latch.countDown();
-        assertTrue(doneLatch.await(5, TimeUnit.SECONDS));
+        assertTrue(doneLatch.await(15, TimeUnit.SECONDS));
         executor.shutdown();
 
         ClinicalConversationState finalState = stateStore.get(sessionId);

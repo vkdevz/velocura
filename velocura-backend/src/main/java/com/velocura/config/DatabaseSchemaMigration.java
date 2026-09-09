@@ -82,6 +82,43 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
             createIndexIfNotExists(stmt, "idx_rel_status", "medical_relationships", "status");
             createIndexIfNotExists(stmt, "idx_rel_batch", "medical_relationships", "batch_id");
             createIndexIfNotExists(stmt, "idx_batch_status", "knowledge_import_batches", "status");
+            createIndexIfNotExists(stmt, "idx_snap_status", "knowledge_snapshots", "status");
+            createIndexIfNotExists(stmt, "idx_quar_batch", "quarantine_records", "batch_id");
+            createIndexIfNotExists(stmt, "idx_quar_reason", "quarantine_records", "reason");
+            createIndexIfNotExists(stmt, "idx_conf_subject", "knowledge_conflicts", "subject_concept_id");
+            createIndexIfNotExists(stmt, "idx_conf_status", "knowledge_conflicts", "status");
+
+            // 8. Medical Intelligence Fabric - Extended Fields & Indexes
+            addColumnIfNotExists(stmt, "medical_relationships", "assertion_type", "VARCHAR(32) DEFAULT 'SOURCE_FACT'");
+            addColumnIfNotExists(stmt, "medical_relationships", "population", "VARCHAR(128)");
+            addColumnIfNotExists(stmt, "medical_relationships", "age_min_years", "INTEGER");
+            addColumnIfNotExists(stmt, "medical_relationships", "age_max_years", "INTEGER");
+            addColumnIfNotExists(stmt, "medical_relationships", "sex_applicability", "VARCHAR(16) DEFAULT 'ALL'");
+            addColumnIfNotExists(stmt, "medical_relationships", "guideline_reference", "VARCHAR(255)");
+            addColumnIfNotExists(stmt, "medical_relationships", "evidence_strength", "VARCHAR(32)");
+
+            addColumnIfNotExists(stmt, "knowledge_sources", "intended_use", "VARCHAR(255)");
+            addColumnIfNotExists(stmt, "knowledge_sources", "redistribution_status", "VARCHAR(32) DEFAULT 'REVIEW_REQUIRED'");
+            addColumnIfNotExists(stmt, "knowledge_sources", "commercial_use_status", "VARCHAR(32) DEFAULT 'REVIEW_REQUIRED'");
+            addColumnIfNotExists(stmt, "knowledge_sources", "derivatives_permitted", "BOOLEAN DEFAULT FALSE");
+            addColumnIfNotExists(stmt, "knowledge_sources", "attribution_required", "BOOLEAN DEFAULT TRUE");
+            addColumnIfNotExists(stmt, "knowledge_sources", "license_verified", "BOOLEAN DEFAULT FALSE");
+            addColumnIfNotExists(stmt, "knowledge_sources", "superseded_by_source_id", "VARCHAR(64)");
+
+            addColumnIfNotExists(stmt, "medical_concept_synonyms", "synonym_type", "VARCHAR(32) DEFAULT 'OFFICIAL_SYNONYM'");
+            addColumnIfNotExists(stmt, "medical_concept_synonyms", "match_status", "VARCHAR(32) DEFAULT 'CONFIRMED'");
+            addColumnIfNotExists(stmt, "medical_concept_synonyms", "source_version", "VARCHAR(64)");
+
+            addColumnIfNotExists(stmt, "terminology_mappings", "mapping_provenance", "VARCHAR(255)");
+            addColumnIfNotExists(stmt, "terminology_mappings", "jurisdiction", "VARCHAR(32) DEFAULT 'GLOBAL'");
+            addColumnIfNotExists(stmt, "terminology_mappings", "status", "VARCHAR(32) DEFAULT 'VALID'");
+
+            createIndexIfNotExists(stmt, "idx_raw_src_ver", "raw_source_artifacts", "source_id, version");
+            createIndexIfNotExists(stmt, "idx_raw_hash", "raw_source_artifacts", "artifact_hash");
+            createIndexIfNotExists(stmt, "idx_evid_topic", "clinical_evidence_records", "topic");
+            createIndexIfNotExists(stmt, "idx_evid_source", "clinical_evidence_records", "source");
+            createIndexIfNotExists(stmt, "idx_evid_jurisdiction", "clinical_evidence_records", "jurisdiction");
+            createIndexIfNotExists(stmt, "idx_evid_status", "clinical_evidence_records", "status");
 
             System.out.println("SCHEMA MIGRATION: Schema migration executed successfully!");
         } catch (Exception e) {

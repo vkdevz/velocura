@@ -6,16 +6,24 @@ public enum MedicalConceptType {
     SYMPTOM,
     SIGN,
     FINDING,
-    BODY_SITE,
+    ANATOMY,
+    BODY_SITE, // Retained for backward compatibility
+    PROCEDURE,
     MEDICATION,
     ACTIVE_INGREDIENT,
+    MEDICATION_PRODUCT,
     LAB_TEST,
     BIOMARKER,
-    PROCEDURE,
+    PHENOTYPE,
     RISK_FACTOR,
-    CAUSE,
     COMPLICATION,
+    ADVERSE_EFFECT,
     ALLERGY,
+    CONTRAINDICATION,
+    GUIDELINE_CONCEPT,
+    EVIDENCE_CONCEPT,
+    CAUSE,
     CONDITION,
     OTHER
 }
+

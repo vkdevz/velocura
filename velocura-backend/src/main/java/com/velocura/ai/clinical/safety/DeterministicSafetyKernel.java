@@ -24,12 +24,12 @@ public class DeterministicSafetyKernel {
 
     // Adversarial prompt injection patterns
     private static final Pattern PROMPT_INJECTION_PATTERN = Pattern.compile(
-        "(?i)\\b(ignore\\s+(all\\s+)?(previous|prior|clinical)?\\s*(safety|rules|instructions|guidelines)?|pretend\\s+(to\\s+be|there\\s+are\\s+no\\s+allergies)|override\\s+(the\\s+)?safety|bypass\\s+(the\\s+)?rules|output\\s+(a\\s+)?prescription\\s+directly|disregard\\s+safety|jailbreak|system\\s+prompt|\\bdan\\b|unrestricted\\s+(ai|doctor|physician|assistant))\\b"
+        "(?i)\\b(ignore\\s+(all\\s+)?(previous|prior|clinical)?\\s*(safety|rules|instructions|guidelines)?|pretend\\s+(you\\s+are|to\\s+be|there\\s+are\\s+no\\s+allergies)|override\\s+(the\\s+)?safety|bypass\\s+(the\\s+)?rules|output\\s+(a\\s+)?prescription\\s+directly|disregard\\s+safety|jailbreak|system\\s+prompt|dan\\b|unrestricted\\s+(ai|doctor|physician|assistant))\\b"
     );
 
     // Autonomous prescription prevention pattern
     private static final Pattern PRESCRIPTION_CLAIM_PATTERN = Pattern.compile(
-        "(?i)\\b(i\\s+(will\\s+)?(write|issue|give)\\s+(you\\s+)?(a\\s+)?prescription|here\\s+is\\s+your\\s+prescription|i\\s+prescribe\\b|prescribing\\s+\\d+\\s*(mg|g|ml)|write\\s+you\\s+a\\s+prescription)\\b"
+        "(?i)\\b(i\\s+(will\\s+)?(write|issue|give|prescribe)\\s+(you\\s+)?(a\\s+)?(prescription)?|here\\s+is\\s+your\\s+prescription|i\\s+prescribe\\b|prescribing\\s+\\d+\\s*(mg|g|ml)|write\\s+you\\s+a\\s+prescription)\\b"
     );
 
     // Medication detection patterns for safety checking

@@ -44,5 +44,14 @@ public class KnowledgeImportBatchRequest {
     @Builder.Default
     private com.velocura.medicalknowledge.model.DatasetCategory datasetCategory = com.velocura.medicalknowledge.model.DatasetCategory.OTHER;
 
+    private Integer sourceRecordsRead;
+    private String artifactChecksum;
+    private String sourceUri;
+    private String license;
+    private String intendedUse;
+
+    @Builder.Default
+    private Boolean licenseVerified = false;
+
     private String summaryNotes;
 }

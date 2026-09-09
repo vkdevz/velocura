@@ -38,18 +38,21 @@ public class PrescriptionController {
     private final UserRepository userRepository;
     private final ChatService chatService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final com.velocura.service.AuditService auditService;
 
     public PrescriptionController(
             @Qualifier("chatPrescriptionRepository") PrescriptionRepository prescriptionRepository,
             ConversationRepository conversationRepository,
             UserRepository userRepository,
             ChatService chatService,
-            SimpMessagingTemplate messagingTemplate) {
+            SimpMessagingTemplate messagingTemplate,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) com.velocura.service.AuditService auditService) {
         this.prescriptionRepository = prescriptionRepository;
         this.conversationRepository = conversationRepository;
         this.userRepository = userRepository;
         this.chatService = chatService;
         this.messagingTemplate = messagingTemplate;
+        this.auditService = auditService;
     }
 
     @PostMapping
@@ -89,6 +92,9 @@ public class PrescriptionController {
         prescription.setDiagnosis(request.getDiagnosis());
         prescription.setNotes(request.getNotes());
         prescription.setIssuedAt(LocalDateTime.now());
+        prescription.setStatus(com.velocura.model.PrescriptionStatus.SIGNED);
+        prescription.setAuthorizedByClinicianId(doctorUser.getId());
+        prescription.setAuthorizedAt(LocalDateTime.now());
 
         if (request.getItems() != null && !request.getItems().isEmpty()) {
             List<PrescriptionItem> items = new ArrayList<>();
@@ -106,6 +112,21 @@ public class PrescriptionController {
         }
 
         Prescription saved = prescriptionRepository.save(prescription);
+
+        if (auditService != null) {
+            auditService.logClinicalEvent(
+                    doctorUser.getId(),
+                    doctorUser.getEmail(),
+                    doctorUser.getRole().name(),
+                    "PRESCRIPTION_AUTHORIZATION",
+                    "CREATE_PRESCRIPTION",
+                    "Prescription",
+                    String.valueOf(saved.getId()),
+                    saved.getVersion(),
+                    "SUCCESS",
+                    "Clinician authorized and issued prescription for conversation " + conversation.getId()
+            );
+        }
 
         // Broadcast a PRESCRIPTION type message into the conversation
         try {

@@ -41,7 +41,7 @@ public class SafetyScreeningEngine {
     );
 
     private static final Pattern ANAPHYLAXIS = Pattern.compile(
-        "(?i)\\b(anaphylaxis|severe\\s*allergic\\s*reaction|throat\\s*(closing|swelling)|(tongue|lip|lips)\\s*swelling|swollen\\s*(tongue|lip|lips|throat)|wheezing\\s*after\\s*(medication|medicine|pill|drug|taking)|(breathing\\s*difficulty|shortness\\s*of\\s*breath)\\s*after\\s*(exposure|medication|medicine|sting|bite|eating|food)|allergic\\s*reaction.*(breathe|swallow|throat|tongue|lip)|can't\\s*swallow.*allergic)\\b"
+        "(?i)\\b(anaphylaxis|severe\\s*allergic\\s*reaction|throat\\s*(closing|swelling)|(tongue|lip|lips|throat)\\s*(is\\s*)?(swelling|swollen)|swollen\\s*(tongue|lip|lips|throat)|wheezing\\s*after\\s*(medication|medicine|pill|drug|taking)|(breathing\\s*difficulty|shortness\\s*of\\s*breath)\\s*after\\s*(exposure|medication|medicine|sting|bite|eating|food)|allergic\\s*reaction.*(breathe|swallow|throat|tongue|lip)|can't\\s*swallow.*allergic)\\b"
     );
 
     private static final Pattern BLEEDING_EMERGENCY = Pattern.compile(
@@ -54,6 +54,18 @@ public class SafetyScreeningEngine {
 
     private static final Pattern MENINGITIS_SIGNS = Pattern.compile(
         "(?i)\\b(stiff\\s*neck.*(fever|high\\s*temp)|fever.*(stiff\\s*neck|neck\\s*rigidity|photophobia|rash\\s*won't\\s*fade|glass\\s*test))\\b"
+    );
+
+    private static final Pattern SEPSIS_SIGNS = Pattern.compile(
+        "(?i)\\b(sepsis|septic\\s*shock|shivering\\s*violently.*fever|(high\\s*fever|chills).*confus(ed|ion)|fever.*(can't\\s*wake|unresponsive|lethargic|clammy|mottled\\s*skin|extreme\\s*shivering))\\b"
+    );
+
+    private static final Pattern HYPOGLYCEMIA_SIGNS = Pattern.compile(
+        "(?i)\\b(severe\\s*hypoglycemia|sugar\\s*(crashed|dropped|critically\\s*low)|low\\s*blood\\s*sugar.*(confus|dizzy|shak|sweat|pass(ed)?\\s*out)|diabetic.*(unresponsive|passed\\s*out|seizure|shaking\\s*sweat))\\b"
+    );
+
+    private static final Pattern HYPERGLYCEMIA_DKA_SIGNS = Pattern.compile(
+        "(?i)\\b(diabetic\\s*ketoacidosis|dka|(high\\s*(blood\\s*)?sugar|sugar\\s*(is\\s*)?(very\\s*)?high).*(fruity|kussmaul|vomiting|breath|confus)|(fruity\\s*breath|breath\\s*(smells?\\s*)?fruity))\\b"
     );
 
     /**
@@ -102,7 +114,18 @@ public class SafetyScreeningEngine {
             );
         }
 
-        // 4. Severe Respiratory Distress
+        // 4. Anaphylaxis (Airway Compromise)
+        if (ANAPHYLAXIS.matcher(text).find()) {
+            redFlags.add("Severe systemic allergic reaction / airway compromise");
+            return buildEmergencyResponse(
+                "Suspected anaphylactic reaction.",
+                "If an epinephrine auto-injector (EpiPen) is available, administer it as prescribed and seek emergency assistance immediately. "
+                    + getEmergencyContactInstruction(patientContext, false),
+                redFlags
+            );
+        }
+
+        // 5. Severe Respiratory Distress
         if (RESPIRATORY_EMERGENCY.matcher(text).find()) {
             redFlags.add("Severe respiratory compromise or cyanosis");
             return buildEmergencyResponse(
@@ -113,7 +136,7 @@ public class SafetyScreeningEngine {
             );
         }
 
-        // 5. Stroke / Acute Neurological Signs
+        // 6. Stroke / Acute Neurological Signs
         if (NEURO_STROKE_EMERGENCY.matcher(text).find()) {
             redFlags.add("Acute focal neurological deficits (FAST stroke criteria)");
             return buildEmergencyResponse(
@@ -124,23 +147,12 @@ public class SafetyScreeningEngine {
             );
         }
 
-        // 6. Loss of Consciousness / Seizure
+        // 7. Loss of Consciousness / Seizure
         if (CONSCIOUSNESS_SEIZURE.matcher(text).find()) {
             redFlags.add("Loss of consciousness, syncope, or active seizure");
             return buildEmergencyResponse(
                 "Loss of consciousness or acute seizure activity.",
                 "Place the person in a safe recovery position on their side away from sharp objects. Do not place anything in their mouth. "
-                    + getEmergencyContactInstruction(patientContext, false),
-                redFlags
-            );
-        }
-
-        // 7. Anaphylaxis
-        if (ANAPHYLAXIS.matcher(text).find()) {
-            redFlags.add("Severe systemic allergic reaction / airway compromise");
-            return buildEmergencyResponse(
-                "Suspected anaphylactic reaction.",
-                "If an epinephrine auto-injector (EpiPen) is available, administer it as prescribed and seek emergency assistance immediately. "
                     + getEmergencyContactInstruction(patientContext, false),
                 redFlags
             );
@@ -194,6 +206,39 @@ public class SafetyScreeningEngine {
                     redFlags
                 );
             }
+        }
+
+        // 12. Sepsis / Septic Shock (qSOFA criteria)
+        if (SEPSIS_SIGNS.matcher(text).find()) {
+            redFlags.add("Acute sepsis warning signs (severe rigors/chills, confusion, extreme lethargy)");
+            return buildEmergencyResponse(
+                "Suspected systemic sepsis.",
+                "Sepsis is a life-threatening medical emergency. Seek emergency hospital care immediately. "
+                    + getEmergencyContactInstruction(patientContext, false),
+                redFlags
+            );
+        }
+
+        // 13. Severe Hypoglycemia
+        if (HYPOGLYCEMIA_SIGNS.matcher(text).find()) {
+            redFlags.add("Critical hypoglycemia / diabetic neuroglycopenic emergency");
+            return buildEmergencyResponse(
+                "Critical hypoglycemia emergency.",
+                "Consume fast-acting simple carbohydrates (fruit juice, glucose tablets, honey) immediately if awake and able to swallow. Seek emergency medical care if unresponsive or seizing. "
+                    + getEmergencyContactInstruction(patientContext, false),
+                redFlags
+            );
+        }
+
+        // 14. Severe Hyperglycemia / Diabetic Ketoacidosis (DKA)
+        if (HYPERGLYCEMIA_DKA_SIGNS.matcher(text).find()) {
+            redFlags.add("Suspected diabetic ketoacidosis (DKA) / hyperosmolar emergency");
+            return buildEmergencyResponse(
+                "Suspected diabetic ketoacidosis.",
+                "Diabetic ketoacidosis requires urgent intravenous hydration and electrolyte management in an emergency center. "
+                    + getEmergencyContactInstruction(patientContext, false),
+                redFlags
+            );
         }
 
         return SafetyScreeningResult.safe();

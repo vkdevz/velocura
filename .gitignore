@@ -17,6 +17,9 @@ logs/
 *.trace.db
 *.lock.db
 query.sql
+*.tar
+*.dump
+*.sql.gz
 
 # Editor & OS files
 .vscode/

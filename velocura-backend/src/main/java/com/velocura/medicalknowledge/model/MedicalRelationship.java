@@ -53,6 +53,16 @@ public class MedicalRelationship {
     @Builder.Default
     private EvidenceLevel evidenceLevel = EvidenceLevel.UNKNOWN;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "assertion_type", length = 32)
+    @Builder.Default
+    private AssertionType assertionType = AssertionType.SOURCE_FACT;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "provenance_class", nullable = false, length = 32)
+    @Builder.Default
+    private ProvenanceClass provenanceClass = ProvenanceClass.REAL_AUTHORITATIVE;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_id")
     private KnowledgeSource source;
@@ -72,6 +82,25 @@ public class MedicalRelationship {
 
     @Column(name = "batch_id", length = 64)
     private String batchId;
+
+    @Column(name = "population", length = 128)
+    private String population;
+
+    @Column(name = "age_min_years")
+    private Integer ageMinYears;
+
+    @Column(name = "age_max_years")
+    private Integer ageMaxYears;
+
+    @Column(name = "sex_applicability", length = 16)
+    @Builder.Default
+    private String sexApplicability = "ALL";
+
+    @Column(name = "guideline_reference", length = 255)
+    private String guidelineReference;
+
+    @Column(name = "evidence_strength", length = 32)
+    private String evidenceStrength;
 
     @Column(name = "valid_from")
     private LocalDate validFrom;

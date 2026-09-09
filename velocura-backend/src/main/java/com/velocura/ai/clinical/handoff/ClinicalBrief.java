@@ -84,6 +84,19 @@ public class ClinicalBrief implements Serializable {
     @Builder.Default
     private List<String> evidenceReferences = new ArrayList<>();
 
+    private String currentEpisodeId;
+    @Builder.Default
+    private List<String> contradictions = new ArrayList<>();
+    @Builder.Default
+    private List<String> criticalUnknowns = new ArrayList<>();
+    private String nextBestQuestionText;
+    private com.velocura.ai.clinical.engine.NextBestAction nextBestAction;
+    private String knowledgeSnapshotId;
+    private String provenanceSummary;
+    @Builder.Default
+    private String clinicianReviewDisclaimer = "THIS IS AN INTERMEDIATE CLINICAL SUMMARY GENERATED FROM STRUCTURED STATE. IT DOES NOT CONSTITUTE A CONFIRMED DIAGNOSIS OR PRESCRIPTION. INDEPENDENT PHYSICIAN REVIEW, CLINICAL EVALUATION, AND DIRECT PATIENT ASSESSMENT ARE MANDATORY PRIOR TO ANY MEDICAL INTERVENTION OR ORDER.";
+    private com.velocura.ai.clinical.engine.ClinicalReasoningResult reasoningResult;
+
     @Builder.Default
     private LocalDateTime generatedAt = LocalDateTime.now();
 }

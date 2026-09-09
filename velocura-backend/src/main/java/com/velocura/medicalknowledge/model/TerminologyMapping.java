@@ -47,6 +47,21 @@ public class TerminologyMapping {
     @Builder.Default
     private MappingType mappingType = MappingType.EXACT_MATCH;
 
+    @Column(name = "mapping_provenance", length = 255)
+    private String mappingProvenance;
+
+    @Column(name = "mapping_version", length = 32)
+    private String mappingVersion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    @Builder.Default
+    private Jurisdiction jurisdiction = Jurisdiction.GLOBAL;
+
+    @Column(name = "status", length = 32)
+    @Builder.Default
+    private String status = "VALID";
+
     @Builder.Default
     private Double confidence = 1.0;
 

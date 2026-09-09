@@ -35,7 +35,22 @@ public class RelationshipImportDto {
     private EvidenceLevel evidenceLevel = EvidenceLevel.UNKNOWN;
 
     @Builder.Default
+    private com.velocura.medicalknowledge.model.AssertionType assertionType = com.velocura.medicalknowledge.model.AssertionType.SOURCE_FACT;
+
+    @Builder.Default
     private Jurisdiction jurisdiction = Jurisdiction.GLOBAL;
 
+    @Builder.Default
+    private com.velocura.medicalknowledge.model.ProvenanceClass provenanceClass = com.velocura.medicalknowledge.model.ProvenanceClass.REAL_AUTHORITATIVE;
+
+    private String population;
+    private Integer ageMinYears;
+    private Integer ageMaxYears;
+
+    @Builder.Default
+    private String sexApplicability = "ALL";
+
+    private String guidelineReference;
+    private String evidenceStrength;
     private String metadataJson;
 }

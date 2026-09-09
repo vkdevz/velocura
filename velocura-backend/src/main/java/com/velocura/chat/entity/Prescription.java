@@ -40,6 +40,19 @@ public class Prescription {
     @OneToMany(mappedBy = "prescription", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PrescriptionItem> items = new ArrayList<>();
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private com.velocura.model.PrescriptionStatus status = com.velocura.model.PrescriptionStatus.SIGNED;
+
+    @Column(name = "authorized_by_clinician_id")
+    private Long authorizedByClinicianId;
+
+    @Column(name = "authorized_at")
+    private LocalDateTime authorizedAt;
+
+    @Version
+    private Long version;
+
     @Column(name = "issued_at", nullable = false)
     private LocalDateTime issuedAt = LocalDateTime.now();
 }

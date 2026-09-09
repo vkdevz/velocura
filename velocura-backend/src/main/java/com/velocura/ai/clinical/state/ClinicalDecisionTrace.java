@@ -41,5 +41,11 @@ public class ClinicalDecisionTrace implements Serializable {
     private String safetyKernelStatus; // ALLOW, MODIFY, BLOCK, ESCALATE
 
     @Builder.Default
+    private String knowledgeSnapshotId = "SNAP-GLOBAL-AUTHORITATIVE";
+
+    @Builder.Default
+    private String engineVersion = "2.0.0";
+
+    @Builder.Default
     private long timestamp = System.currentTimeMillis();
 }

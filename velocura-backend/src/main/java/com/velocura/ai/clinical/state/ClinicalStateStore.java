@@ -68,37 +68,29 @@ public class ClinicalStateStore {
         if (sessionId == null || sessionId.isBlank()) return null;
 
         ClinicalConversationState cached = stateCache.get(sessionId);
-        if (cached != null) {
-            return cached;
-        }
 
-        // Attempt recovery from durable database persistence
+        // Check authoritative database store for multi-instance distributed correctness (Section 9, 37)
         if (sessionRepository != null) {
             try {
                 Optional<PersistentClinicalSession> sessionOpt = sessionRepository.findById(sessionId);
                 if (sessionOpt.isPresent()) {
                     PersistentClinicalSession persistent = sessionOpt.get();
-                    ClinicalConversationState restored = objectMapper.readValue(
-                            persistent.getStateJson(), ClinicalConversationState.class);
-                    stateCache.put(sessionId, restored);
-                    log.info("Restored clinical conversation state from persistent storage: {}", sessionId);
-                    return restored;
+                    if (cached == null || persistent.getLastUpdated() > cached.getLastUpdated()) {
+                        ClinicalConversationState restored = objectMapper.readValue(
+                                persistent.getStateJson(), ClinicalConversationState.class);
+                        stateCache.put(sessionId, restored);
+                        return restored;
+                    }
                 }
             } catch (Exception e) {
                 log.warn("Could not deserialize persistent clinical session {}: {}", sessionId, e.getMessage());
             }
         }
-        return null;
+        return cached;
     }
 
     public ClinicalConversationState findLatestByPatientId(Long patientId) {
         if (patientId == null) return null;
-        ClinicalConversationState latestInCache = stateCache.values().stream()
-                .filter(s -> patientId.equals(s.getPatientId()))
-                .max((a, b) -> Long.compare(a.getLastUpdated(), b.getLastUpdated()))
-                .orElse(null);
-        if (latestInCache != null) return latestInCache;
-
         if (sessionRepository != null) {
             try {
                 Optional<PersistentClinicalSession> sessionOpt = sessionRepository.findTopByPatientIdOrderByLastUpdatedDesc(patientId);
@@ -110,17 +102,14 @@ public class ClinicalStateStore {
                 }
             } catch (Exception ignored) {}
         }
-        return null;
+        return stateCache.values().stream()
+                .filter(s -> patientId.equals(s.getPatientId()))
+                .max((a, b) -> Long.compare(a.getLastUpdated(), b.getLastUpdated()))
+                .orElse(null);
     }
 
     public ClinicalConversationState findLatestByPatientEmail(String email) {
         if (email == null || email.isBlank()) return null;
-        ClinicalConversationState latestInCache = stateCache.values().stream()
-                .filter(s -> email.equalsIgnoreCase(s.getPatientEmail()))
-                .max((a, b) -> Long.compare(a.getLastUpdated(), b.getLastUpdated()))
-                .orElse(null);
-        if (latestInCache != null) return latestInCache;
-
         if (sessionRepository != null) {
             try {
                 Optional<PersistentClinicalSession> sessionOpt = sessionRepository.findTopByPatientEmailIgnoreCaseOrderByLastUpdatedDesc(email);
@@ -132,39 +121,84 @@ public class ClinicalStateStore {
                 }
             } catch (Exception ignored) {}
         }
-        return null;
+        return stateCache.values().stream()
+                .filter(s -> email.equalsIgnoreCase(s.getPatientEmail()))
+                .max((a, b) -> Long.compare(a.getLastUpdated(), b.getLastUpdated()))
+                .orElse(null);
     }
 
     public void save(ClinicalConversationState state) {
-        if (state == null || state.getConversationId() == null) return;
-        synchronized (state.getConversationId().intern()) {
-            state.setLastUpdated(System.currentTimeMillis());
-            stateCache.put(state.getConversationId(), state);
+        saveWithOptimisticLockCheck(state, -1);
+    }
 
-            if (sessionRepository != null) {
-                try {
-                    String json = objectMapper.writeValueAsString(state);
-                    PersistentClinicalSession persistent = sessionRepository.findById(state.getConversationId()).orElse(null);
-                    if (persistent != null) {
-                        persistent.setPatientId(state.getPatientId());
-                        persistent.setPatientEmail(state.getPatientEmail());
-                        persistent.setStateJson(json);
-                        persistent.setLastUpdated(state.getLastUpdated());
-                        sessionRepository.save(persistent);
-                    } else {
-                        sessionRepository.save(PersistentClinicalSession.builder()
-                                .sessionId(state.getConversationId())
-                                .patientId(state.getPatientId())
-                                .patientEmail(state.getPatientEmail())
-                                .stateJson(json)
-                                .lastUpdated(state.getLastUpdated())
-                                .build());
+    public void saveWithOptimisticLockCheck(ClinicalConversationState state, int expectedStateVersion) {
+        if (state == null || state.getConversationId() == null) return;
+
+        state.setLastUpdated(System.currentTimeMillis());
+
+        if (sessionRepository != null) {
+            try {
+                Optional<PersistentClinicalSession> persistentOpt = sessionRepository.findById(state.getConversationId());
+                PersistentClinicalSession persistent;
+                if (persistentOpt.isPresent()) {
+                    persistent = persistentOpt.get();
+                    if (expectedStateVersion >= 0) {
+                        try {
+                            ClinicalConversationState currentDbState = objectMapper.readValue(
+                                    persistent.getStateJson(), ClinicalConversationState.class);
+                            if (currentDbState != null && currentDbState.getStateVersion() != expectedStateVersion) {
+                                stateCache.put(state.getConversationId(), currentDbState);
+                                throw new ClinicalStateVersionConflictException(
+                                        state.getConversationId(), expectedStateVersion, currentDbState.getStateVersion());
+                            }
+                        } catch (ClinicalStateVersionConflictException csve) {
+                            throw csve;
+                        } catch (Exception ex) {
+                            log.warn("Failed to check state version from database: {}", ex.getMessage());
+                        }
                     }
-                } catch (Exception e) {
-                    log.warn("Could not persist clinical conversation state {}: {}", state.getConversationId(), e.getMessage());
+                } else {
+                    persistent = new PersistentClinicalSession();
+                    persistent.setSessionId(state.getConversationId());
                 }
+
+                String json = objectMapper.writeValueAsString(state);
+                persistent.setPatientId(state.getPatientId());
+                persistent.setPatientEmail(state.getPatientEmail());
+                persistent.setStateJson(json);
+                persistent.setLastUpdated(state.getLastUpdated());
+                sessionRepository.save(persistent);
+            } catch (ClinicalStateVersionConflictException csve) {
+                throw csve;
+            } catch (org.springframework.dao.OptimisticLockingFailureException | jakarta.persistence.OptimisticLockException ole) {
+                if (expectedStateVersion >= 0) {
+                    throw new ClinicalStateVersionConflictException(
+                            state.getConversationId(), expectedStateVersion, expectedStateVersion + 1);
+                } else {
+                    try {
+                        Optional<PersistentClinicalSession> retryOpt = sessionRepository.findById(state.getConversationId());
+                        if (retryOpt.isPresent()) {
+                            PersistentClinicalSession retry = retryOpt.get();
+                            retry.setStateJson(objectMapper.writeValueAsString(state));
+                            retry.setLastUpdated(state.getLastUpdated());
+                            sessionRepository.save(retry);
+                        }
+                    } catch (Exception ex) {
+                        log.warn("Could not retry saving clinical session {}: {}", state.getConversationId(), ex.getMessage());
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Could not persist clinical conversation state {}: {}", state.getConversationId(), e.getMessage());
+            }
+        } else if (expectedStateVersion >= 0) {
+            ClinicalConversationState current = stateCache.get(state.getConversationId());
+            if (current != null && current.getStateVersion() != expectedStateVersion) {
+                throw new ClinicalStateVersionConflictException(
+                        state.getConversationId(), expectedStateVersion, current.getStateVersion());
             }
         }
+
+        stateCache.put(state.getConversationId(), state);
     }
 
     public void clear(String sessionId) {

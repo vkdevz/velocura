@@ -80,11 +80,25 @@ public class ChatController {
                         state.setPatientEmail(request.getPatientEmail());
                     }
                 } else {
+                    // BOLA / IDOR Check: Prevent cross-patient session hijacking
+                    if (state.getPatientEmail() != null && !state.getPatientEmail().isBlank()
+                            && !state.getPatientEmail().equalsIgnoreCase(authEmail)) {
+                        log.warn("[SECURITY / IDOR] Patient {} attempted to access session owned by {}", authEmail, state.getPatientEmail());
+                        return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+                    }
+                    if (userRepository != null) {
+                        java.util.Optional<com.velocura.model.User> callerUser = userRepository.findByEmailIgnoreCase(authEmail);
+                        if (callerUser.isPresent()) {
+                            Long callerId = callerUser.get().getId();
+                            if (state.getPatientId() != null && !state.getPatientId().equals(callerId)) {
+                                log.warn("[SECURITY / IDOR] Patient ID {} attempted to access session owned by patient ID {}", callerId, state.getPatientId());
+                                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+                            }
+                            state.setPatientId(callerId);
+                        }
+                    }
                     // Standard Patient: Strictly bind to authenticated identity; ignore client-supplied spoofed patientId
                     state.setPatientEmail(authEmail);
-                    if (userRepository != null) {
-                        userRepository.findByEmailIgnoreCase(authEmail).ifPresent(u -> state.setPatientId(u.getId()));
-                    }
                 }
             } else if (authentication != null && "anonymousUser".equals(authentication.getPrincipal())) {
                 // Explicitly unauthenticated HTTP request: Clear any client-supplied spoofed patient context to prevent PHI leakage
@@ -151,11 +165,6 @@ public class ChatController {
             response.setErrorMessage("Unexpected error. Please try again.");
             return ResponseEntity.status(500).body(response);
         }
-    }
-
-    @GetMapping("/health")
-    public ResponseEntity<String> health() {
-        return ResponseEntity.ok("VeloCura OK");
     }
 
     @GetMapping("/clinical/status")

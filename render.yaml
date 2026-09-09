@@ -13,9 +13,7 @@ services:
       - key: PORT
         value: 8080
       - key: DB_URL
-        fromDatabase:
-          name: velocura-postgres
-          property: connectionString
+        sync: false
       - key: DB_DRIVER
         value: org.postgresql.Driver
       - key: JWT_SECRET
@@ -40,12 +38,3 @@ services:
         value: https://velocura.onrender.com
       - key: BACKEND_URL
         value: https://velocura.onrender.com
-
-databases:
-  # ============================================================================
-  # MANAGED POSTGRESQL DATABASE (PERSISTENT STORAGE)
-  # ============================================================================
-  - name: velocura-postgres
-    plan: free
-    databaseName: velocura_db
-    user: velocura_user

@@ -129,10 +129,47 @@ public class ClinicalConversationState implements Serializable {
     private List<StateChangeDiff> changeHistory = new ArrayList<>();
 
     @Builder.Default
+    private String activeSnapshotId = "SNAP-GLOBAL-AUTHORITATIVE";
+
+    @Builder.Default
+    private String currentEpisodeId = "EP-INITIAL";
+
+    @Builder.Default
+    private List<String> persistentConditions = new ArrayList<>();
+
+    @Builder.Default
+    private List<String> historicalEpisodeSummaries = new ArrayList<>();
+
+    @Builder.Default
     private Set<String> askedQuestionIds = new HashSet<>();
 
     @Builder.Default
     private Set<String> askedDimensions = new HashSet<>();
+
+    /**
+     * Resolves the current episode and transitions cleanly to a new acute episode,
+     * maintaining strict episodic isolation (Section 23).
+     */
+    public void startNewEpisode(String newChiefConcern) {
+        String concluded = (this.chiefConcern != null && !this.chiefConcern.isBlank())
+                ? this.chiefConcern
+                : (this.symptoms != null && !this.symptoms.isEmpty() ? String.join(", ", this.symptoms.keySet()) : "Prior concern");
+        if (this.historicalEpisodeSummaries == null) this.historicalEpisodeSummaries = new ArrayList<>();
+        String summary = String.format("Episode '%s' (trajectory: %s, risk: %s) concluded.",
+                concluded, this.symptomTrajectory, this.currentRiskLevel);
+        this.historicalEpisodeSummaries.add(summary);
+
+        this.currentEpisodeId = "EP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        this.chiefConcern = newChiefConcern;
+        this.symptomTrajectory = "NEW";
+        if (this.symptoms != null) this.symptoms.clear();
+        if (this.associatedSymptoms != null) this.associatedSymptoms.clear();
+        if (this.timeline != null) this.timeline.clear();
+        if (this.redFlags != null) this.redFlags.clear();
+        this.currentRiskLevel = ClinicalRiskLevel.LOW;
+        this.currentPhase = ClinicalPhase.SCREENING;
+        this.lastUpdated = System.currentTimeMillis();
+    }
 
     public void recordStateChange(StateChangeDiff diff) {
         if (diff == null) return;

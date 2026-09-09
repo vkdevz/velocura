@@ -159,6 +159,32 @@ public class ClinicalBriefService {
             evidenceList.addAll(medSafety.getEvidenceReferences());
         }
 
+        List<String> contradictionsList = new ArrayList<>();
+        if (state.getContradictions() != null) {
+            for (com.velocura.ai.clinical.state.ClinicalContradiction c : state.getContradictions()) {
+                contradictionsList.add(c.getTopic() + ": " + c.getEarlierStatement() + " vs " + c.getLaterStatement());
+            }
+        }
+
+        List<String> critUnknowns = new ArrayList<>();
+        if (diag != null && diag.getCriticalUnknowns() != null) {
+            for (com.velocura.ai.clinical.diagnostic.dto.CriticalUnknownFeature u : diag.getCriticalUnknowns()) {
+                critUnknowns.add(u.getFeatureName() + " (" + u.getRationale() + ")");
+            }
+        }
+
+        List<String> allRedFlags = new ArrayList<>();
+        if (state.getRedFlags() != null) {
+            allRedFlags.addAll(state.getRedFlags());
+        }
+        if (state.getRiskAssessment() != null && state.getRiskAssessment().getRedFlags() != null) {
+            for (String rf : state.getRiskAssessment().getRedFlags()) {
+                if (!allRedFlags.contains(rf)) {
+                    allRedFlags.add(rf);
+                }
+            }
+        }
+
         return ClinicalBrief.builder()
                 .sessionId(state.getConversationId())
                 .patientIdentifier(state.getConversationId())
@@ -174,7 +200,7 @@ public class ClinicalBriefService {
                 .currentMedications(meds)
                 .documentedAllergies(allergies)
                 .riskFactors(state.getRiskAssessment() != null ? state.getRiskAssessment().getRiskFactors() : new ArrayList<>())
-                .redFlagsChecked(state.getRedFlags() != null ? new ArrayList<>(state.getRedFlags()) : new ArrayList<>())
+                .redFlagsChecked(allRedFlags)
                 .currentRiskLevel(state.getCurrentRiskLevel())
                 .differentialHypotheses(hypotheses)
                 .remainingUncertainties(uncertainties)
@@ -188,6 +214,13 @@ public class ClinicalBriefService {
                 .medicationSafetyAssessment(medSafety)
                 .labAssessmentReport(labReport)
                 .evidenceReferences(evidenceList.stream().distinct().collect(java.util.stream.Collectors.toList()))
+                .currentEpisodeId(state.getCurrentEpisodeId())
+                .knowledgeSnapshotId(state.getActiveSnapshotId())
+                .contradictions(contradictionsList)
+                .criticalUnknowns(critUnknowns)
+                .nextBestQuestionText(state.getLastQuestion())
+                .provenanceSummary("MKE-STAGE-1-AUTHORITATIVE / LOCAL-CURATED")
+                .clinicianReviewDisclaimer("THIS IS AN INTERMEDIATE CLINICAL SUMMARY GENERATED FROM STRUCTURED STATE. IT DOES NOT CONSTITUTE A CONFIRMED DIAGNOSIS OR PRESCRIPTION. INDEPENDENT PHYSICIAN REVIEW, CLINICAL EVALUATION, AND DIRECT PATIENT ASSESSMENT ARE MANDATORY PRIOR TO ANY MEDICAL INTERVENTION OR ORDER.")
                 .generatedAt(LocalDateTime.now())
                 .build();
     }

@@ -55,6 +55,15 @@ public class DatabaseEnvironmentPostProcessor implements EnvironmentPostProcesso
                         }
                     }
 
+                    // Sanitize parameters like channel_binding that may not be standard in all JDBC driver versions
+                    hostAndPortAndDb = hostAndPortAndDb.replaceAll("(?i)[&?]channel_binding=[^&]*", "");
+                    if (hostAndPortAndDb.contains("?&")) {
+                        hostAndPortAndDb = hostAndPortAndDb.replace("?&", "?");
+                    }
+                    if (hostAndPortAndDb.endsWith("?")) {
+                        hostAndPortAndDb = hostAndPortAndDb.substring(0, hostAndPortAndDb.length() - 1);
+                    }
+
                     String jdbcUrl = "jdbc:postgresql://" + hostAndPortAndDb;
 
                     targetProps.put("spring.datasource.url", jdbcUrl);

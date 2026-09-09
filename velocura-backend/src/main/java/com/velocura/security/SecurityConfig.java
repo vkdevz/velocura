@@ -26,6 +26,9 @@ import java.util.List;
 public class SecurityConfig {
 
     @Autowired(required = false)
+    private CorrelationIdFilter correlationIdFilter;
+
+    @Autowired(required = false)
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Autowired(required = false)
@@ -55,8 +58,8 @@ public class SecurityConfig {
             "https://*.vercel.app"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
-        configuration.setExposedHeaders(List.of("Authorization", "Content-Type", "Retry-After"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers", "X-Correlation-ID"));
+        configuration.setExposedHeaders(List.of("Authorization", "Content-Type", "Retry-After", "X-Correlation-ID"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
@@ -92,7 +95,7 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 // Public unauthenticated routes
-                .requestMatchers("/api/auth/**", "/api/chat", "/api/chat/**", "/api/clinical/status", "/api/health", "/favicon.ico", "/", "/.well-known/**").permitAll()
+                .requestMatchers("/api/auth/**", "/api/chat", "/api/chat/**", "/api/clinical/status", "/api/health", "/api/health/**", "/favicon.ico", "/", "/.well-known/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
 
                 // Protected Clinical PHI routes
@@ -125,6 +128,9 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             );
 
+        if (correlationIdFilter != null) {
+            http.addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class);
+        }
         if (rateLimitingFilter != null) {
             http.addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class);
         }

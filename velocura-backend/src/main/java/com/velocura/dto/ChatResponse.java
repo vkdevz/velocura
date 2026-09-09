@@ -25,4 +25,11 @@ public class ChatResponse {
     private boolean isEmergency;
     private String patientRelationship;
     private String riskLevel;
+
+    // Stage 2 additive clinical decision engine fields
+    private com.velocura.ai.clinical.engine.ClinicalReasoningResult reasoningResult;
+    private com.velocura.ai.clinical.engine.NextBestQuestion nextBestQuestion;
+    private com.velocura.ai.clinical.engine.NextBestAction nextBestActionDetails;
+    private String reasoningTraceId;
+    private String knowledgeSnapshotId;
 }

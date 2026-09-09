@@ -154,6 +154,8 @@ public class MedicationSafetyEngine {
         MedicationSafetyStatus overallStatus;
         if (hasCritical) {
             overallStatus = MedicationSafetyStatus.CRITICAL;
+        } else if (!contraindications.isEmpty() || allergyConflicts.stream().anyMatch(AllergyConflictFinding::isDeterministicBlockRequired)) {
+            overallStatus = MedicationSafetyStatus.CONTRAINDICATED;
         } else if (hasHigh) {
             overallStatus = MedicationSafetyStatus.HIGH_RISK;
         } else if (hasWarning) {

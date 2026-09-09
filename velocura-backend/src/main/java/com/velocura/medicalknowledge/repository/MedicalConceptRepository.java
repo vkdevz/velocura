@@ -42,5 +42,17 @@ public interface MedicalConceptRepository extends JpaRepository<MedicalConcept, 
     @Query("UPDATE MedicalConcept c SET c.status = :status WHERE c.batchId = :batchId")
     int updateStatusByBatchId(@Param("batchId") String batchId, @Param("status") ConceptStatus status);
 
+    @Query("SELECT c FROM MedicalConcept c WHERE LOWER(c.canonicalName) LIKE LOWER(CONCAT('%', :term, '%')) AND c.status = 'ACTIVE'")
+    List<MedicalConcept> searchByTerm(@Param("term") String term);
+
     long countByStatus(ConceptStatus status);
+
+    @Query("SELECT COUNT(c) FROM MedicalConcept c WHERE c.batchId = :batchId AND (c.conceptId IS NULL OR TRIM(c.conceptId) = '' OR c.canonicalName IS NULL OR TRIM(c.canonicalName) = '' OR c.conceptType IS NULL)")
+    long countMalformedByBatchId(@Param("batchId") String batchId);
+
+    @Query("SELECT COUNT(c) FROM MedicalConcept c WHERE c.batchId = :batchId AND (c.conceptId LIKE 'SYN-%' OR LOWER(c.canonicalName) LIKE '%synthetic%' OR c.provenanceClass = com.velocura.medicalknowledge.model.ProvenanceClass.SYNTHETIC_TEST_ONLY OR c.provenanceClass = com.velocura.medicalknowledge.model.ProvenanceClass.DEMO)")
+    long countSyntheticByBatchId(@Param("batchId") String batchId);
+
+    @Query("SELECT COUNT(c) FROM MedicalConcept c WHERE c.batchId = :batchId AND (c.source.sourceId = 'WHO-ICD-11-2024' OR c.source.sourceType = com.velocura.medicalknowledge.model.SourceType.WHO) AND c.provenanceClass != com.velocura.medicalknowledge.model.ProvenanceClass.REAL_AUTHORITATIVE")
+    long countWhoAttributionMismatchesByBatchId(@Param("batchId") String batchId);
 }

@@ -43,6 +43,50 @@ public class ImportBatch {
     private int recordCount = 0;
 
     @Builder.Default
+    @Column(name = "source_records_read")
+    private int sourceRecordsRead = 0;
+
+    @Builder.Default
+    @Column(name = "concepts_created")
+    private int conceptsCreated = 0;
+
+    @Builder.Default
+    @Column(name = "concepts_updated")
+    private int conceptsUpdated = 0;
+
+    @Builder.Default
+    @Column(name = "relationships_created")
+    private int relationshipsCreated = 0;
+
+    @Builder.Default
+    @Column(name = "relationships_updated")
+    private int relationshipsUpdated = 0;
+
+    @Builder.Default
+    @Column(name = "synonyms_created")
+    private int synonymsCreated = 0;
+
+    @Builder.Default
+    @Column(name = "mappings_created")
+    private int mappingsCreated = 0;
+
+    @Builder.Default
+    @Column(name = "evidence_created")
+    private int evidenceCreated = 0;
+
+    @Builder.Default
+    @Column(name = "quarantined_count")
+    private int quarantinedCount = 0;
+
+    @Builder.Default
+    @Column(name = "duplicates_count")
+    private int duplicatesCount = 0;
+
+    @Builder.Default
+    @Column(name = "derived_records_count")
+    private int derivedRecordsCount = 0;
+
+    @Builder.Default
     @Column(name = "accepted_count")
     private int acceptedCount = 0;
 

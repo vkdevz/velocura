@@ -8,6 +8,7 @@ import java.util.List;
 
 public interface AuditService {
     void logEvent(Long userId, String userEmail, String userRole, String action, String resource, String resourceId, String ipAddress, String status, String details);
+    void logClinicalEvent(Long userId, String userEmail, String userRole, String eventType, String action, String resource, String resourceId, Long version, String status, String details);
     void logSuccess(String action, String resource, String resourceId, String details);
     void logFailure(String action, String resource, String resourceId, String details);
     Page<AuditLog> getAuditLogs(Pageable pageable);

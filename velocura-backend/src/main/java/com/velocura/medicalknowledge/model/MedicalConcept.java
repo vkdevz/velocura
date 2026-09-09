@@ -56,6 +56,11 @@ public class MedicalConcept {
     @Builder.Default
     private ConceptStatus status = ConceptStatus.ACTIVE;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "provenance_class", nullable = false, length = 32)
+    @Builder.Default
+    private ProvenanceClass provenanceClass = ProvenanceClass.REAL_AUTHORITATIVE;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_id")
     private KnowledgeSource source;
@@ -85,16 +90,26 @@ public class MedicalConcept {
     private LocalDateTime updatedAt;
 
     public void addSynonym(String synonym, String language, boolean isPreferred) {
+        addSynonym(synonym, language, isPreferred, SynonymType.OFFICIAL_SYNONYM, SynonymMatchStatus.CONFIRMED);
+    }
+
+    public void addSynonym(String synonym, String language, boolean isPreferred, SynonymType type, SynonymMatchStatus matchStatus) {
         if (synonyms == null) synonyms = new ArrayList<>();
         synonyms.add(MedicalConceptSynonym.builder()
                 .concept(this)
                 .synonym(synonym)
                 .language(language != null ? language : "en")
                 .isPreferred(isPreferred)
+                .synonymType(type != null ? type : SynonymType.OFFICIAL_SYNONYM)
+                .matchStatus(matchStatus != null ? matchStatus : SynonymMatchStatus.CONFIRMED)
                 .build());
     }
 
     public void addTerminologyMapping(TerminologySystem system, String code, String display, MappingType type) {
+        addTerminologyMapping(system, code, display, type, null, Jurisdiction.GLOBAL);
+    }
+
+    public void addTerminologyMapping(TerminologySystem system, String code, String display, MappingType type, String provenance, Jurisdiction jurisdiction) {
         if (terminologyMappings == null) terminologyMappings = new ArrayList<>();
         terminologyMappings.add(TerminologyMapping.builder()
                 .concept(this)
@@ -102,7 +117,10 @@ public class MedicalConcept {
                 .code(code)
                 .display(display)
                 .mappingType(type != null ? type : MappingType.EXACT_MATCH)
+                .mappingProvenance(provenance)
+                .jurisdiction(jurisdiction != null ? jurisdiction : Jurisdiction.GLOBAL)
                 .confidence(1.0)
                 .build());
     }
 }
+
