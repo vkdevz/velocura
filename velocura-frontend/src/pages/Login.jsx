@@ -54,6 +54,7 @@ export default function Login() {
   }, [searchParams]);
 
   const handleGoogleToken = async (idToken, pass) => {
+    console.info("[Google Auth] Received Google credential, verifying with backend...");
     setError("");
     setLinkingError("");
     setGoogleLoading(true);
@@ -63,6 +64,7 @@ export default function Login() {
         payload.password = pass;
       }
       const response = await api.post("/api/auth/google", payload);
+      console.info("[Google Auth] Verification successful:", response?.data?.email);
       if (!response?.data?.token) {
         throw new Error("Invalid response received from authentication server.");
       }
@@ -74,7 +76,7 @@ export default function Login() {
       redirectUser(role);
     } catch (err) {
       console.error("[Google Auth Error]", err);
-      const errMsg = err.response?.data?.message || err.message || "Google sign-in failed.";
+      const errMsg = err.response?.data?.message || err.message || "Google sign-in failed. Please check network connection.";
       if (errMsg.toLowerCase().includes("password") || errMsg.toLowerCase().includes("link")) {
         setPendingGoogleToken(idToken);
         setShowLinkingModal(true);
@@ -106,7 +108,7 @@ export default function Login() {
             theme: "filled_black",
             size: "large",
             shape: "pill",
-            width: "100%",
+            width: 360,
             text: "continue_with"
           });
           return true;
@@ -319,7 +321,7 @@ export default function Login() {
                 </svg>
                 <span>{googleLoading ? "Connecting to Google..." : "Continue with Google"}</span>
               </button>
-              <div ref={googleBtnContainerRef} className={s.googleHiddenOverlay} aria-hidden="true" />
+              <div ref={googleBtnContainerRef} className={s.googleHiddenOverlay} />
             </div>
           </form>
         ) : (

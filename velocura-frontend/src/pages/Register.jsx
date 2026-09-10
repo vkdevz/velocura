@@ -52,6 +52,7 @@ export default function Register() {
   }, [resendCooldown]);
 
   const handleGoogleToken = async (idToken, pass) => {
+    console.info("[Google Auth] Received Google credential, registering with backend...");
     setError("");
     setLinkingError("");
     setGoogleLoading(true);
@@ -67,6 +68,7 @@ export default function Register() {
         payload.password = pass;
       }
       const response = await api.post("/api/auth/google", payload);
+      console.info("[Google Auth] Registration successful:", response?.data?.email);
       if (!response?.data?.token) {
         throw new Error("Invalid response received from authentication server.");
       }
@@ -84,7 +86,7 @@ export default function Register() {
       }
     } catch (err) {
       console.error("[Google Register Error]", err);
-      const errMsg = err.response?.data?.message || err.message || "Google registration failed.";
+      const errMsg = err.response?.data?.message || err.message || "Google registration failed. Please check network connection.";
       if (errMsg.toLowerCase().includes("password") || errMsg.toLowerCase().includes("link")) {
         setPendingGoogleToken(idToken);
         setShowLinkingModal(true);
@@ -116,7 +118,7 @@ export default function Register() {
             theme: "filled_black",
             size: "large",
             shape: "pill",
-            width: "100%",
+            width: 360,
             text: "signup_with"
           });
           return true;
@@ -391,7 +393,7 @@ export default function Register() {
               </svg>
               <span>{googleLoading ? "Connecting to Google..." : `Sign up as ${role === "DOCTOR" ? "Doctor" : "Patient"} with Google`}</span>
             </button>
-            <div ref={googleBtnContainerRef} className={s.googleHiddenOverlay} aria-hidden="true" />
+            <div ref={googleBtnContainerRef} className={s.googleHiddenOverlay} />
           </div>
         </form>
 

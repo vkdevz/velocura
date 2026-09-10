@@ -28,7 +28,10 @@ public class DefaultGoogleTokenVerifier implements GoogleTokenVerifier {
     private String expectedClientId;
 
     public DefaultGoogleTokenVerifier() {
-        this.restTemplate = new RestTemplate();
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(8000);
+        factory.setReadTimeout(8000);
+        this.restTemplate = new RestTemplate(factory);
         this.objectMapper = new ObjectMapper();
     }
 
