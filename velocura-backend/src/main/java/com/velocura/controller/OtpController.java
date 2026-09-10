@@ -32,12 +32,31 @@ public class OtpController {
     private static final int MAX_ATTEMPTS = 5;
 
     private static final Map<String, Long> lastSentMap = new ConcurrentHashMap<>();
+    private static final Map<String, EphemeralOtp> ephemeralOtpCache = new ConcurrentHashMap<>();
 
     private static OtpVerificationRepository staticOtpRepository;
 
     private final OtpVerificationRepository otpRepository;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
+
+    public static class EphemeralOtp {
+        private final String code;
+        private final long expiryTimestamp;
+
+        public EphemeralOtp(String code, long expiryTimestamp) {
+            this.code = code;
+            this.expiryTimestamp = expiryTimestamp;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public boolean isExpired() {
+            return System.currentTimeMillis() > expiryTimestamp;
+        }
+    }
 
     @Autowired
     public OtpController(
@@ -70,28 +89,53 @@ public class OtpController {
         return null;
     }
 
+    public static String getActiveOtpPlaintextForAdmin(String email) {
+        if (email == null || email.isBlank() || staticOtpRepository == null) return null;
+        String cleaned = email.toLowerCase().trim();
+        Optional<OtpVerification> opt = staticOtpRepository.findTopByEmailIgnoreCaseAndIsConsumedFalseOrderByCreatedAtDesc(cleaned);
+        if (opt.isEmpty() || opt.get().isExpired() || opt.get().isMaxAttemptsReached() || opt.get().isConsumed()) {
+            ephemeralOtpCache.remove(cleaned);
+            return null;
+        }
+        EphemeralOtp cached = ephemeralOtpCache.get(cleaned);
+        if (cached != null && !cached.isExpired()) {
+            return cached.getCode();
+        }
+        return null;
+    }
+
     public static List<OtpDetailResponse> getActiveOtpsList(UserRepository userRepository) {
         List<OtpDetailResponse> list = new ArrayList<>();
         if (staticOtpRepository == null) return list;
 
         List<OtpVerification> all = staticOtpRepository.findAll();
+        // Deduplicate by email, keeping the latest active record
+        Map<String, OtpVerification> latestActiveMap = new LinkedHashMap<>();
         for (OtpVerification v : all) {
             if (!v.isConsumed() && !v.isExpired() && !v.isMaxAttemptsReached()) {
-                String email = v.getEmail();
-                Optional<User> userOpt = userRepository != null ? userRepository.findByEmailIgnoreCase(email) : Optional.empty();
-                boolean registered = userOpt.isPresent();
-                String userName = registered ? (userOpt.get().getFirstName() + " " + userOpt.get().getLastName()) : "Registration Pending";
-                String role = registered ? userOpt.get().getRole().name() : "GUEST";
-
-                list.add(OtpDetailResponse.builder()
-                        .email(email)
-                        .code("******") // Masked - never leak active code via API
-                        .isRegisteredUser(registered)
-                        .userName(userName)
-                        .role(role)
-                        .expiryTime(v.getExpiresAt().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli())
-                        .build());
+                String email = v.getEmail().toLowerCase().trim();
+                OtpVerification existing = latestActiveMap.get(email);
+                if (existing == null || v.getCreatedAt().isAfter(existing.getCreatedAt())) {
+                    latestActiveMap.put(email, v);
+                }
             }
+        }
+
+        for (OtpVerification v : latestActiveMap.values()) {
+            String email = v.getEmail();
+            Optional<User> userOpt = userRepository != null ? userRepository.findByEmailIgnoreCase(email) : Optional.empty();
+            boolean registered = userOpt.isPresent();
+            String userName = registered ? (userOpt.get().getFirstName() + " " + userOpt.get().getLastName()) : "Registration Pending";
+            String role = registered ? userOpt.get().getRole().name() : "GUEST";
+
+            list.add(OtpDetailResponse.builder()
+                    .email(email)
+                    .code("******") // Masked - never leak active code via general API
+                    .isRegisteredUser(registered)
+                    .userName(userName)
+                    .role(role)
+                    .expiryTime(v.getExpiresAt().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli())
+                    .build());
         }
         return list;
     }
@@ -99,6 +143,15 @@ public class OtpController {
     public static void generateAndSendOtp(String email, NotificationService notificationService) {
         if (email == null || email.isBlank()) return;
         String cleaned = email.toLowerCase().trim();
+
+        // Invalidate all prior unconsumed OTP records for this email
+        if (staticOtpRepository != null) {
+            List<OtpVerification> previousList = staticOtpRepository.findByEmailIgnoreCaseAndIsConsumedFalse(cleaned);
+            for (OtpVerification prev : previousList) {
+                prev.setConsumed(true);
+                staticOtpRepository.save(prev);
+            }
+        }
 
         String code = String.format("%06d", SECURE_RANDOM.nextInt(1000000));
         String codeHash = hashOtp(code);
@@ -117,6 +170,7 @@ public class OtpController {
             staticOtpRepository.save(record);
         }
         lastSentMap.put(cleaned, System.currentTimeMillis());
+        ephemeralOtpCache.put(cleaned, new EphemeralOtp(code, System.currentTimeMillis() + (OTP_VALIDITY_MINUTES * 60 * 1000)));
 
         log.info("Secure OTP issued and dispatched for: {}", cleaned);
         if (notificationService != null) {
@@ -132,6 +186,7 @@ public class OtpController {
 
         OtpVerification record = opt.get();
         if (record.isExpired() || record.isMaxAttemptsReached()) {
+            ephemeralOtpCache.remove(cleaned);
             return false;
         }
 
@@ -140,10 +195,14 @@ public class OtpController {
             record.setConsumed(true);
             staticOtpRepository.save(record);
             lastSentMap.remove(cleaned);
+            ephemeralOtpCache.remove(cleaned);
             return true;
         } else {
             record.setAttemptsCount(record.getAttemptsCount() + 1);
             staticOtpRepository.save(record);
+            if (record.isMaxAttemptsReached()) {
+                ephemeralOtpCache.remove(cleaned);
+            }
             return false;
         }
     }
@@ -157,14 +216,16 @@ public class OtpController {
         if (email == null || staticOtpRepository == null) return false;
         String cleaned = email.toLowerCase().trim();
         lastSentMap.remove(cleaned);
-        Optional<OtpVerification> opt = staticOtpRepository.findTopByEmailIgnoreCaseAndIsConsumedFalseOrderByCreatedAtDesc(cleaned);
-        if (opt.isPresent()) {
-            OtpVerification record = opt.get();
+        ephemeralOtpCache.remove(cleaned);
+
+        List<OtpVerification> unconsumed = staticOtpRepository.findByEmailIgnoreCaseAndIsConsumedFalse(cleaned);
+        boolean revokedAny = false;
+        for (OtpVerification record : unconsumed) {
             record.setConsumed(true);
             staticOtpRepository.save(record);
-            return true;
+            revokedAny = true;
         }
-        return false;
+        return revokedAny;
     }
 
     @PostMapping("/send")
@@ -185,12 +246,12 @@ public class OtpController {
             );
         }
 
-        // 2. Invalidate any existing active OTP for this email
-        Optional<OtpVerification> existing = otpRepository.findTopByEmailIgnoreCaseAndIsConsumedFalseOrderByCreatedAtDesc(cleanedEmail);
-        existing.ifPresent(v -> {
-            v.setConsumed(true);
-            otpRepository.save(v);
-        });
+        // 2. Invalidate any existing active OTPs for this email
+        List<OtpVerification> existingList = otpRepository.findByEmailIgnoreCaseAndIsConsumedFalse(cleanedEmail);
+        for (OtpVerification ex : existingList) {
+            ex.setConsumed(true);
+            otpRepository.save(ex);
+        }
 
         // 3. Generate Cryptographically Secure 6-digit code
         String otpCode = String.format("%06d", SECURE_RANDOM.nextInt(1000000));
@@ -208,6 +269,7 @@ public class OtpController {
                 .build();
         otpRepository.save(record);
         lastSentMap.put(cleanedEmail, System.currentTimeMillis());
+        ephemeralOtpCache.put(cleanedEmail, new EphemeralOtp(otpCode, System.currentTimeMillis() + (OTP_VALIDITY_MINUTES * 60 * 1000)));
 
         log.info("Secure OTP issued and dispatched for: {}", cleanedEmail);
         notificationService.sendOtpEmail(cleanedEmail, otpCode);
@@ -241,6 +303,7 @@ public class OtpController {
         if (record.isExpired()) {
             record.setConsumed(true);
             otpRepository.save(record);
+            ephemeralOtpCache.remove(cleanedEmail);
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Verification code has expired. Please request a new one."));
         }
 
@@ -248,6 +311,7 @@ public class OtpController {
         if (record.isMaxAttemptsReached()) {
             record.setConsumed(true);
             otpRepository.save(record);
+            ephemeralOtpCache.remove(cleanedEmail);
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
                     "success", false,
                     "message", "Maximum verification attempts exceeded. Please request a new code."
@@ -264,6 +328,9 @@ public class OtpController {
         if (!matches) {
             record.setAttemptsCount(record.getAttemptsCount() + 1);
             otpRepository.save(record);
+            if (record.isMaxAttemptsReached()) {
+                ephemeralOtpCache.remove(cleanedEmail);
+            }
             int remaining = MAX_ATTEMPTS - record.getAttemptsCount();
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
@@ -275,6 +342,7 @@ public class OtpController {
         record.setConsumed(true);
         otpRepository.save(record);
         lastSentMap.remove(cleanedEmail);
+        ephemeralOtpCache.remove(cleanedEmail);
 
         log.info("OTP successfully verified and consumed for: {}", cleanedEmail);
         return ResponseEntity.ok().body(Map.of("success", true, "message", "OTP verified successfully!"));

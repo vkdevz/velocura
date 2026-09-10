@@ -12,7 +12,10 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+        @Index(name = "idx_users_email", columnList = "email"),
+        @Index(name = "idx_users_google_id", columnList = "google_id")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -58,7 +61,7 @@ public class User {
     @Column(name = "auth_provider")
     private String authProvider = "LOCAL";
 
-    @Column(name = "google_id")
+    @Column(name = "google_id", unique = true)
     private String googleId;
 
     @Column(name = "profile_picture", length = 1024)

@@ -155,6 +155,15 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
+    public String copyActiveOtp(String email) {
+        String code = com.velocura.controller.OtpController.getActiveOtpPlaintextForAdmin(email);
+        if (code == null) {
+            throw new com.velocura.exception.ResourceNotFoundException("No active, unexpired OTP session found for " + email);
+        }
+        return code;
+    }
+
+    @Override
     public String issueOtp(String email) {
         return com.velocura.controller.OtpController.issueOtpForAdmin(email, notificationService);
     }

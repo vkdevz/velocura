@@ -68,6 +68,10 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
             createIndexIfNotExists(stmt, "idx_presc_patient", "prescriptions", "patient_id");
             createIndexIfNotExists(stmt, "idx_clin_sess_patient_id", "clinical_sessions", "patient_id");
             createIndexIfNotExists(stmt, "idx_clin_sess_patient_email", "clinical_sessions", "patient_email");
+            createIndexIfNotExists(stmt, "idx_users_google_id", "users", "google_id");
+            try {
+                stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id_unique ON users (google_id) WHERE google_id IS NOT NULL");
+            } catch (Exception ignored) {}
 
             // 7. Ensure Medical Knowledge Engine indexes exist
             createIndexIfNotExists(stmt, "idx_m_concept_name", "medical_concepts", "canonical_name");

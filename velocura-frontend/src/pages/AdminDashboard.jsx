@@ -291,11 +291,55 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleCopyOtp = (code) => {
-    navigator.clipboard.writeText(code);
-    setCopiedOtp(code);
-    setToast({ message: `Copied OTP ${code} to clipboard.`, type: "success" });
-    setTimeout(() => setCopiedOtp(null), 2000);
+  const handleCopyOtp = async (email) => {
+    try {
+      const res = await api.get(`/api/admin/otps/${encodeURIComponent(email)}/copy`);
+      const actualCode = res.data?.code;
+      if (!actualCode) {
+        throw new Error("Unable to retrieve active OTP code.");
+      }
+
+      let copiedSuccessfully = false;
+      if (navigator?.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(actualCode);
+          copiedSuccessfully = true;
+        } catch (clipErr) {
+          console.warn("navigator.clipboard.writeText failed, attempting fallback", clipErr);
+        }
+      }
+
+      if (!copiedSuccessfully) {
+        // Safe DOM fallback for non-secure or restricted contexts
+        const textArea = document.createElement("textarea");
+        textArea.value = actualCode;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          copiedSuccessfully = document.execCommand("copy");
+        } catch (_err) {
+          copiedSuccessfully = false;
+        }
+        document.body.removeChild(textArea);
+      }
+
+      if (!copiedSuccessfully) {
+        throw new Error("Clipboard copy permission was denied by browser.");
+      }
+
+      setCopiedOtp(email);
+      setToast({ message: "Active OTP copied to clipboard.", type: "success" });
+      setTimeout(() => setCopiedOtp(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy OTP:", err);
+      setCopiedOtp(null);
+      const errMsg = err.response?.data?.message || err.message || "Failed to copy OTP.";
+      setToast({ message: errMsg, type: "error" });
+    }
   };
 
   // Real backend metrics mapping
@@ -893,11 +937,11 @@ export default function AdminDashboard() {
                             <code>{otp.code}</code>
                             <button
                               type="button"
-                              onClick={() => handleCopyOtp(otp.code)}
+                              onClick={() => handleCopyOtp(otp.email)}
                               style={{
                                 background: "none",
                                 border: "none",
-                                color: copiedOtp === otp.code ? "var(--safe)" : "var(--accent)",
+                                color: copiedOtp === otp.email ? "var(--safe)" : "var(--accent)",
                                 cursor: "pointer",
                                 padding: "2px 4px",
                                 borderRadius: "var(--radius-sm)",
@@ -908,7 +952,7 @@ export default function AdminDashboard() {
                               }}
                               title="Copy OTP code"
                             >
-                              {copiedOtp === otp.code ? (
+                              {copiedOtp === otp.email ? (
                                 <>
                                   <CheckCheck size={13} /> Copied!
                                 </>

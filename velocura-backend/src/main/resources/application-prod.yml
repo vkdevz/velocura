@@ -40,6 +40,9 @@ velocura:
     password: ${ADMIN_PASSWORD}
   payment:
     mock-enabled: false
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
 
 app:
   jwt:

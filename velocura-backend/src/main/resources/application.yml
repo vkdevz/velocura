@@ -41,6 +41,9 @@ velocura:
     password: ${ADMIN_PASSWORD:}
   payment:
     mock-enabled: ${PAYMENT_MOCK_ENABLED:false}
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
 
 gemini:
   api:

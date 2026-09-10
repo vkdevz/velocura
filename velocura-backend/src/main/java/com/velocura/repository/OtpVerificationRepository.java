@@ -11,6 +11,7 @@ import java.util.Optional;
 @Repository
 public interface OtpVerificationRepository extends JpaRepository<OtpVerification, Long> {
     Optional<OtpVerification> findTopByEmailIgnoreCaseAndIsConsumedFalseOrderByCreatedAtDesc(String email);
+    List<OtpVerification> findByEmailIgnoreCaseAndIsConsumedFalse(String email);
     List<OtpVerification> findByEmailIgnoreCase(String email);
     void deleteByExpiresAtBefore(LocalDateTime time);
 }

@@ -20,6 +20,7 @@ public class GoogleAuthRequest {
     private String lastName;
     private String picture;
     private Role role; // PATIENT or DOCTOR (defaults to PATIENT if null)
+    private String password; // Optional: supplied when linking an existing password-based account
 
     // Patient specific optional metadata
     private String dateOfBirth;

@@ -58,6 +58,21 @@ public class AdminController {
         return ResponseEntity.ok(adminService.getActiveOtps());
     }
 
+    @GetMapping("/otps/{email:.+}/copy")
+    public ResponseEntity<?> copyOtp(@PathVariable String email) {
+        try {
+            String code = adminService.copyActiveOtp(email);
+            return ResponseEntity.ok(java.util.Map.of(
+                    "success", true,
+                    "code", code,
+                    "email", email
+            ));
+        } catch (com.velocura.exception.ResourceNotFoundException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.GONE)
+                    .body(java.util.Map.of("success", false, "message", "Active OTP session not found, expired, or already consumed."));
+        }
+    }
+
     @PostMapping("/otps/issue")
     public ResponseEntity<?> issueOtp(@RequestBody java.util.Map<String, String> request) {
         String email = request.get("email");
