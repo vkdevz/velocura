@@ -142,6 +142,19 @@
   background: var(--separator);
 }
 
+.googleBtnWrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.googleBtnWrapper > div,
+.googleBtnWrapper iframe {
+  width: 100% !important;
+  border-radius: var(--radius-lg) !important;
+}
+
 .googleBtn {
   width: 100%;
   display: flex;

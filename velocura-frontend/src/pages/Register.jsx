@@ -110,8 +110,9 @@ export default function Register() {
           }
         });
         window.google.accounts.id.renderButton(googleBtnContainerRef.current, {
-          theme: "outline",
+          theme: "filled_black",
           size: "large",
+          shape: "rectangular",
           width: "100%",
           text: "signup_with"
         });
@@ -360,7 +361,7 @@ export default function Register() {
 
           <div className={s.divider}>or</div>
 
-          <div ref={googleBtnContainerRef} style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+          <div ref={googleBtnContainerRef} className={s.googleBtnWrapper}>
             <button
               type="button"
               className={s.googleBtn}

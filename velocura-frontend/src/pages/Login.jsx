@@ -100,8 +100,9 @@ export default function Login() {
           }
         });
         window.google.accounts.id.renderButton(googleBtnContainerRef.current, {
-          theme: "outline",
+          theme: "filled_black",
           size: "large",
+          shape: "rectangular",
           width: "100%",
           text: "continue_with"
         });
@@ -288,7 +289,7 @@ export default function Login() {
 
             <div className={s.divider}>or</div>
 
-            <div ref={googleBtnContainerRef} style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+            <div ref={googleBtnContainerRef} className={s.googleBtnWrapper}>
               <button
                 type="button"
                 className={s.googleBtn}
