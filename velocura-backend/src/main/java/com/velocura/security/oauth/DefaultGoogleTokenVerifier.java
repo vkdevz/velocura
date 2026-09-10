@@ -69,9 +69,27 @@ public class DefaultGoogleTokenVerifier implements GoogleTokenVerifier {
 
             // 3. Verify Audience if configured
             if (expectedClientId != null && !expectedClientId.isBlank()) {
-                String aud = root.path("aud").asText("");
-                if (!expectedClientId.equals(aud)) {
-                    log.warn("Google token audience mismatch: expected '{}', got '{}'", expectedClientId, aud);
+                String cleanExpected = expectedClientId.trim();
+                if ((cleanExpected.startsWith("\"") && cleanExpected.endsWith("\"")) ||
+                    (cleanExpected.startsWith("'") && cleanExpected.endsWith("'"))) {
+                    cleanExpected = cleanExpected.substring(1, cleanExpected.length() - 1).trim();
+                }
+
+                String aud = root.path("aud").asText("").trim();
+                boolean matches = false;
+                for (String allowed : cleanExpected.split("[,;\\s]+")) {
+                    String cleanAllowed = allowed.trim();
+                    if ((cleanAllowed.startsWith("\"") && cleanAllowed.endsWith("\"")) ||
+                        (cleanAllowed.startsWith("'") && cleanAllowed.endsWith("'"))) {
+                        cleanAllowed = cleanAllowed.substring(1, cleanAllowed.length() - 1).trim();
+                    }
+                    if (!cleanAllowed.isEmpty() && cleanAllowed.equalsIgnoreCase(aud)) {
+                        matches = true;
+                        break;
+                    }
+                }
+                if (!matches) {
+                    log.warn("Google token audience mismatch: expected '{}', got '{}'", cleanExpected, aud);
                     throw new BadCredentialsException("Google authentication failed: Token audience does not match configured Client ID.");
                 }
             }
