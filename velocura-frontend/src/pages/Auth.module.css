@@ -143,42 +143,69 @@
 }
 
 .googleBtnWrapper {
+  position: relative;
   width: 100%;
-  display: flex;
-  justify-content: center;
   min-height: 44px;
-}
-
-.googleBtnWrapper > div,
-.googleBtnWrapper iframe {
-  width: 100% !important;
-  border-radius: var(--radius-lg) !important;
 }
 
 .googleBtn {
   width: 100%;
-  display: flex;
+  min-height: 44px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
-  padding: 10px var(--space-4);
-  background: var(--bg-elevated);
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-full);
+  background: var(--fill-tertiary);
   border: 1px solid var(--separator);
-  border-radius: var(--radius-lg);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
   color: var(--label-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-apple),
-              border-color var(--dur-fast) var(--ease-apple);
+  user-select: none;
+  transition:
+    background var(--dur-fast) var(--ease-apple),
+    border-color var(--dur-fast) var(--ease-apple),
+    transform var(--dur-fast) var(--ease-apple),
+    box-shadow var(--dur-fast) var(--ease-apple);
+  -webkit-tap-highlight-color: transparent;
 }
 
-.googleBtn:hover {
-  background: var(--fill-quaternary);
-  border-color: var(--accent);
+.googleBtn:hover:not(:disabled) {
+  background: var(--fill-secondary);
+  border-color: var(--label-quaternary);
+}
+
+.googleBtn:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .googleBtn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
+
+.googleHiddenOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.001;
+  overflow: hidden;
+  cursor: pointer;
+  border-radius: var(--radius-full);
+  z-index: 2;
+}
+
+.googleHiddenOverlay > div,
+.googleHiddenOverlay iframe {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 44px !important;
+  cursor: pointer !important;
+  transform: scale(1.4);
+  transform-origin: center center;
+}
+
