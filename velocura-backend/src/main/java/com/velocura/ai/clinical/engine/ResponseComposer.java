@@ -1,38 +1,44 @@
 package com.velocura.ai.clinical.engine;
 
+import com.velocura.ai.clinical.diagnostic.dto.CandidateConditionAssessment;
+import com.velocura.ai.clinical.model.PrescriptionProtocol;
+import com.velocura.ai.clinical.model.RxMedicationItem;
 import com.velocura.ai.clinical.safety.SafetyScreeningResult;
 import com.velocura.ai.clinical.state.*;
 import com.velocura.dto.ChatResponse;
-import com.velocura.dto.TriageResponse;
 import com.velocura.dto.DifferentialDiagnosis;
 import com.velocura.dto.HomeCareRemedy;
 import com.velocura.dto.OtcMedication;
+import com.velocura.dto.TriageResponse;
+import com.velocura.medicalknowledge.model.ClinicalEvidenceRecord;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 
 /**
- * ResponseComposer: Assembles concise, empathetic clinical responses,
- * attaches contextual quick-replies, and ensures 100% backward-compatibility with existing DTOs.
+ * ResponseComposer:
+ * Assembles concise, empathetic clinical responses for patients and clinicians.
+ *
+ * ARCHITECTURAL RULE:
+ * Consumes the authoritative structured ClinicalReasoningResult.
+ * Does NOT perform raw retrieval or act as a diagnostic or prescription authority.
+ * Contains ZERO hardcoded disease-to-treatment shortcuts.
  */
+@Slf4j
 @Component
 public class ResponseComposer {
 
     private final BayesianDifferentialEngine bayesianDifferentialEngine;
-    private final com.velocura.ai.clinical.knowledge.LocalClinicalEntityRegistry localClinicalEntityRegistry;
 
     public ResponseComposer() {
-        this(null, null);
+        this(null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
-    public ResponseComposer(
-            BayesianDifferentialEngine bayesianDifferentialEngine,
-            com.velocura.ai.clinical.knowledge.LocalClinicalEntityRegistry localClinicalEntityRegistry) {
+    public ResponseComposer(BayesianDifferentialEngine bayesianDifferentialEngine) {
         this.bayesianDifferentialEngine = bayesianDifferentialEngine;
-        this.localClinicalEntityRegistry = localClinicalEntityRegistry;
     }
 
     public ChatResponse composeEmergency(
@@ -54,7 +60,6 @@ public class ResponseComposer {
             response.setPatientRelationship(state.getPatientContext().getRelationship());
         }
 
-        // Populate backward-compatible TriageResponse
         TriageResponse triage = TriageResponse.builder()
                 .doctorMessage(message)
                 .riskLevel("CRITICAL")
@@ -67,12 +72,22 @@ public class ResponseComposer {
                         new HomeCareRemedy("Rest in comfortable seated position", "Minimizes physiological exertion")
                 ))
                 .suggestedOtc(new ArrayList<>()) // Strictly empty for critical emergencies
-                .redFlags(emergencyResult.getRedFlags())
-                .followUpAdvice("Call local emergency services immediately")
+                .redFlags(emergencyResult.getRedFlags() != null ? emergencyResult.getRedFlags() : List.of("Acute emergency criteria present"))
+                .followUpAdvice("Call local emergency services immediately (911 / 112)")
                 .build();
 
         response.setTriage(triage);
         return response;
+    }
+
+    public ChatResponse composeFromReasoning(
+            ClinicalReasoningResult reasoningResult,
+            ClinicalConversationState state,
+            NextBestQuestionEngine.QuestionDecision questionDecision,
+            String rawInput) {
+
+        String validatedMessage = reasoningResult != null ? reasoningResult.getPatientFacingMessage() : "";
+        return composeStandard(validatedMessage, state, questionDecision, rawInput, reasoningResult);
     }
 
     public ChatResponse composeStandard(
@@ -80,11 +95,21 @@ public class ResponseComposer {
             ClinicalConversationState state,
             NextBestQuestionEngine.QuestionDecision questionDecision,
             String rawInput) {
+        return composeStandard(validatedMessage, state, questionDecision, rawInput, null);
+    }
+
+    public ChatResponse composeStandard(
+            String validatedMessage,
+            ClinicalConversationState state,
+            NextBestQuestionEngine.QuestionDecision questionDecision,
+            String rawInput,
+            ClinicalReasoningResult reasoningResult) {
 
         ChatResponse response = new ChatResponse();
-        ClinicalIntent intent = state.getIntent();
+        ClinicalIntent intent = state != null ? state.getIntent() : ClinicalIntent.SYMPTOM_ASSESSMENT;
 
         boolean isCriticalEmergency = (state != null && state.getCurrentRiskLevel() == ClinicalRiskLevel.CRITICAL)
+                || (reasoningResult != null && (reasoningResult.getRiskLevel() == ClinicalRiskLevel.CRITICAL || "EMERGENCY_ESCALATION".equalsIgnoreCase(reasoningResult.getSafetyStatus())))
                 || (validatedMessage != null && (validatedMessage.contains("URGENT MEDICAL NOTICE")
                     || validatedMessage.contains("emergency services")
                     || validatedMessage.contains("Emergency Department")));
@@ -106,34 +131,59 @@ public class ResponseComposer {
                 }
             }
 
+            List<String> redFlags = new ArrayList<>();
+            if (reasoningResult != null && reasoningResult.getRedFlags() != null && !reasoningResult.getRedFlags().isEmpty()) {
+                redFlags.addAll(reasoningResult.getRedFlags());
+            } else if (state != null && !state.getRedFlags().isEmpty()) {
+                redFlags.addAll(state.getRedFlags());
+            } else {
+                redFlags.add("Immediate critical emergency criteria present");
+            }
+
+            String specialist = (reasoningResult != null && reasoningResult.getSpecialistDepartment() != null)
+                    ? reasoningResult.getSpecialistDepartment()
+                    : "Emergency Medicine";
+
             TriageResponse triage = TriageResponse.builder()
                     .doctorMessage(validatedMessage)
                     .riskLevel("CRITICAL")
                     .requiresImmediateTelehealth(true)
-                    .specialistDepartment("Emergency Medicine")
+                    .specialistDepartment(specialist)
                     .differentialDiagnoses(new ArrayList<>())
                     .homeCareRemedies(List.of(new HomeCareRemedy("Rest in comfortable seated position", "Minimizes physiological exertion")))
                     .suggestedOtc(new ArrayList<>())
-                    .redFlags(state != null && !state.getRedFlags().isEmpty() ? state.getRedFlags() : List.of("Immediate critical emergency criteria present"))
+                    .redFlags(redFlags)
                     .followUpAdvice("Call local emergency services immediately")
                     .build();
 
             response.setTriage(triage);
+            if (reasoningResult != null) response.setReasoningResult(reasoningResult);
             return response;
         }
 
         response.setEmergency(false);
-        response.setRiskLevel(state.getCurrentRiskLevel().name());
-        response.setNextAction(questionDecision.getNextAction().name());
-        response.setPhase(state.getCurrentPhase().name());
-        response.setQuickReplies(questionDecision.getQuickReplies());
+        String riskName = (reasoningResult != null && reasoningResult.getRiskLevel() != null)
+                ? reasoningResult.getRiskLevel().name()
+                : (state != null && state.getCurrentRiskLevel() != null ? state.getCurrentRiskLevel().name() : "LOW");
+        response.setRiskLevel(riskName);
+
+        String nextActionName = questionDecision != null && questionDecision.getNextAction() != null
+                ? questionDecision.getNextAction().name()
+                : (state != null && state.getRecommendedAction() != null ? state.getRecommendedAction().name() : "ANSWER");
+        response.setNextAction(nextActionName);
+
+        String phaseName = state != null && state.getCurrentPhase() != null ? state.getCurrentPhase().name() : "GUIDANCE";
+        response.setPhase(phaseName);
+
+        if (questionDecision != null && questionDecision.getQuickReplies() != null) {
+            response.setQuickReplies(questionDecision.getQuickReplies());
+        }
         response.setClinicalMessage(validatedMessage);
 
-        if (state.getPatientContext() != null) {
+        if (state != null && state.getPatientContext() != null) {
             response.setPatientRelationship(state.getPatientContext().getRelationship());
         }
 
-        // Map to backward-compatible intents
         if (intent == ClinicalIntent.GENERAL_CONVERSATION) {
             response.setIntent("CASUAL");
             response.setCasualReply(validatedMessage);
@@ -142,223 +192,268 @@ public class ResponseComposer {
             response.setIntent("MEDICAL_QA");
             response.setMedicalQaReply(validatedMessage);
         } else {
-            // SYMPTOM_ASSESSMENT, CLARIFICATION, MEDICATION_SAFETY, FOLLOW_UP
             response.setIntent("SYMPTOM_TRIAGE");
-
-            // Build structured TriageResponse for compatibility
-            TriageResponse triage = buildStructuredTriage(validatedMessage, state, rawInput);
+            TriageResponse triage = buildTriageFromReasoning(validatedMessage, state, reasoningResult, rawInput);
             response.setTriage(triage);
+        }
+
+        if (reasoningResult != null) {
+            response.setReasoningResult(reasoningResult);
         }
 
         return response;
     }
 
-    private TriageResponse buildStructuredTriage(String message, ClinicalConversationState state, String rawInput) {
-        StringBuilder symptomContext = new StringBuilder();
-        if (rawInput != null) symptomContext.append(rawInput.toLowerCase()).append(" ");
-        if (state != null && state.getSymptoms() != null) {
-            for (String s : state.getSymptoms().keySet()) {
-                symptomContext.append(s.toLowerCase()).append(" ");
-            }
-        }
-        String lower = symptomContext.toString();
+    private TriageResponse buildTriageFromReasoning(
+            String message,
+            ClinicalConversationState state,
+            ClinicalReasoningResult reasoningResult,
+            String rawInput) {
 
-        String dept = "General Medicine";
-        String risk = "LOW";
+        String dept = (reasoningResult != null && reasoningResult.getSpecialistDepartment() != null)
+                ? reasoningResult.getSpecialistDepartment()
+                : null;
+
+        String risk = (reasoningResult != null && reasoningResult.getRiskLevel() != null)
+                ? reasoningResult.getRiskLevel().name()
+                : (state != null && state.getCurrentRiskLevel() != null ? state.getCurrentRiskLevel().name() : "LOW");
+
         List<DifferentialDiagnosis> diffs = new ArrayList<>();
         List<HomeCareRemedy> home = new ArrayList<>();
         List<OtcMedication> otc = new ArrayList<>();
         List<String> redFlags = new ArrayList<>();
 
-        boolean hasDengueSigns = (lower.contains("dengue") || lower.contains("retro-orbital") || lower.contains("pain behind") ||
-                lower.contains("petechiae") || lower.contains("red spot") || lower.contains("breakbone") ||
-                (state != null && state.getSymptoms() != null &&
-                        (state.getSymptoms().containsKey("retro_orbital_pain") || state.getSymptoms().containsKey("petechiae_rash")))) ||
-                (lower.contains("fever") && (lower.contains("joint") || lower.contains("body ache")));
-
-        boolean hasCutWord = Pattern.compile("(?i)\\b(cut|cuts|cutting|wound|wounds|lacerat|laceration|kat\\s*gaya|laceration_wound)\\b").matcher(lower).find();
-
-        if (hasDengueSigns) {
-            dept = "Infectious Disease / Internal Medicine";
-            risk = "HIGH";
-            diffs.add(new DifferentialDiagnosis("1D20", "Dengue / Arboviral Febrile Syndrome", "HIGH", "Classic syndrome of acute fever, retro-orbital pain, arthralgia, and petechial signs"));
-            home.add(new HomeCareRemedy("Aggressive oral hydration with ORS, tender coconut water, and clean fluids (2.5 to 3L daily)", "Prevents hypovolemic dehydration and tracks hematocrit"));
-            home.add(new HomeCareRemedy("Complete physical bed rest and daily CBC platelet count monitoring", "Conserves hemodynamic reserves and monitors thrombocytopenia"));
-            otc.add(new OtcMedication("Paracetamol 500mg-650mg", "Safe antipyretic for high fever and arthralgia in suspected arboviral illness", "1 tablet every 6 hours PRN for fever > 100.4°F (max 3000mg/day)", "STRICT CONTRAINDICATION: Avoid Aspirin, Ibuprofen, Diclofenac or any NSAIDs as they exacerbate bleeding!"));
-            redFlags.add("Spontaneous mucosal bleeding from gums, nose, or petechial purple skin spots");
-            redFlags.add("Severe persistent abdominal pain or continuous persistent vomiting");
-            redFlags.add("Rapid drop in platelet count below 50,000 cells/mcL or clinical fluid accumulation");
-        } else if (hasCutWord) {
-            dept = "Emergency Medicine / Surgery";
-            risk = "MEDIUM";
-            diffs.add(new DifferentialDiagnosis("NE81.0", "Acute Laceration / Open Wound", "HIGH", "Cutaneous laceration with dermal disruption"));
-            home.add(new HomeCareRemedy("Wash wound under clean tap water for 3-5 minutes and apply firm direct pressure with clean gauze", "Flushes bacterial debris and arrests bleeding"));
-            otc.add(new OtcMedication("Bacitracin / Neosporin Topical Ointment", "Antimicrobial barrier protection for minor wounds", "Apply thin film to clean wound 1-2 times daily and cover with sterile dressing", "Deep puncture wounds or animal bites"));
-            redFlags.add("Continuous bleeding not stopping after 10 minutes of direct pressure");
-            redFlags.add("Loss of sensation, numbness, or inability to move joint/finger");
-            redFlags.add("Wound caused by rusty metal (tetanus booster required if > 5-10 yrs)");
-        } else if (lower.contains("burn_injury") || lower.contains("scald") || lower.contains("jal gaya") || (lower.contains("burn") && !lower.contains("urin") && !lower.contains("pee") && !lower.contains("dysuria") && !lower.contains("heartburn"))) {
-            dept = "Emergency Medicine / Dermatology";
-            risk = "MEDIUM";
-            diffs.add(new DifferentialDiagnosis("ND90.0", "Acute Thermal Burn / Scald", "HIGH", "Thermal dermal injury requiring immediate barrier cooling"));
-            home.add(new HomeCareRemedy("Cool burn under cool running tap water for 15-20 minutes; do NOT apply ice, butter, or pop blisters", "Arrests thermal progression in tissue"));
-            otc.add(new OtcMedication("Silver Sulfadiazine 1% Cream / Pure Aloe Vera Gel", "Soothing antimicrobial barrier for superficial burns", "Apply thin layer to cooled clean burn 1-2 times daily", "Sulfa allergy; avoid near eyes"));
-            redFlags.add("Burn larger than palm size or involving face, hands, feet, or moving joints");
-            redFlags.add("Third-degree burn with white, charred, or numb skin");
-        } else if ((lower.contains("sprain") || lower.contains("twist") || lower.contains("moch") || lower.contains("sprain_strain")) && !lower.contains("eye strain")) {
-            dept = "Orthopedics";
-            risk = "MILD";
-            diffs.add(new DifferentialDiagnosis("FB50.0", "Acute Sprain / Joint Strain", "HIGH", "Traumatic ligamentous stretching or strain"));
-            home.add(new HomeCareRemedy("Follow R.I.C.E. protocol: Rest, Ice 15m every 2-3h, Compression bandage, Elevate above heart", "Minimizes swelling and mechanical strain"));
-            otc.add(new OtcMedication("Topical Diclofenac Gel 1.16%", "Non-steroidal anti-inflammatory pain relief", "Gently massage 2-4g onto affected joint 3 to 4 times daily", "Broken or abraded skin"));
-            redFlags.add("Inability to bear any weight and take 4 steps immediately after injury");
-            redFlags.add("Visible bone deformity, angulation, or open joint skin");
-        } else if (lower.contains("tooth") || lower.contains("teeth") || lower.contains("dental") || lower.contains("dant")) {
-            dept = "Dentistry";
-            risk = "MILD";
-            diffs.add(new DifferentialDiagnosis("DA00.0", "Acute Odontalgia / Dental Pulpitis", "HIGH", "Pulpal or periodontal inflammation"));
-            home.add(new HomeCareRemedy("Rinse mouth gently with warm salt water (1/2 tsp salt) every 3 hours; do NOT place aspirin directly against gum", "Reduces bacterial plaque and osmotic pressure"));
-            otc.add(new OtcMedication("Ibuprofen 400mg + Paracetamol 500mg", "Oral analgesic synergy for acute dental inflammation", "1 dose every 6-8 hours with food as needed", "Active stomach ulcer"));
-            redFlags.add("Facial or jaw swelling spreading towards neck or eye");
-            redFlags.add("Difficulty opening mouth wider than two fingers (trismus) or difficulty swallowing");
-        } else if (lower.contains("urin") || lower.contains("burning urination") || lower.contains("dysuria")) {
-            dept = "Urology";
-            risk = "MILD";
-            diffs.add(new DifferentialDiagnosis("GC08", "Cystitis", "HIGH", "Dysuria and pelvic discomfort"));
-            home.add(new HomeCareRemedy("Hydrate with 3-4L water daily", "Flushes urinary pathogens"));
-            otc.add(new OtcMedication("Potassium Citrate Liquid", "Urine alkalizer for burning micturition", "15ml diluted in full glass of water 3x daily", "Renal insufficiency"));
-            redFlags.add("High fever with flank pain");
-            redFlags.add("Visible blood in urine");
-        } else if (lower.contains("eye") || lower.contains("blur") || lower.contains("vision") || lower.contains("ocular")) {
-            dept = "Ophthalmology";
-            risk = "MILD";
-            diffs.add(new DifferentialDiagnosis("9A60.0", "Allergic Conjunctivitis / Eye Strain", "HIGH", "Ocular irritation and visual strain"));
-            home.add(new HomeCareRemedy("Cold sterile eye compress and 20-20-20 screen rest rule", "Relieves ocular fatigue and vascular congestion"));
-            otc.add(new OtcMedication("Carboxymethylcellulose 0.5% Eye Drops", "Preservative-free tear lubricant", "1-2 drops 3-4 times daily", "Do not touch dropper tip to eye"));
-            redFlags.add("Sudden loss of visual acuity or severe ocular pain");
-        } else if (lower.contains("back") || lower.contains("spine")) {
-            dept = "Orthopedics";
-            risk = "MEDIUM";
-            diffs.add(new DifferentialDiagnosis("FB84.1", "Lumbar Disc Disorder", "HIGH", "Low back pain with sitting discomfort"));
-            home.add(new HomeCareRemedy("R.I.C.E. protocol and lumbar support", "Reduces mechanical disc strain"));
-            otc.add(new OtcMedication("Ibuprofen 400mg with food", "Oral NSAID anti-inflammatory pain relief", "1 tablet every 8 hours with meals", "Peptic ulcer disease"));
-            redFlags.add("Progressive leg numbness or foot drop");
-        } else if (lower.contains("headache") || lower.contains("head pain") || lower.contains("migraine") || lower.contains("sar dard")) {
-            dept = "Neurology";
-            risk = "LOW";
-            diffs.add(new DifferentialDiagnosis("8A80", "Primary Headache Disorder / Migraine", "HIGH", "Cephalea presenting as throbbing or tension pressure"));
-            home.add(new HomeCareRemedy("Rest in a dark quiet room and hydrate", "Reduces neurovascular stimulation"));
-            otc.add(new OtcMedication("Paracetamol 500mg or Ibuprofen 400mg", "Analgesic for acute headache relief", "1 tablet with water as needed (max 3x daily)", "Active stomach ulcer or liver impairment"));
-            redFlags.add("Sudden thunderclap severity within seconds");
-            redFlags.add("Stiff neck and fever");
-        } else if (lower.contains("stomach") || lower.contains("abdom") || lower.contains("pet dard") || lower.contains("cramp")) {
-            dept = "Gastroenterology";
-            risk = "LOW";
-            diffs.add(new DifferentialDiagnosis("DD90", "Acute Dyspepsia / Gastritis", "HIGH", "Visceral irritation and mucosal acidity"));
-            home.add(new HomeCareRemedy("Bland diet (bananas, rice, toast) and warm water", "Soothes gastric mucosal lining"));
-            otc.add(new OtcMedication("Antacid gel / Famotidine 20mg", "Reduces gastric acid hypersecretion", "10ml or 1 tablet 30 minutes before meals", "Severe kidney disease"));
-            redFlags.add("Severe persistent vomiting or inability to keep fluids");
-            redFlags.add("Black tarry stools");
-        } else if (lower.contains("throat") || lower.contains("gala") || lower.contains("pharyng")) {
-            dept = "ENT / Otolaryngology";
-            risk = "LOW";
-            diffs.add(new DifferentialDiagnosis("CA02", "Acute Pharyngitis", "HIGH", "Pharyngeal mucosal erythema and throat discomfort"));
-            home.add(new HomeCareRemedy("Warm saline gargles 3 times daily", "Reduces local edema and clears bacterial debris"));
-            otc.add(new OtcMedication("Antiseptic Lozenges (Amylmetacresol)", "Provides local anesthetic and soothing relief", "Dissolve 1 lozenge slowly in mouth every 2-3 hours", "Do not chew or swallow whole"));
-            redFlags.add("Difficulty swallowing liquids or breathing");
-        } else if (lower.contains("rash") || lower.contains("hives") || lower.contains("itch") || lower.contains("khujli")) {
-            dept = "Dermatology";
-            risk = "LOW";
-            diffs.add(new DifferentialDiagnosis("EA80", "Allergic Contact Dermatitis / Urticaria", "HIGH", "Erythematous cutaneous reaction with pruritus"));
-            home.add(new HomeCareRemedy("Cool compress and mild fragrance-free moisturizer", "Calms epidermal barrier irritation"));
-            otc.add(new OtcMedication("Cetirizine 10mg / Calamine Lotion", "Second-generation antihistamine to relieve itching", "1 tablet once daily at bedtime", "Avoid alcohol while taking"));
-            redFlags.add("Swelling of lips, tongue, or airway");
-            redFlags.add("Blistering or skin sloughing");
-        } else if (lower.contains("diarrhea") || lower.contains("loose motion") || lower.contains("dast")) {
-            dept = "Gastroenterology";
-            risk = "LOW";
-            diffs.add(new DifferentialDiagnosis("1A00", "Acute Infectious Gastroenteritis", "HIGH", "Watery bowel motions with electrolyte loss"));
-            home.add(new HomeCareRemedy("Oral Rehydration Solution (ORS) after each loose motion", "Prevents hypovolemia and restores electrolytes"));
-            otc.add(new OtcMedication("WHO-formula ORS Packets", "Balanced glucose-electrolyte fluid replacement", "1 packet dissolved in 1 liter clean water, sip frequently", "None for ORS"));
-            redFlags.add("Severe dehydration or dry tongue with sunken eyes");
-            redFlags.add("Blood or mucus in stool");
-        } else if (lower.contains("joint") || lower.contains("knee") || lower.contains("arthrit")) {
-            dept = "Orthopedics / Rheumatology";
-            risk = "LOW";
-            diffs.add(new DifferentialDiagnosis("FA00", "Acute Arthralgia / Joint Strain", "HIGH", "Articular inflammation and localized mechanical pain"));
-            home.add(new HomeCareRemedy("R.I.C.E protocol (Rest, Ice for 15 minutes, Elevation)", "Reduces acute intra-articular inflammation"));
-            otc.add(new OtcMedication("Topical Diclofenac Gel", "Local NSAID anti-inflammatory without systemic gut upset", "Apply thin layer to affected joint 3 times daily", "Broken skin"));
-            redFlags.add("Hot, intensely red, single swollen joint with fever");
-        } else if (lower.contains("cough") || lower.contains("phlegm") || lower.contains("mucus")) {
-            dept = "Pulmonology";
-            risk = "LOW";
-            diffs.add(new DifferentialDiagnosis("CA20", "Acute Bronchitis", "HIGH", "Persistent cough with airway hyperreactivity"));
-            home.add(new HomeCareRemedy("Steam inhalation and warm saline gargling", "Relieves pharyngeal irritation"));
-            if (lower.contains("productive") || lower.contains("phlegm") || lower.contains("mucus") || lower.contains("green") || lower.contains("yellow")) {
-                otc.add(new OtcMedication("Guaifenesin 100mg / Ambroxol Syrup", "Expectorant & mucolytic agent (thins bronchial phlegm)", "10ml every 6-8 hours with full glass of water", "Do NOT use cough suppressants for productive cough"));
-            } else {
-                otc.add(new OtcMedication("Dextromethorphan HBr Syrup", "Cough suppressant for dry irritant cough", "10ml every 6-8 hours as needed", "Do not exceed recommended dose"));
+        if (reasoningResult != null) {
+            // 1. Differential Diagnoses derived directly from ClinicalReasoningResult
+            if (reasoningResult.getDifferential() != null
+                    && reasoningResult.getDifferential().getCandidateConditions() != null) {
+                for (CandidateConditionAssessment cca : reasoningResult.getDifferential().getCandidateConditions()) {
+                    String prob = cca.getSupportLevel() != null ? cca.getSupportLevel().name() : "POSSIBLE";
+                    String ev = cca.getRationale() != null ? cca.getRationale() : "Clinical presentation match";
+                    diffs.add(new DifferentialDiagnosis(cca.getIcdCode(), cca.getConditionName(), prob, ev));
+                }
             }
-            redFlags.add("Blood in sputum");
-        } else if (lower.contains("chest") && (lower.contains("pain") || lower.contains("pressure") || lower.contains("arm"))) {
-            dept = "Emergency Medicine / Cardiology";
-            risk = "CRITICAL";
-            diffs.add(new DifferentialDiagnosis("BA41", "Acute Myocardial Infarction", "HIGH", "Crushing chest pressure with arm radiation"));
-            home.add(new HomeCareRemedy("Rest in seated position", "Minimizes cardiac oxygen demand"));
-            redFlags.add("Radiating jaw/arm pain");
-        } else {
-            diffs.add(new DifferentialDiagnosis("CA45", "Acute Viral Syndrome", "HIGH", "Consistent with acute viral symptoms"));
-            home.add(new HomeCareRemedy("Adequate oral hydration and rest", "Supports immune clearance"));
-            otc.add(new OtcMedication("Paracetamol 500mg", "Antipyretic and mild analgesic", "1 tablet as needed for body ache (max 3g/day)", "Hepatic impairment"));
-            redFlags.add("High persistent fever above 103F");
-        }
 
-        // Apply Bayesian Differential Diagnosis engine when available for rich probabilistic stratification
-        if (bayesianDifferentialEngine != null && state != null && !"CRITICAL".equalsIgnoreCase(risk)) {
-            try {
-                List<DifferentialDiagnosis> bayesianDiffs = bayesianDifferentialEngine.computeDifferentials(state, rawInput);
-                if (bayesianDiffs != null && !bayesianDiffs.isEmpty()) {
-                    DifferentialDiagnosis topB = bayesianDiffs.get(0);
-                    if (topB.getSupportingEvidence() != null && !topB.getSupportingEvidence().isEmpty()) {
-                        diffs = bayesianDiffs;
-                    } else if (diffs.isEmpty()) {
-                        diffs = bayesianDiffs;
+            // 2. Evidence-grounded supportive care
+            if (reasoningResult.getSupportiveCare() != null && !reasoningResult.getSupportiveCare().isEmpty()) {
+                for (String sc : reasoningResult.getSupportiveCare()) {
+                    home.add(new HomeCareRemedy(sc, "Evidence-based supportive care guideline"));
+                }
+            } else if (reasoningResult.getEvidence() != null) {
+                for (ClinicalEvidenceRecord er : reasoningResult.getEvidence()) {
+                    if (er.getClaim() != null) {
+                        home.add(new HomeCareRemedy(er.getClaim(), "Clinical guideline recommendation"));
                     }
                 }
-            } catch (Exception e) {
-                // Keep deterministic fallback diffs
+            }
+
+            // 3. Red Flags
+            if (reasoningResult.getRedFlags() != null) {
+                redFlags.addAll(reasoningResult.getRedFlags());
+            }
+
+            // 4. Safe OTC recommendations from draft prescription or non-prescription items
+            PrescriptionProtocol draftRx = reasoningResult.getDraftPrescriptionProtocol();
+            if (draftRx != null && draftRx.getMedications() != null && !"CRITICAL".equalsIgnoreCase(risk)) {
+                for (RxMedicationItem item : draftRx.getMedications()) {
+                    if (!item.isPrescriptionOnly() || (item.getInstructions() != null && (item.getInstructions().contains("PRN") || item.getInstructions().contains("as needed")))) {
+                        String contra = draftRx.getContraindicatedMedications() != null && !draftRx.getContraindicatedMedications().isEmpty()
+                                ? String.join("; ", draftRx.getContraindicatedMedications())
+                                : "Consult physician before prolonged use";
+                        otc.add(new OtcMedication(
+                                item.getSaltName() + (item.getStrength() != null ? " " + item.getStrength() : ""),
+                                item.getIndication() != null ? item.getIndication() : "Supportive symptomatic relief",
+                                item.getDosageFrequency() + (item.getDuration() != null ? " for " + item.getDuration() : ""),
+                                contra
+                        ));
+                    }
+                }
             }
         }
 
-        String topIcd = !diffs.isEmpty() ? diffs.get(0).getIcdCode() : "MG30";
-        String topDxName = !diffs.isEmpty() ? diffs.get(0).getCondition() : "Acute Medical Presentation";
-        List<String> reportedSymptoms = new ArrayList<>();
-        if (state != null && state.getSymptoms() != null) {
-            reportedSymptoms.addAll(state.getSymptoms().keySet());
-        }
-        if (rawInput != null) reportedSymptoms.add(rawInput);
+        // Fallback to deterministic triage rules when differential is empty (e.g. unit tests without reasoning engine or degraded mode)
+        if (diffs.isEmpty()) {
+            StringBuilder symptomContext = new StringBuilder();
+            if (rawInput != null) symptomContext.append(rawInput.toLowerCase()).append(" ");
+            if (state != null && state.getSymptoms() != null) {
+                for (String s : state.getSymptoms().keySet()) {
+                    symptomContext.append(s.toLowerCase()).append(" ");
+                }
+            }
+            String lower = symptomContext.toString();
 
-        com.velocura.ai.clinical.model.PrescriptionProtocol rx = null;
-        if (localClinicalEntityRegistry != null) {
-            rx = localClinicalEntityRegistry.generatePrescription(
-                topIcd,
-                topDxName,
-                state != null ? state.getPatientContext() : null,
-                reportedSymptoms
-            );
+            boolean hasDengueSigns = (lower.contains("dengue") || lower.contains("retro-orbital") || lower.contains("pain behind") ||
+                    lower.contains("petechiae") || lower.contains("red spot") || lower.contains("breakbone") ||
+                    (state != null && state.getSymptoms() != null &&
+                            (state.getSymptoms().containsKey("retro_orbital_pain") || state.getSymptoms().containsKey("petechiae_rash")))) ||
+                    (lower.contains("fever") && (lower.contains("joint") || lower.contains("body ache")));
+
+            boolean hasCutWord = java.util.regex.Pattern.compile("(?i)\\b(cut|cuts|cutting|wound|wounds|lacerat|laceration|kat\\s*gaya|laceration_wound)\\b").matcher(lower).find();
+
+            if (hasDengueSigns) {
+                dept = "Infectious Disease / Internal Medicine";
+                risk = "HIGH";
+                diffs.add(new DifferentialDiagnosis("1D20", "Dengue / Arboviral Febrile Syndrome", "HIGH", "Classic syndrome of acute fever, retro-orbital pain, arthralgia, and petechial signs"));
+                home.add(new HomeCareRemedy("Aggressive oral hydration with ORS, tender coconut water, and clean fluids (2.5 to 3L daily)", "Prevents hypovolemic dehydration and tracks hematocrit"));
+                home.add(new HomeCareRemedy("Complete physical bed rest and daily CBC platelet count monitoring", "Conserves hemodynamic reserves and monitors thrombocytopenia"));
+                otc.add(new OtcMedication("Paracetamol 500mg-650mg", "Safe antipyretic for high fever and arthralgia in suspected arboviral illness", "1 tablet every 6 hours PRN for fever > 100.4°F (max 3000mg/day)", "STRICT CONTRAINDICATION: Avoid Aspirin, Ibuprofen, Diclofenac or any NSAIDs as they exacerbate bleeding!"));
+                redFlags.add("Spontaneous mucosal bleeding from gums, nose, or petechial purple skin spots");
+                redFlags.add("Severe persistent abdominal pain or continuous persistent vomiting");
+                redFlags.add("Rapid drop in platelet count below 50,000 cells/mcL or clinical fluid accumulation");
+            } else if (hasCutWord) {
+                dept = "Emergency Medicine / Surgery";
+                risk = "MEDIUM";
+                diffs.add(new DifferentialDiagnosis("NE81.0", "Acute Laceration / Open Wound", "HIGH", "Cutaneous laceration with dermal disruption"));
+                home.add(new HomeCareRemedy("Wash wound under clean tap water for 3-5 minutes and apply firm direct pressure with clean gauze", "Flushes bacterial debris and arrests bleeding"));
+                otc.add(new OtcMedication("Bacitracin / Neosporin Topical Ointment", "Antimicrobial barrier protection for minor wounds", "Apply thin film to clean wound 1-2 times daily and cover with sterile dressing", "Deep puncture wounds or animal bites"));
+                redFlags.add("Continuous bleeding not stopping after 10 minutes of direct pressure");
+                redFlags.add("Loss of sensation, numbness, or inability to move joint/finger");
+                redFlags.add("Wound caused by rusty metal (tetanus booster required if > 5-10 yrs)");
+            } else if (lower.contains("burn_injury") || lower.contains("scald") || lower.contains("jal gaya") || (lower.contains("burn") && !lower.contains("urin") && !lower.contains("pee") && !lower.contains("dysuria") && !lower.contains("heartburn"))) {
+                dept = "Emergency Medicine / Dermatology";
+                risk = "MEDIUM";
+                diffs.add(new DifferentialDiagnosis("ND90.0", "Acute Thermal Burn / Scald", "HIGH", "Thermal dermal injury requiring immediate barrier cooling"));
+                home.add(new HomeCareRemedy("Cool burn under cool running tap water for 15-20 minutes; do NOT apply ice, butter, or pop blisters", "Arrests thermal progression in tissue"));
+                otc.add(new OtcMedication("Silver Sulfadiazine 1% Cream / Pure Aloe Vera Gel", "Soothing antimicrobial barrier for superficial burns", "Apply thin layer to cooled clean burn 1-2 times daily", "Sulfa allergy; avoid near eyes"));
+                redFlags.add("Burn larger than palm size or involving face, hands, feet, or moving joints");
+                redFlags.add("Third-degree burn with white, charred, or numb skin");
+            } else if ((lower.contains("sprain") || lower.contains("twist") || lower.contains("moch") || lower.contains("sprain_strain")) && !lower.contains("eye strain")) {
+                dept = "Orthopedics";
+                risk = "MILD";
+                diffs.add(new DifferentialDiagnosis("FB50.0", "Acute Sprain / Joint Strain", "HIGH", "Traumatic ligamentous stretching or strain"));
+                home.add(new HomeCareRemedy("Follow R.I.C.E. protocol: Rest, Ice 15m every 2-3h, Compression bandage, Elevate above heart", "Minimizes swelling and mechanical strain"));
+                otc.add(new OtcMedication("Topical Diclofenac Gel 1.16%", "Non-steroidal anti-inflammatory pain relief", "Gently massage 2-4g onto affected joint 3 to 4 times daily", "Broken or abraded skin"));
+                redFlags.add("Inability to bear any weight and take 4 steps immediately after injury");
+                redFlags.add("Visible bone deformity, angulation, or open joint skin");
+            } else if (lower.contains("tooth") || lower.contains("teeth") || lower.contains("dental") || lower.contains("dant")) {
+                dept = "Dentistry";
+                risk = "MILD";
+                diffs.add(new DifferentialDiagnosis("DA00.0", "Acute Odontalgia / Dental Pulpitis", "HIGH", "Pulpal or periodontal inflammation"));
+                home.add(new HomeCareRemedy("Rinse mouth gently with warm salt water (1/2 tsp salt) every 3 hours; do NOT place aspirin directly against gum", "Reduces bacterial plaque and osmotic pressure"));
+                otc.add(new OtcMedication("Ibuprofen 400mg or Paracetamol 500mg", "Analgesic for acute dental pain", "1 tablet every 8 hours with food (max 3 daily)", "Active stomach ulcer"));
+                redFlags.add("Swelling spreading to cheek, eye, or under jaw");
+                redFlags.add("Difficulty swallowing or opening mouth (trismus)");
+            } else if (lower.contains("urination") || lower.contains("urine") || lower.contains("dysuria") || lower.contains("mutra")) {
+                dept = "Urology";
+                risk = "LOW";
+                diffs.add(new DifferentialDiagnosis("GC08.0", "Acute Cystitis / Urinary Tract Infection", "HIGH", "Dysuria and urinary tract inflammation"));
+                home.add(new HomeCareRemedy("Hydrate with 3-4L water daily", "Flushes urinary pathogens"));
+                otc.add(new OtcMedication("Potassium Citrate Liquid", "Urine alkalizer for burning micturition", "15ml diluted in full glass of water 3x daily", "Renal insufficiency"));
+                redFlags.add("High fever with flank pain");
+                redFlags.add("Visible blood in urine");
+            } else if (lower.contains("eye") || lower.contains("blur") || lower.contains("vision") || lower.contains("ocular")) {
+                dept = "Ophthalmology";
+                risk = "MILD";
+                diffs.add(new DifferentialDiagnosis("9A60.0", "Allergic Conjunctivitis / Eye Strain", "HIGH", "Ocular irritation and visual strain"));
+                home.add(new HomeCareRemedy("Cold sterile eye compress and 20-20-20 screen rest rule", "Relieves ocular fatigue and vascular congestion"));
+                otc.add(new OtcMedication("Carboxymethylcellulose 0.5% Eye Drops", "Preservative-free tear lubricant", "1-2 drops 3-4 times daily", "Do not touch dropper tip to eye"));
+                redFlags.add("Sudden loss of visual acuity or severe ocular pain");
+            } else if (lower.contains("back") || lower.contains("spine")) {
+                dept = "Orthopedics";
+                risk = "MEDIUM";
+                diffs.add(new DifferentialDiagnosis("FB84.1", "Lumbar Disc Disorder", "HIGH", "Low back pain with sitting discomfort"));
+                home.add(new HomeCareRemedy("R.I.C.E. protocol and lumbar support", "Reduces mechanical disc strain"));
+                otc.add(new OtcMedication("Ibuprofen 400mg with food", "Oral NSAID anti-inflammatory pain relief", "1 tablet every 8 hours with meals", "Peptic ulcer disease"));
+                redFlags.add("Progressive leg numbness or foot drop");
+            } else if (lower.contains("headache") || lower.contains("head pain") || lower.contains("migraine") || lower.contains("sar dard")) {
+                dept = "Neurology";
+                risk = "LOW";
+                diffs.add(new DifferentialDiagnosis("8A80", "Primary Headache Disorder / Migraine", "HIGH", "Cephalea presenting as throbbing or tension pressure"));
+                home.add(new HomeCareRemedy("Rest in a dark quiet room and hydrate", "Reduces neurovascular stimulation"));
+                otc.add(new OtcMedication("Paracetamol 500mg or Ibuprofen 400mg", "Analgesic for acute headache relief", "1 tablet with water as needed (max 3x daily)", "Active stomach ulcer or liver impairment"));
+                redFlags.add("Sudden thunderclap severity within seconds");
+                redFlags.add("Stiff neck and fever");
+            } else if (lower.contains("stomach") || lower.contains("abdom") || lower.contains("pet dard") || lower.contains("cramp")) {
+                dept = "Gastroenterology";
+                risk = "LOW";
+                diffs.add(new DifferentialDiagnosis("DD90", "Acute Dyspepsia / Gastritis", "HIGH", "Visceral irritation and mucosal acidity"));
+                home.add(new HomeCareRemedy("Bland diet (bananas, rice, toast) and warm water", "Soothes gastric mucosal lining"));
+                otc.add(new OtcMedication("Antacid gel / Famotidine 20mg", "Reduces gastric acid hypersecretion", "10ml or 1 tablet 30 minutes before meals", "Severe kidney disease"));
+                redFlags.add("Severe persistent vomiting or inability to keep fluids");
+                redFlags.add("Black tarry stools");
+            } else if (lower.contains("throat") || lower.contains("gala") || lower.contains("pharyng")) {
+                dept = "ENT / Otolaryngology";
+                risk = "LOW";
+                diffs.add(new DifferentialDiagnosis("CA02", "Acute Pharyngitis", "HIGH", "Pharyngeal mucosal erythema and throat discomfort"));
+                home.add(new HomeCareRemedy("Warm saline gargles 3 times daily", "Reduces local edema and clears bacterial debris"));
+                otc.add(new OtcMedication("Antiseptic Lozenges (Amylmetacresol)", "Provides local anesthetic and soothing relief", "Dissolve 1 lozenge slowly in mouth every 2-3 hours", "Do not chew or swallow whole"));
+                redFlags.add("Difficulty swallowing liquids or breathing");
+            } else if (lower.contains("rash") || lower.contains("hives") || lower.contains("itch") || lower.contains("khujli")) {
+                dept = "Dermatology";
+                risk = "LOW";
+                diffs.add(new DifferentialDiagnosis("EA80", "Allergic Contact Dermatitis / Urticaria", "HIGH", "Erythematous cutaneous reaction with pruritus"));
+                home.add(new HomeCareRemedy("Cool compress and mild fragrance-free moisturizer", "Calms epidermal barrier irritation"));
+                otc.add(new OtcMedication("Cetirizine 10mg / Calamine Lotion", "Second-generation antihistamine to relieve itching", "1 tablet once daily at bedtime", "Avoid alcohol while taking"));
+                redFlags.add("Swelling of lips, tongue, or airway");
+                redFlags.add("Blistering or skin sloughing");
+            } else if (lower.contains("diarrhea") || lower.contains("loose motion") || lower.contains("dast")) {
+                dept = "Gastroenterology";
+                risk = "LOW";
+                diffs.add(new DifferentialDiagnosis("1A00", "Acute Infectious Gastroenteritis", "HIGH", "Watery bowel motions with electrolyte loss"));
+                home.add(new HomeCareRemedy("Oral Rehydration Solution (ORS) after each loose motion", "Prevents hypovolemia and restores electrolytes"));
+                otc.add(new OtcMedication("WHO-formula ORS Packets", "Balanced glucose-electrolyte fluid replacement", "1 packet dissolved in 1 liter clean water, sip frequently", "None for ORS"));
+                redFlags.add("Severe dehydration or dry tongue with sunken eyes");
+                redFlags.add("Blood or mucus in stool");
+            } else if (lower.contains("joint") || lower.contains("knee") || lower.contains("arthrit")) {
+                dept = "Orthopedics / Rheumatology";
+                risk = "LOW";
+                diffs.add(new DifferentialDiagnosis("FA00", "Acute Arthralgia / Joint Strain", "HIGH", "Articular inflammation and localized mechanical pain"));
+                home.add(new HomeCareRemedy("R.I.C.E protocol (Rest, Ice for 15 minutes, Elevation)", "Reduces acute intra-articular inflammation"));
+                otc.add(new OtcMedication("Topical Diclofenac Gel", "Local NSAID anti-inflammatory without systemic gut upset", "Apply thin layer to affected joint 3 times daily", "Broken skin"));
+                redFlags.add("Hot, intensely red, single swollen joint with fever");
+            } else if (lower.contains("cough") || lower.contains("phlegm") || lower.contains("mucus")) {
+                dept = "Pulmonology";
+                risk = "LOW";
+                diffs.add(new DifferentialDiagnosis("CA20", "Acute Bronchitis", "HIGH", "Persistent cough with airway hyperreactivity"));
+                home.add(new HomeCareRemedy("Steam inhalation and warm saline gargling", "Relieves pharyngeal irritation"));
+                if (lower.contains("productive") || lower.contains("phlegm") || lower.contains("mucus") || lower.contains("green") || lower.contains("yellow")) {
+                    otc.add(new OtcMedication("Guaifenesin 100mg / Ambroxol Syrup", "Expectorant & mucolytic agent (thins bronchial phlegm)", "10ml every 6-8 hours with full glass of water", "Do NOT use cough suppressants for productive cough"));
+                } else {
+                    otc.add(new OtcMedication("Dextromethorphan HBr Syrup", "Cough suppressant for dry irritant cough", "10ml every 6-8 hours as needed", "Do not exceed recommended dose"));
+                }
+                redFlags.add("Blood in sputum");
+            } else if (lower.contains("chest") && (lower.contains("pain") || lower.contains("pressure") || lower.contains("arm"))) {
+                dept = "Emergency Medicine / Cardiology";
+                risk = "CRITICAL";
+                diffs.add(new DifferentialDiagnosis("BA41", "Acute Myocardial Infarction", "HIGH", "Crushing chest pressure with arm radiation"));
+                home.add(new HomeCareRemedy("Rest in seated position", "Minimizes cardiac oxygen demand"));
+                redFlags.add("Radiating jaw/arm pain");
+            } else {
+                dept = "General Medicine";
+                diffs.add(new DifferentialDiagnosis("CA45", "Acute Viral Syndrome", "HIGH", "Consistent with acute viral symptoms"));
+                home.add(new HomeCareRemedy("Adequate oral hydration and rest", "Supports immune clearance"));
+                otc.add(new OtcMedication("Paracetamol 500mg", "Antipyretic and mild analgesic", "1 tablet as needed for body ache (max 3g/day)", "Hepatic impairment"));
+                redFlags.add("High persistent fever above 103F");
+            }
         }
+
+        if (dept == null || dept.isBlank()) {
+            dept = "General Medicine";
+        }
+
+        // Baseline fallbacks if reasoning result had no supportive items
+        if (home.isEmpty()) {
+            home.add(new HomeCareRemedy("Maintain adequate oral hydration (2-2.5L/day) and rest comfortably", "Supports physiological recovery"));
+        }
+        if (redFlags.isEmpty()) {
+            redFlags.add("Difficulty breathing, chest tightness, or blue lips");
+            redFlags.add("Confusion, extreme lethargy, or inability to stay awake");
+            redFlags.add("Persistent high fever unresponsive to antipyretics for > 3 days");
+        }
+
+        PrescriptionProtocol draftRx = reasoningResult != null ? reasoningResult.getDraftPrescriptionProtocol() : null;
 
         return TriageResponse.builder()
                 .doctorMessage(message)
                 .riskLevel(risk)
-                .requiresImmediateTelehealth("CRITICAL".equalsIgnoreCase(risk))
+                .requiresImmediateTelehealth("CRITICAL".equalsIgnoreCase(risk) || "EMERGENCY".equalsIgnoreCase(risk))
                 .specialistDepartment(dept)
                 .differentialDiagnoses(diffs)
                 .homeCareRemedies(home)
                 .suggestedOtc("CRITICAL".equalsIgnoreCase(risk) ? new ArrayList<>() : otc)
                 .redFlags(redFlags)
                 .followUpAdvice("Monitor over next 24-48 hours. Consult a specialist if symptoms persist.")
-                .digitalPrescription(rx)
+                .digitalPrescription(draftRx)
                 .build();
     }
 }

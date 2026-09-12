@@ -24,6 +24,11 @@ import com.velocura.medicalknowledge.model.ClinicalEvidenceRecord;
 import com.velocura.medicalknowledge.model.KnowledgeSnapshot;
 import com.velocura.medicalknowledge.repository.ClinicalEvidenceRecordRepository;
 import com.velocura.medicalknowledge.service.MedicalKnowledgeService;
+import com.velocura.ai.clinical.retrieval.dto.ClinicalCandidate;
+import com.velocura.ai.clinical.knowledge.LocalClinicalEntityRegistry;
+import com.velocura.ai.clinical.medication.service.ClinicalPrescriptionDraftService;
+import com.velocura.ai.clinical.model.ClinicalEntity;
+import com.velocura.ai.clinical.model.PrescriptionProtocol;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -54,6 +59,21 @@ public class UnifiedClinicalDecisionEngine {
     private final NextBestActionEngine nextBestActionEngine;
     private final ClinicalStateStore stateStore;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LocalClinicalEntityRegistry localClinicalEntityRegistry;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ClinicalPrescriptionDraftService prescriptionDraftService;
+
+    public void setLocalClinicalEntityRegistry(LocalClinicalEntityRegistry registry) {
+        this.localClinicalEntityRegistry = registry;
+    }
+
+    public void setPrescriptionDraftService(ClinicalPrescriptionDraftService draftService) {
+        this.prescriptionDraftService = draftService;
+    }
+
+
     /**
      * Executes a complete canonical clinical reasoning cycle.
      */
@@ -62,6 +82,19 @@ public class UnifiedClinicalDecisionEngine {
             String normText,
             PatientContext patientContext,
             ClinicalConversationState state) {
+        return reason(rawInput, normText, patientContext, state, null);
+    }
+
+    /**
+     * Executes a complete canonical clinical reasoning cycle with candidate concepts from 11K inverted index.
+     * Enforces strict separation between candidate retrieval and clinical reasoning authority.
+     */
+    public ClinicalReasoningResult reason(
+            String rawInput,
+            String normText,
+            PatientContext patientContext,
+            ClinicalConversationState state,
+            List<ClinicalCandidate> preRetrievedCandidates) {
 
         String sessionId = state.getConversationId();
         int stateVer = state.getStateVersion();
@@ -95,6 +128,22 @@ public class UnifiedClinicalDecisionEngine {
                     .build();
 
             ctx.addTraceStep("Captured immutable snapshot " + activeSnapshotId + " for state version v" + stateVer);
+
+            // ─── STAGE 1B: 11K CANDIDATE RETRIEVAL (CANDIDATE GENERATION ONLY) ───────────
+            List<ClinicalCandidate> candidates = preRetrievedCandidates;
+            if ((candidates == null || candidates.isEmpty()) && localClinicalEntityRegistry != null) {
+                Set<String> symptoms = state.getSymptoms() != null ? state.getSymptoms().keySet() : Collections.emptySet();
+                candidates = localClinicalEntityRegistry.retrieveCandidates(
+                        symptoms,
+                        normText != null ? normText : rawInput,
+                        5,
+                        state.getNegatedFindings(),
+                        activeSnapshotId
+                );
+            }
+            if (candidates == null) candidates = new ArrayList<>();
+            ctx.setRetrievedCandidates(candidates);
+            ctx.addTraceStep("RETRIEVAL: Ingested " + candidates.size() + " candidate medical concepts from 11,003 In-Memory Inverted Index (Snapshot: " + activeSnapshotId + ")");
 
             // ─── STAGE 2: SAFETY GATE #1 — PRE-REASONING EMERGENCY SUPREMACY (Section 28) ───
             SafetyScreeningResult gate1Result = safetyScreeningEngine.screen(normText, patientContext);
@@ -152,12 +201,92 @@ public class UnifiedClinicalDecisionEngine {
             // ─── STAGE 5: BUILD CLINICAL EPISODE & MULTI-FEATURE DIFFERENTIAL (Section 8-10) 
             ClinicalEpisode episode = buildClinicalEpisode(state, normText, isThirdParty);
             DiagnosticAssessment diffAssessment = differentialEngine.evaluateDifferential(episode, state);
+
+            // Reconcile and integrate retrieved 11K candidates into clinical reasoning
+            if (!candidates.isEmpty()) {
+                List<CandidateConditionAssessment> reasonedCandidates = new ArrayList<>();
+                if (diffAssessment != null && diffAssessment.getCandidateConditions() != null) {
+                    reasonedCandidates.addAll(diffAssessment.getCandidateConditions());
+                }
+
+                for (ClinicalCandidate cand : candidates) {
+                    boolean alreadyPresent = reasonedCandidates.stream()
+                            .anyMatch(rc -> rc.getIcdCode() != null && rc.getIcdCode().equalsIgnoreCase(cand.getTerminologyCode()));
+                    if (alreadyPresent) continue;
+
+                    // Contradiction screening against patient negated findings
+                    boolean isContradicted = cand.getContradictions() != null && !cand.getContradictions().isEmpty();
+                    if (state.getNegatedFindings() != null) {
+                        for (String neg : state.getNegatedFindings()) {
+                            String negL = neg.toLowerCase(Locale.ROOT);
+                            if (cand.getDisplayName() != null && cand.getDisplayName().toLowerCase(Locale.ROOT).contains(negL)) {
+                                isContradicted = true;
+                                if (cand.getContradictions() == null) {
+                                    cand.setContradictions(new ArrayList<>());
+                                } else {
+                                    cand.setContradictions(new ArrayList<>(cand.getContradictions()));
+                                }
+                                if (!cand.getContradictions().contains(neg)) {
+                                    cand.getContradictions().add(neg);
+                                }
+                            }
+                        }
+                    }
+
+                    // Convert retrieval relevance score to bounded inspectable clinicalSupportScore (0.10 to 0.95)
+                    // Hard rule: Relevance score != Probability
+                    double normalizedScore = Math.min(0.95, Math.max(0.10, cand.getRelevanceScore() / 10.0));
+                    if (isContradicted) {
+                        normalizedScore = Math.min(0.20, normalizedScore * 0.20);
+                    }
+
+                    com.velocura.ai.clinical.diagnostic.model.SupportLevel supportLevel;
+                    if (isContradicted) {
+                        supportLevel = com.velocura.ai.clinical.diagnostic.model.SupportLevel.INSUFFICIENT_EVIDENCE;
+                    } else {
+                        supportLevel = com.velocura.ai.clinical.diagnostic.model.SupportLevel.fromScore(normalizedScore);
+                    }
+
+                    CandidateConditionAssessment cca = CandidateConditionAssessment.builder()
+                            .conditionId(cand.getConceptId())
+                            .conditionName(cand.getDisplayName())
+                            .icdCode(cand.getTerminologyCode())
+                            .supportLevel(supportLevel)
+                            .clinicalSupportScore(normalizedScore)
+                            .supportingFindings(cand.getMatchedFeatures() != null ? new ArrayList<>(cand.getMatchedFeatures()) : new ArrayList<>())
+                            .contradictingFindings(cand.getContradictions() != null ? new ArrayList<>(cand.getContradictions()) : new ArrayList<>())
+                            .provenance(List.of(cand.getProvenance() != null ? cand.getProvenance() : "WHO-ICD11-CORE-11K"))
+                            .rationale("Reasoned from candidate retrieval: " + cand.getMatchedFeatures() + (isContradicted ? " [CONTRADICTED BY NEGATIVE FINDING]" : ""))
+                            .build();
+
+                    reasonedCandidates.add(cca);
+                }
+
+                // Sort: non-contradicted higher, higher clinicalSupportScore first
+                reasonedCandidates.sort((c1, c2) -> {
+                    boolean r1 = c1.getContradictingFindings() != null && !c1.getContradictingFindings().isEmpty();
+                    boolean r2 = c2.getContradictingFindings() != null && !c2.getContradictingFindings().isEmpty();
+                    if (r1 != r2) return r1 ? 1 : -1;
+                    return Double.compare(c2.getClinicalSupportScore(), c1.getClinicalSupportScore());
+                });
+
+
+                if (diffAssessment == null) {
+                    diffAssessment = DiagnosticAssessment.builder()
+                            .candidateConditions(reasonedCandidates)
+                            .build();
+                } else {
+                    diffAssessment.setCandidateConditions(reasonedCandidates);
+                }
+            }
+
             ctx.setDifferentialAssessment(diffAssessment);
-            ctx.addTraceStep("DIFFERENTIAL: Evaluated " + (diffAssessment.getCandidateConditions() != null ? diffAssessment.getCandidateConditions().size() : 0) + " candidates");
+            ctx.addTraceStep("REASONING: Evaluated " + (diffAssessment.getCandidateConditions() != null ? diffAssessment.getCandidateConditions().size() : 0) + " candidates under clinical reasoning authority");
 
             // ─── STAGE 6: LONGITUDINAL RISK STRATIFICATION (Section 12 & 13) ──────────────
             ClinicalRiskLevel priorRisk = state.getCurrentRiskLevel();
             ClinicalRiskLevel newRisk = evaluateLongitudinalRisk(state, isEmergencyGate1, diffAssessment, ctx.getTemporalObservations());
+
             
             String transitionReason = determineTransitionReason(priorRisk, newRisk, isEmergencyGate1, gate1Result, ctx.getTemporalObservations());
             RiskTransition riskTransition = RiskTransition.of(priorRisk, newRisk, transitionReason);
@@ -265,7 +394,69 @@ public class UnifiedClinicalDecisionEngine {
                 ctx.addTraceStep("SAFETY GATE #2: Final emergency escalation confirmed. Supremacy asserted.");
             }
 
-            // ─── STAGE 13: COMPOSE STRUCTURED RESULT & SAVE TRACE ─────────────────────────
+            // ─── STAGE 13: SPECIALIST REFERRAL & SAFE PRESCRIPTION DRAFTING ──────────────
+            String specialistDept = "General Medicine";
+            if (finalEmergency) {
+                boolean isCardio = (rawInput != null && rawInput.toLowerCase().contains("chest"))
+                        || (normText != null && normText.toLowerCase().contains("chest"))
+                        || (state.getSymptoms() != null && state.getSymptoms().containsKey("chest_symptoms"));
+                specialistDept = isCardio ? "Emergency Medicine / Cardiology" : "Emergency Medicine";
+                ctx.addTraceStep("SAFETY: Emergency supremacy assigned referral department to '" + specialistDept + "'");
+            } else if (diffAssessment != null && diffAssessment.getCandidateConditions() != null && !diffAssessment.getCandidateConditions().isEmpty()) {
+                CandidateConditionAssessment topCand = diffAssessment.getCandidateConditions().get(0);
+                ClinicalEntity topCe = localClinicalEntityRegistry != null ? localClinicalEntityRegistry.getEntity(topCand.getIcdCode()) : null;
+                if (topCe != null && topCe.getSpecialistDepartment() != null && !topCe.getSpecialistDepartment().isBlank()) {
+                    specialistDept = topCe.getSpecialistDepartment();
+                } else if (topCand.getConditionName() != null) {
+                    specialistDept = inferSpecialistDepartment(topCand.getConditionName(), state);
+                }
+                ctx.addTraceStep("REASONING: Specialist referral determined as '" + specialistDept + "' from reasoned candidate " + topCand.getIcdCode());
+            }
+
+            PrescriptionProtocol draftRx = null;
+            if (prescriptionDraftService != null && !finalEmergency) {
+                CandidateConditionAssessment topCand = (diffAssessment != null && diffAssessment.getCandidateConditions() != null && !diffAssessment.getCandidateConditions().isEmpty())
+                        ? diffAssessment.getCandidateConditions().get(0)
+                        : null;
+                ClinicalEntity topCe = (topCand != null && localClinicalEntityRegistry != null)
+                        ? localClinicalEntityRegistry.getEntity(topCand.getIcdCode())
+                        : null;
+                List<String> symptomList = new ArrayList<>(state.getSymptoms().keySet());
+                if (rawInput != null) symptomList.add(rawInput);
+
+                ClinicalReasoningResult interim = ClinicalReasoningResult.builder()
+                        .riskLevel(state.getCurrentRiskLevel())
+                        .safetyStatus(safetyStatus)
+                        .differential(diffAssessment)
+                        .medicationAssessment(medAssessment)
+                        .specialistDepartment(specialistDept)
+                        .build();
+
+                Optional<PrescriptionProtocol> optDraft = prescriptionDraftService.synthesizeDraftProtocol(
+                        interim,
+                        topCe,
+                        state.getPatientContext(),
+                        symptomList
+                );
+                if (optDraft.isPresent()) {
+                    draftRx = optDraft.get();
+                    ctx.addTraceStep("ACTION: Prepared draft prescription (" + draftRx.getIcd11Code() + ") strictly requiring clinician review and authorization");
+                } else {
+                    ctx.addTraceStep("SAFETY: Prescription draft blocked by clinical safety boundaries");
+                }
+            }
+
+            List<String> supportiveCareMeasures = new ArrayList<>();
+            if (draftRx != null && draftRx.getSupportiveCare() != null) {
+                supportiveCareMeasures.addAll(draftRx.getSupportiveCare());
+            }
+            if (supportiveCareMeasures.isEmpty() && evidenceList != null && !evidenceList.isEmpty()) {
+                for (ClinicalEvidenceRecord er : evidenceList) {
+                    if (er.getClaim() != null) supportiveCareMeasures.add(er.getClaim());
+                }
+            }
+
+
             String patientFacing = buildPatientFacingMessage(finalEmergency, hasSafetyContradiction, contradiction, medAssessment, labReport, diffAssessment, nbq, nba);
             String clinicianSummary = buildClinicianSummary(ctx, finalEmergency, newRisk, diffAssessment, medAssessment, labReport);
 
@@ -289,9 +480,16 @@ public class UnifiedClinicalDecisionEngine {
                     .nextBestAction(nba)
                     .reasoningTraceId(traceId)
                     .generatedAt(now)
+                    .specialistDepartment(specialistDept)
+                    .clinicianReviewRequired(true)
+                    .draftPrescriptionProtocol(draftRx)
+                    .differentialCandidates(candidates)
+                    .redFlags(new ArrayList<>(ctx.getRedFlags()))
+                    .supportiveCare(supportiveCareMeasures)
                     .patientFacingMessage(patientFacing)
                     .clinicianFacingSummary(clinicianSummary)
                     .build();
+
 
             // Record Decision Trace
             ClinicalDecisionTrace trace = ClinicalDecisionTrace.builder()
@@ -308,10 +506,12 @@ public class UnifiedClinicalDecisionEngine {
             state.recordStateChange(StateChangeDiff.builder()
                     .fromVersion(stateVer)
                     .triggerTurnInput(normText)
-                    .riskTransition(riskTransition.getPreviousRisk() + " -> " + riskTransition.getCurrentRisk())
+                    .riskTransition(riskTransition != null ? (riskTransition.getPreviousRisk() + " -> " + riskTransition.getCurrentRisk()) : "UNKNOWN")
                     .build());
 
-            stateStore.save(state);
+            if (stateStore != null) {
+                stateStore.save(state);
+            }
             return result;
         } catch (Exception ex) {
             log.error("Clinical reasoning execution encountered dependency or execution exception: {}", ex.getMessage(), ex);
@@ -757,4 +957,47 @@ public class UnifiedClinicalDecisionEngine {
             return SeverityGrade.MODERATE;
         }
     }
+
+    private String inferSpecialistDepartment(String conditionName, ClinicalConversationState state) {
+        if (conditionName == null) return "General Medicine";
+        String lower = conditionName.toLowerCase(Locale.ROOT);
+        if (lower.contains("dental") || lower.contains("pulp") || lower.contains("tooth") || lower.contains("teeth") || lower.contains("odont")) {
+            return "Dentistry / Oral & Maxillofacial Surgery";
+        }
+        if (lower.contains("migraine") || lower.contains("headache") || lower.contains("cephalea") || lower.contains("neuro")) {
+            return "Neurology";
+        }
+        if (lower.contains("wound") || lower.contains("lacerat") || lower.contains("trauma")) {
+            return "General Surgery / Emergency Medicine";
+        }
+        if (lower.contains("sprain") || lower.contains("fracture") || lower.contains("malleol") || lower.contains("orthop") || lower.contains("joint") || lower.contains("disc") || lower.contains("arthrit")) {
+            return "Orthopedics";
+        }
+        if (lower.contains("coronary") || lower.contains("myocardial") || lower.contains("cardio") || lower.contains("angina")) {
+            return "Cardiology / Emergency Resuscitation";
+        }
+        if (lower.contains("burn") || lower.contains("scald") || lower.contains("dermat") || lower.contains("rash") || lower.contains("urticaria")) {
+            return "Dermatology";
+        }
+        if (lower.contains("dengue") || lower.contains("malaria") || lower.contains("typhoid") || lower.contains("infect")) {
+            return "Infectious Disease / Internal Medicine";
+        }
+        if (lower.contains("bronch") || lower.contains("pneum") || lower.contains("pulmon") || lower.contains("cough")) {
+            return "Pulmonology";
+        }
+        if (lower.contains("gastro") || lower.contains("dyspep") || lower.contains("gastrit") || lower.contains("diarrhea")) {
+            return "Gastroenterology";
+        }
+        if (lower.contains("cystitis") || lower.contains("urin") || lower.contains("urol")) {
+            return "Urology";
+        }
+        if (lower.contains("conjunctiv") || lower.contains("eye") || lower.contains("ocular") || lower.contains("ophthalm")) {
+            return "Ophthalmology";
+        }
+        if (lower.contains("pharyng") || lower.contains("throat") || lower.contains("ent")) {
+            return "ENT / Otolaryngology";
+        }
+        return "General Medicine";
+    }
 }
+

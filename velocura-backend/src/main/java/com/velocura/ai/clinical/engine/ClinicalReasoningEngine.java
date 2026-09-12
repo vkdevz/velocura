@@ -41,6 +41,9 @@ public class ClinicalReasoningEngine {
     private final ClinicalKnowledgeService knowledgeService;
     private final com.velocura.medicalknowledge.service.MedicalKnowledgeService medicalKnowledgeService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.velocura.ai.clinical.knowledge.LocalClinicalEntityRegistry localClinicalEntityRegistry;
+
     @org.springframework.beans.factory.annotation.Autowired
     public ClinicalReasoningEngine(
             ClinicalKnowledgeService knowledgeService,
@@ -369,8 +372,20 @@ public class ClinicalReasoningEngine {
                 }
             }
 
-            if (!evidenceList.isEmpty() && !evidenceList.get(0).getSafeMeasures().isEmpty()) {
-                msg.append("Recommended immediate self-care: ").append(String.join(", ", evidenceList.get(0).getSafeMeasures())).append(". ");
+            List<String> safeMeasures = new ArrayList<>();
+            if (localClinicalEntityRegistry != null && state != null && state.getSymptoms() != null && !state.getSymptoms().isEmpty()) {
+                var cands = localClinicalEntityRegistry.retrieveCandidates(state.getSymptoms().keySet(), input, 1, state.getNegatedFindings(), state.getActiveSnapshotId());
+                if (!cands.isEmpty() && cands.get(0).getBackingEntity() != null && cands.get(0).getBackingEntity().getDefaultPrescriptionProtocol() != null) {
+                    safeMeasures = cands.get(0).getBackingEntity().getDefaultPrescriptionProtocol().getSupportiveCare();
+                }
+            }
+
+            if (safeMeasures.isEmpty() && !evidenceList.isEmpty() && !evidenceList.get(0).getSafeMeasures().isEmpty()) {
+                safeMeasures = evidenceList.get(0).getSafeMeasures();
+            }
+
+            if (!safeMeasures.isEmpty()) {
+                msg.append("Recommended immediate self-care: ").append(String.join(", ", safeMeasures)).append(". ");
             } else {
                 msg.append("Stay well-hydrated, rest comfortably, and follow the care directives below. ");
             }

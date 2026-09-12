@@ -1,5 +1,7 @@
 package com.velocura.ai.clinical.engine;
 
+import com.velocura.ai.clinical.retrieval.dto.ClinicalCandidate;
+import com.velocura.ai.clinical.knowledge.LocalClinicalEntityRegistry;
 import com.velocura.ai.clinical.safety.ClinicalAnswerValidator;
 import com.velocura.ai.clinical.safety.DeterministicSafetyKernel;
 import com.velocura.ai.clinical.safety.SafetyScreeningEngine;
@@ -8,7 +10,9 @@ import com.velocura.ai.clinical.state.*;
 import com.velocura.dto.ChatRequest;
 import com.velocura.dto.ChatResponse;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -39,6 +43,9 @@ public class AdaptiveClinicalConversationEngine {
     private final LongitudinalStateTracker longitudinalTracker;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private UnifiedClinicalDecisionEngine unifiedDecisionEngine;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LocalClinicalEntityRegistry localClinicalEntityRegistry;
+
 
     @org.springframework.beans.factory.annotation.Autowired
     public AdaptiveClinicalConversationEngine(
@@ -285,7 +292,28 @@ public class AdaptiveClinicalConversationEngine {
             }
         }
 
-        // ─── STAGE 10: KNOWLEDGE RETRIEVAL, REASONING & SAFETY GATE #2 ────────
+        // ─── STAGE 10: 11K CANDIDATE RETRIEVAL & UNIFIED CLINICAL DECISION ENGINE ───
+        List<ClinicalCandidate> candidates = Collections.emptyList();
+        if (localClinicalEntityRegistry != null) {
+            Set<String> symptoms = state.getSymptoms() != null ? state.getSymptoms().keySet() : Collections.emptySet();
+            candidates = localClinicalEntityRegistry.retrieveCandidates(
+                    symptoms,
+                    normText != null ? normText : rawInput,
+                    5,
+                    state.getNegatedFindings(),
+                    state.getActiveSnapshotId()
+            );
+        }
+
+        ClinicalReasoningResult reasoningResult = null;
+        if (unifiedDecisionEngine != null) {
+            try {
+                reasoningResult = unifiedDecisionEngine.reason(rawInput, normText, state.getPatientContext(), state, candidates);
+            } catch (Exception e) {
+                log.warn("[UNIFIED DECISION ENGINE] Execution note: {}", e.getMessage());
+            }
+        }
+
         ClinicalReasoningEngine.ReasoningOutput reasoning = reasoningEngine.reason(normText, state, questionDecision);
 
         // Safety Gate #2: Enforce non-overrideable safety kernel boundaries
@@ -304,26 +332,20 @@ public class AdaptiveClinicalConversationEngine {
                 .build();
 
         stateStore.save(state);
-        ChatResponse resp = responseComposer.composeStandard(validatedMessage, state, questionDecision, rawInput);
-        if (unifiedDecisionEngine != null) {
-            try {
-                ClinicalReasoningResult reasoningResult = unifiedDecisionEngine.reason(rawInput, normText, state.getPatientContext(), state);
-                if (reasoningResult != null) {
-                    resp.setReasoningResult(reasoningResult);
-                    resp.setNextBestQuestion(reasoningResult.getNextBestQuestion());
-                    resp.setNextBestActionDetails(reasoningResult.getNextBestAction());
-                    resp.setReasoningTraceId(reasoningResult.getReasoningTraceId());
-                    resp.setKnowledgeSnapshotId(reasoningResult.getKnowledgeSnapshotId());
-                    if (reasoningResult.getRiskLevel() != null) {
-                        resp.setRiskLevel(reasoningResult.getRiskLevel().name());
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("[UNIFIED DECISION ENGINE] Execution note: {}", e.getMessage());
+        ChatResponse resp = responseComposer.composeStandard(validatedMessage, state, questionDecision, rawInput, reasoningResult);
+        if (reasoningResult != null) {
+            resp.setReasoningResult(reasoningResult);
+            resp.setNextBestQuestion(reasoningResult.getNextBestQuestion());
+            resp.setNextBestActionDetails(reasoningResult.getNextBestAction());
+            resp.setReasoningTraceId(reasoningResult.getReasoningTraceId());
+            resp.setKnowledgeSnapshotId(reasoningResult.getKnowledgeSnapshotId());
+            if (reasoningResult.getRiskLevel() != null) {
+                resp.setRiskLevel(reasoningResult.getRiskLevel().name());
             }
         }
         return resp;
     }
+
 
     public UnifiedClinicalDecisionEngine getUnifiedDecisionEngine() {
         return this.unifiedDecisionEngine;
@@ -332,6 +354,15 @@ public class AdaptiveClinicalConversationEngine {
     public void setUnifiedDecisionEngine(UnifiedClinicalDecisionEngine unifiedDecisionEngine) {
         this.unifiedDecisionEngine = unifiedDecisionEngine;
     }
+
+    public LocalClinicalEntityRegistry getLocalClinicalEntityRegistry() {
+        return this.localClinicalEntityRegistry;
+    }
+
+    public void setLocalClinicalEntityRegistry(LocalClinicalEntityRegistry localClinicalEntityRegistry) {
+        this.localClinicalEntityRegistry = localClinicalEntityRegistry;
+    }
+
 
     private boolean isIntroducingNewComplaint(String text, ClinicalConversationState state) {
         if (text == null) return false;

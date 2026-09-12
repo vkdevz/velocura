@@ -48,7 +48,8 @@ public class ConditionEvidenceProvider implements EvidenceProvider {
 
         for (ClinicalConditionDefinition def : definitions) {
             for (String kw : def.getKeywords()) {
-                if (lower.contains(kw.toLowerCase())) {
+                String kwL = kw.toLowerCase();
+                if (lower.contains(kwL) || kwL.contains(lower) || (lower.contains("dental") && def.getId().equals("DENTAL_ODONTALGIA"))) {
                     return Optional.of(def);
                 }
             }

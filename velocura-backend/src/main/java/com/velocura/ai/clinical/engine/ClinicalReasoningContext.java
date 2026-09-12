@@ -6,6 +6,7 @@ import com.velocura.ai.clinical.evidence.model.EvidenceConflict;
 import com.velocura.ai.clinical.lab.model.LabAssessmentReport;
 import com.velocura.ai.clinical.lab.model.LabObservation;
 import com.velocura.ai.clinical.medication.model.MedicationSafetyAssessment;
+import com.velocura.ai.clinical.retrieval.dto.ClinicalCandidate;
 import com.velocura.ai.clinical.state.*;
 import com.velocura.medicalknowledge.model.ClinicalEvidenceRecord;
 import lombok.AllArgsConstructor;
@@ -78,7 +79,11 @@ public class ClinicalReasoningContext implements Serializable {
     private ClinicalRiskLevel initialRiskLevel;
     private boolean emergencyDetectedAtGate1;
 
+    @Builder.Default
+    private List<ClinicalCandidate> retrievedCandidates = new ArrayList<>();
+
     // Sub-Engine Outputs (Coherent reasoning over identical state)
+
     private DiagnosticAssessment differentialAssessment;
     private MedicationSafetyAssessment medicationAssessment;
     private LabAssessmentReport labReport;

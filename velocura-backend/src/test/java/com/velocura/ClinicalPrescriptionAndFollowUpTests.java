@@ -38,6 +38,29 @@ public class ClinicalPrescriptionAndFollowUpTests {
     }
 
     @Test
+    public void test11kSearchComplexityAndLatencyBenchmark() {
+        // Warm up JVM JIT compiler
+        for (int i = 0; i < 200; i++) {
+            registry.search11k(List.of("fever", "retro_orbital_pain", "petechiae_rash"), "High fever and small red spots", 5);
+        }
+
+        // Benchmark 100 search iterations across all 11,003 entities
+        long startNanos = System.nanoTime();
+        int iterations = 100;
+        for (int i = 0; i < iterations; i++) {
+            List<LocalClinicalEntityRegistry.ScoredCandidate> cands =
+                    registry.search11k(List.of("fever", "retro_orbital_pain", "petechiae_rash"), "Fever 1-3 days with petechiae", 5);
+            assertFalse(cands.isEmpty(), "Must return top candidate from 11k dataset");
+            assertEquals("1D20", cands.get(0).getEntity().getIcd11Code(), "Top candidate must be Dengue (1D20)");
+        }
+        long durationNanos = System.nanoTime() - startNanos;
+        double avgMillis = (durationNanos / 1_000_000.0) / iterations;
+
+        System.out.println("[BENCHMARK 11K SEARCH] Average latency per query across 11,003 entities: " + String.format("%.3f ms (%.0f microseconds)", avgMillis, avgMillis * 1000));
+        assertTrue(avgMillis < 2.0, "Average latency across 11,003 entities must be near or sub-millisecond (< 2.0 ms). Actual: " + avgMillis + " ms");
+    }
+
+    @Test
     public void testRepetitionEliminationOnFollowUpTurns() {
         String session = "test-no-repetition-" + System.currentTimeMillis();
 

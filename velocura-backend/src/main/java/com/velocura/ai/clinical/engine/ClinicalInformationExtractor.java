@@ -212,8 +212,9 @@ public class ClinicalInformationExtractor {
             }
         }
 
-        // Thermal Burns & Scalds
-        if (text.contains("scald") || text.contains("jal gaya") || ((text.contains("burn") || text.contains("blister")) && !text.contains("urin") && !text.contains("pee") && !text.contains("dysuria") && !text.contains("heartburn"))) {
+        // Thermal Burns & Scalds (exclude neuropathic burning pain)
+        boolean isNerveBurning = text.contains("burning pain") || text.contains("burning sensation") || text.contains("burning feeling");
+        if ((text.contains("scald") || text.contains("jal gaya") || text.contains("burn injury") || ((text.contains("burn") || text.contains("blister")) && !isNerveBurning && !text.contains("urin") && !text.contains("pee") && !text.contains("dysuria") && !text.contains("heartburn")))) {
             if (!isNegated(text, "burn") && !isNegated(text, "scald")) {
                 state.getSymptoms().put("burn_injury", ClinicalFact.userReported("burn_injury", "present", turn));
                 state.addFact("burn_injury", ClinicalFact.userReported("burn_injury", "present", turn));

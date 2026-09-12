@@ -35,8 +35,18 @@ public class PrescriptionProtocol {
     private List<String> redFlagHospitalizationCriteria = new ArrayList<>();
 
     @Builder.Default
-    private String authorizedBy = "VeloCura CDSS v2.8 (Clinical Decision Support Protocol)";
+    private com.velocura.model.PrescriptionStatus status = com.velocura.model.PrescriptionStatus.DRAFT;
+
+    @Builder.Default
+    private boolean clinicianReviewRequired = true;
+
+    @Builder.Default
+    private boolean clinicianAuthorizationRequired = true;
 
     @Builder.Default
     private boolean requiresDoctorSignature = true;
+
+    @Builder.Default
+    private String authorizedBy = null;
 }
+

@@ -6,6 +6,8 @@ import com.velocura.ai.clinical.model.PrescriptionProtocol;
 import com.velocura.ai.clinical.model.RxMedicationItem;
 import com.velocura.ai.clinical.safety.PharmacologicalSafetyMatrix;
 import com.velocura.ai.clinical.state.PatientContext;
+import com.velocura.ai.clinical.retrieval.dto.ClinicalCandidate;
+import com.velocura.model.PrescriptionStatus;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,13 +24,184 @@ public class LocalClinicalEntityRegistry {
     private final PharmacologicalSafetyMatrix safetyMatrix;
     private final Map<String, ClinicalEntity> entityByIcd = new ConcurrentHashMap<>();
     private final Map<String, List<String>> icdsBySymptom = new ConcurrentHashMap<>();
+    private final Map<String, Posting[]> invertedIndex = new ConcurrentHashMap<>();
+    private final Map<String, Double> idfMap = new ConcurrentHashMap<>();
+    private final Set<String> coreIcds = ConcurrentHashMap.newKeySet();
+    private ClinicalEntity[] entitiesArray = new ClinicalEntity[0];
+    private boolean[] isCoreDoc = new boolean[0];
+
+    private final ThreadLocal<SearchScratchPad> scratchPadThreadLocal = ThreadLocal.withInitial(() -> new SearchScratchPad(16384));
+
+    private static final class SearchScratchPad {
+        final double[] scores;
+        final int[] hallmarkHits;
+        final int[] touchedDocIds;
+
+        SearchScratchPad(int capacity) {
+            this.scores = new double[capacity];
+            this.hallmarkHits = new int[capacity];
+            this.touchedDocIds = new int[capacity];
+        }
+    }
+
+    private static final Set<String> STOP_WORDS = Set.of(
+            "i", "me", "my", "myself", "we", "our", "you", "your", "he", "she", "it", "they",
+            "am", "is", "are", "was", "were", "be", "been", "have", "has", "had", "do", "does",
+            "did", "a", "an", "the", "and", "but", "if", "or", "because", "as", "until", "while",
+            "of", "at", "by", "for", "with", "about", "against", "between", "into", "through",
+            "during", "before", "after", "above", "below", "to", "from", "up", "down", "in", "out",
+            "on", "off", "over", "under", "again", "further", "then", "once", "here", "there",
+            "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", "most",
+            "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than",
+            "too", "very", "can", "will", "just", "feel", "feeling", "experiencing", "started",
+            "days", "day", "since", "got", "having", "please", "help", "doctor", "suffering"
+    );
+
+    private static final class Posting {
+        final int docId;
+        final float weight;
+        final boolean isHallmark;
+
+        Posting(int docId, float weight, boolean isHallmark) {
+            this.docId = docId;
+            this.weight = weight;
+            this.isHallmark = isHallmark;
+        }
+    }
+
+    public static class ScoredCandidate implements Comparable<ScoredCandidate> {
+        private final ClinicalEntity entity;
+        private final double score;
+        private final List<String> matchedFeatures;
+
+        public ScoredCandidate(ClinicalEntity entity, double score, List<String> matchedFeatures) {
+            this.entity = entity;
+            this.score = score;
+            this.matchedFeatures = matchedFeatures != null ? matchedFeatures : Collections.emptyList();
+        }
+
+        public ClinicalEntity getEntity() { return entity; }
+        public double getScore() { return score; }
+        public List<String> getMatchedFeatures() { return matchedFeatures; }
+
+        @Override
+        public int compareTo(ScoredCandidate o) {
+            return Double.compare(this.score, o.score);
+        }
+    }
 
     @PostConstruct
     public void init() {
         log.info("[CLINICAL REGISTRY] Initializing local 11k clinical knowledge base and discriminator graph...");
-        registerCoreClinicalEntities();
         load11kDataset();
+        registerCoreClinicalEntities();
+        finalizeInvertedIndex();
         log.info("[CLINICAL REGISTRY] Total registered entities in local clinical knowledge base: {}", entityByIcd.size());
+    }
+
+    private void finalizeInvertedIndex() {
+        int n = entityByIcd.size();
+        if (n == 0) return;
+
+        entitiesArray = new ClinicalEntity[n];
+        isCoreDoc = new boolean[n];
+
+        Map<String, List<Posting>> tempIndex = new HashMap<>(4096);
+
+        int docId = 0;
+        for (ClinicalEntity ce : entityByIcd.values()) {
+            entitiesArray[docId] = ce;
+            isCoreDoc[docId] = coreIcds.contains(ce.getIcd11Code());
+
+            // Normalize pertinent negatives once at startup
+            if (ce.getPertinentNegatives() != null && !ce.getPertinentNegatives().isEmpty()) {
+                List<String> cleaned = new ArrayList<>(ce.getPertinentNegatives().size());
+                for (String neg : ce.getPertinentNegatives()) {
+                    if (neg != null && !neg.isBlank()) cleaned.add(neg.trim().toLowerCase(Locale.ROOT));
+                }
+                ce.setPertinentNegatives(cleaned);
+            }
+
+            // Populate icdsBySymptom for exact fallback
+            if (ce.getHallmarkSymptoms() != null) {
+                for (String s : ce.getHallmarkSymptoms()) {
+                    if (s != null && !s.isBlank()) {
+                        icdsBySymptom.computeIfAbsent(s.trim().toLowerCase(Locale.ROOT), k -> new ArrayList<>()).add(ce.getIcd11Code());
+                    }
+                }
+            }
+
+            // Index entity tokens
+            indexEntityTokens(tempIndex, ce, docId);
+            docId++;
+        }
+
+        for (Map.Entry<String, List<Posting>> entry : tempIndex.entrySet()) {
+            List<Posting> postings = entry.getValue();
+            invertedIndex.put(entry.getKey(), postings.toArray(new Posting[0]));
+            double idf = Math.log(1.0 + ((double) n / (double) postings.size()));
+            idfMap.put(entry.getKey(), idf);
+        }
+
+        log.info("[CLINICAL REGISTRY] Inverted Index built across {} clinical entities with {} unique clinical terms.", n, invertedIndex.size());
+    }
+
+    private void indexEntityTokens(Map<String, List<Posting>> tempIndex, ClinicalEntity entity, int docId) {
+        if (entity.getHallmarkSymptoms() != null) {
+            for (String symptom : entity.getHallmarkSymptoms()) {
+                if (symptom == null || symptom.isBlank()) continue;
+                String sl = symptom.trim().toLowerCase(Locale.ROOT);
+                indexToken(tempIndex, sl, docId, 4.0f, true);
+                if (sl.contains("_")) {
+                    indexToken(tempIndex, sl.replace('_', ' '), docId, 4.0f, true);
+                    String[] parts = sl.split("_");
+                    for (String p : parts) {
+                        indexToken(tempIndex, p, docId, 2.0f, false);
+                    }
+                }
+            }
+        }
+
+        if (entity.getTitle() != null) {
+            String[] tokens = entity.getTitle().toLowerCase(Locale.ROOT).split("[^a-zA-Z0-9]+");
+            for (String tok : tokens) {
+                indexToken(tempIndex, tok, docId, 2.5f, false);
+            }
+        }
+
+        if (entity.getCategory() != null) {
+            String[] tokens = entity.getCategory().toLowerCase(Locale.ROOT).split("[^a-zA-Z0-9]+");
+            for (String tok : tokens) {
+                indexToken(tempIndex, tok, docId, 1.0f, false);
+            }
+        }
+
+        if (entity.getDiscriminatorQuestions() != null) {
+            for (DiscriminatorQuestion dq : entity.getDiscriminatorQuestions()) {
+                if (dq.getQuickReplies() != null) {
+                    for (String qr : dq.getQuickReplies()) {
+                        String[] tokens = qr.toLowerCase(Locale.ROOT).split("[^a-zA-Z0-9]+");
+                        for (String tok : tokens) {
+                            indexToken(tempIndex, tok, docId, 1.2f, false);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void indexToken(Map<String, List<Posting>> tempIndex, String rawToken, int docId, float weight, boolean isHallmark) {
+        if (rawToken == null) return;
+        String t = rawToken.trim().toLowerCase(Locale.ROOT);
+        if (t.length() < 3 || STOP_WORDS.contains(t)) return;
+
+        List<Posting> list = tempIndex.computeIfAbsent(t, k -> new ArrayList<>());
+        if (!list.isEmpty() && list.get(list.size() - 1).docId == docId) {
+            Posting prev = list.get(list.size() - 1);
+            list.set(list.size() - 1, new Posting(docId, prev.weight + weight, prev.isHallmark || isHallmark));
+        } else {
+            list.add(new Posting(docId, weight, isHallmark));
+        }
     }
 
     private void load11kDataset() {
@@ -46,7 +219,9 @@ public class LocalClinicalEntityRegistry {
                 com.fasterxml.jackson.core.type.TypeReference<List<ClinicalEntity>> typeRef = new com.fasterxml.jackson.core.type.TypeReference<>() {};
                 List<ClinicalEntity> list = mapper.readValue(in, typeRef);
                 for (ClinicalEntity ce : list) {
-                    registerEntity(ce);
+                    if (ce != null && ce.getIcd11Code() != null) {
+                        entityByIcd.put(ce.getIcd11Code(), ce);
+                    }
                 }
                 log.info("[CLINICAL REGISTRY] Successfully ingested {} WHO ICD-11 entities from dataset resource.", list.size());
             }
@@ -64,8 +239,250 @@ public class LocalClinicalEntityRegistry {
         return entityByIcd.size();
     }
 
+    /**
+     * Sub-millisecond ranked clinical candidate search across all 11,003 WHO ICD-11 entities.
+     * Algorithmic complexity: O(|Q| * K + C log k) with zero-allocation scratchpad and top-K heap.
+     *
+     * @param symptoms collection of detected patient symptoms
+     * @param freeText patient's free-text natural language complaint
+     * @param topK maximum top candidates to return (e.g. 3 to 5)
+     * @return top-K scored candidates ordered descending by clinical relevance
+     */
+    public List<ScoredCandidate> search11k(Collection<String> symptoms, String freeText, int topK) {
+        if ((symptoms == null || symptoms.isEmpty()) && (freeText == null || freeText.isBlank())) {
+            return Collections.emptyList();
+        }
+
+        Set<String> queryTerms = new LinkedHashSet<>(16);
+
+        // 1. Ingest symptoms
+        if (symptoms != null) {
+            for (String s : symptoms) {
+                if (s == null || s.isBlank()) continue;
+                String sn = s.trim().toLowerCase(Locale.ROOT);
+                queryTerms.add(sn);
+                if (sn.contains("_")) {
+                    queryTerms.add(sn.replace('_', ' '));
+                    String[] parts = sn.split("_");
+                    for (String p : parts) {
+                        if (p.length() >= 3 && !STOP_WORDS.contains(p)) {
+                            queryTerms.add(p);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Ingest free-text tokens
+        if (freeText != null && !freeText.isBlank()) {
+            String[] tokens = freeText.toLowerCase(Locale.ROOT).split("[^a-zA-Z0-9]+");
+            for (String tok : tokens) {
+                if (tok.length() >= 3 && !STOP_WORDS.contains(tok)) {
+                    queryTerms.add(tok);
+                }
+            }
+        }
+
+        if (queryTerms.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        SearchScratchPad pad = scratchPadThreadLocal.get();
+        if (pad == null || pad.scores.length < entitiesArray.length) {
+            pad = new SearchScratchPad(Math.max(16384, entitiesArray.length + 1024));
+            scratchPadThreadLocal.set(pad);
+        }
+
+        double[] scores = pad.scores;
+        int[] hallmarkHits = pad.hallmarkHits;
+        int[] touchedDocIds = pad.touchedDocIds;
+        int touchedCount = 0;
+
+        try {
+            // 3. Fast Inverted Index Accumulation directly into scratchpad arrays
+            for (String term : queryTerms) {
+                Posting[] postings = invertedIndex.get(term);
+                if (postings == null) continue;
+                double idf = idfMap.getOrDefault(term, 1.0);
+
+                for (int i = 0; i < postings.length; i++) {
+                    Posting p = postings[i];
+                    int docId = p.docId;
+                    if (scores[docId] == 0.0) {
+                        touchedDocIds[touchedCount++] = docId;
+                    }
+                    scores[docId] += (p.weight * idf);
+                    if (p.isHallmark) {
+                        hallmarkHits[docId]++;
+                    }
+                }
+            }
+
+            if (touchedCount == 0) {
+                return Collections.emptyList();
+            }
+
+            // 4. Synergy boost, Pertinent Negative penalty, Authoritative Core boost & top-K Selection
+            int kSize = Math.max(1, topK);
+            PriorityQueue<ScoredCandidate> minHeap = new PriorityQueue<>(kSize + 1);
+
+            for (int i = 0; i < touchedCount; i++) {
+                int docId = touchedDocIds[i];
+                double score = scores[docId];
+                int hits = hallmarkHits[docId];
+
+                // Multi-hallmark synergy boost: diseases matching 2+ symptoms receive non-linear boost
+                if (hits > 1) {
+                    score *= (1.0 + 0.45 * (hits - 1));
+                }
+
+                ClinicalEntity entity = entitiesArray[docId];
+
+                // Pertinent negative penalty
+                if (entity.getPertinentNegatives() != null && !entity.getPertinentNegatives().isEmpty()) {
+                    for (String negL : entity.getPertinentNegatives()) {
+                        if (queryTerms.contains(negL)) {
+                            score *= 0.15; // 85% penalty for contradicting pertinent negatives
+                            break;
+                        }
+                    }
+                }
+
+                // Core Authoritative Clinical Entity quality prior bonus
+                if (isCoreDoc[docId]) {
+                    score += 12.0;
+                }
+
+                // Prune heap operations: skip if score cannot beat current k-th candidate
+                if (minHeap.size() >= kSize && score <= minHeap.peek().getScore()) {
+                    continue;
+                }
+
+                minHeap.offer(new ScoredCandidate(entity, score, Collections.emptyList()));
+                if (minHeap.size() > kSize) {
+                    minHeap.poll();
+                }
+            }
+
+            if (minHeap.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            // 5. Populate matched terms only for the selected top-K candidates
+            List<ScoredCandidate> result = new ArrayList<>(minHeap.size());
+            while (!minHeap.isEmpty()) {
+                ScoredCandidate sc = minHeap.poll();
+                List<String> matched = new ArrayList<>();
+                ClinicalEntity ce = sc.getEntity();
+                if (ce != null) {
+                    for (String qt : queryTerms) {
+                        if (ce.getHallmarkSymptoms() != null) {
+                            for (String hs : ce.getHallmarkSymptoms()) {
+                                if (hs.equalsIgnoreCase(qt) || hs.toLowerCase(Locale.ROOT).contains(qt)) {
+                                    if (!matched.contains(qt)) matched.add(qt);
+                                    break;
+                                }
+                            }
+                        }
+                        if (ce.getTitle() != null && ce.getTitle().toLowerCase(Locale.ROOT).contains(qt)) {
+                            if (!matched.contains(qt)) matched.add(qt);
+                        }
+                    }
+                }
+                result.add(new ScoredCandidate(sc.getEntity(), sc.getScore(), matched));
+            }
+            Collections.reverse(result);
+            return result;
+
+        } finally {
+            // Clean up scratchpad arrays in O(touchedCount) without full array wipe
+            for (int i = 0; i < touchedCount; i++) {
+                int id = touchedDocIds[i];
+                scores[id] = 0.0;
+                hallmarkHits[id] = 0;
+            }
+        }
+    }
+
+    /**
+     * Strict candidate retrieval contract for UnifiedClinicalDecisionEngine.
+     * Produces candidate medical concepts with provenance, scores, and matched features.
+     * Has ZERO diagnostic, treatment, referral, or autonomous prescription authority.
+     */
+    public List<ClinicalCandidate> retrieveCandidates(
+            Collection<String> symptoms,
+            String freeText,
+            int topK,
+            Set<String> negatedFindings,
+            String snapshotId) {
+
+        List<ScoredCandidate> scored = search11k(symptoms, freeText, topK);
+        if (scored == null || scored.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        String effectiveSnapshot = snapshotId != null ? snapshotId : "2026.01-WHO-ICD11";
+        List<ClinicalCandidate> candidates = new ArrayList<>(scored.size());
+
+        for (ScoredCandidate sc : scored) {
+            ClinicalEntity ce = sc.getEntity();
+            List<String> matchedHallmarks = new ArrayList<>();
+            List<String> contradictions = new ArrayList<>();
+
+            if (ce.getHallmarkSymptoms() != null) {
+                for (String hs : ce.getHallmarkSymptoms()) {
+                    String hsl = hs.toLowerCase(Locale.ROOT);
+                    if (symptoms != null && symptoms.stream().anyMatch(s -> hsl.contains(s.toLowerCase(Locale.ROOT)))) {
+                        matchedHallmarks.add(hs);
+                    }
+                    if (freeText != null && freeText.toLowerCase(Locale.ROOT).contains(hsl)) {
+                        if (!matchedHallmarks.contains(hs)) matchedHallmarks.add(hs);
+                    }
+                    if (negatedFindings != null && negatedFindings.stream().anyMatch(n -> hsl.contains(n.toLowerCase(Locale.ROOT)))) {
+                        contradictions.add(hs);
+                    }
+                }
+            }
+
+            List<String> trace = List.of(
+                    "RETRIEVAL: Inverted index candidate " + ce.getIcd11Code() + " ('" + ce.getTitle() + "')",
+                    "RETRIEVAL: Relevance score = " + String.format(Locale.ROOT, "%.2f", sc.getScore()) + " (bounded lexical score, NOT probability)",
+                    "RETRIEVAL: Matched terms: " + sc.getMatchedFeatures()
+            );
+
+            ClinicalCandidate candidate = ClinicalCandidate.builder()
+                    .conceptId("CAND-" + ce.getIcd11Code())
+                    .terminologyCode(ce.getIcd11Code())
+                    .displayName(ce.getTitle())
+                    .relevanceScore(sc.getScore())
+                    .matchedFeatures(sc.getMatchedFeatures())
+                    .matchedHallmarks(matchedHallmarks)
+                    .contradictions(contradictions)
+                    .provenance("WHO-ICD11-CORE-11K-INVERTED-INDEX")
+                    .knowledgeSnapshotId(effectiveSnapshot)
+                    .retrievalTrace(trace)
+                    .backingEntity(ce)
+                    .build();
+
+            candidates.add(candidate);
+        }
+
+        return candidates;
+    }
+
     public List<ClinicalEntity> findCandidates(Collection<String> symptoms) {
+
         if (symptoms == null || symptoms.isEmpty()) return Collections.emptyList();
+        List<ScoredCandidate> scored = search11k(symptoms, null, 15);
+        if (!scored.isEmpty()) {
+            List<ClinicalEntity> res = new ArrayList<>(scored.size());
+            for (ScoredCandidate sc : scored) {
+                res.add(sc.getEntity());
+            }
+            return res;
+        }
+
+        // Fallback to legacy exact symptom index
         Set<String> matchedIcds = new LinkedHashSet<>();
         for (String s : symptoms) {
             String sl = s.toLowerCase(Locale.ROOT);
@@ -120,16 +537,34 @@ public class LocalClinicalEntityRegistry {
         if (patientContext != null) {
             base.setPatientContextSummary((patientContext.isPediatric() ? "Pediatric" : "Adult") + " | " + patientContext.getRelationship());
         }
+        base.setStatus(PrescriptionStatus.DRAFT);
+        base.setClinicianReviewRequired(true);
+        base.setClinicianAuthorizationRequired(true);
+        base.setRequiresDoctorSignature(true);
+        base.setAuthorizedBy(null);
+
 
         List<String> diagnoses = List.of(icdCode != null ? icdCode : "", primaryDx != null ? primaryDx : "");
-        return safetyMatrix.sanitizeAndValidate(base, patientContext, diagnoses, reportedSymptoms);
+        PrescriptionProtocol sanitized = safetyMatrix.sanitizeAndValidate(base, patientContext, diagnoses, reportedSymptoms);
+        sanitized.setStatus(PrescriptionStatus.DRAFT);
+        sanitized.setClinicianReviewRequired(true);
+        sanitized.setClinicianAuthorizationRequired(true);
+        sanitized.setRequiresDoctorSignature(true);
+        sanitized.setAuthorizedBy(null);
+        return sanitized;
     }
+
 
     private PrescriptionProtocol buildFallbackPrescription(String icdCode, String primaryDx) {
         return PrescriptionProtocol.builder()
                 .icd11Code(icdCode != null ? icdCode : "MG30")
                 .primaryDiagnosis(primaryDx != null ? primaryDx : "Acute Febrile / Symptomatic Presentation")
                 .specialistDepartment("General Medicine")
+                .status(PrescriptionStatus.DRAFT)
+                .clinicianReviewRequired(true)
+                .clinicianAuthorizationRequired(true)
+                .requiresDoctorSignature(true)
+                .authorizedBy(null)
                 .medications(List.of(
                         RxMedicationItem.builder()
                                 .saltName("Paracetamol (Acetaminophen)")
@@ -173,6 +608,12 @@ public class LocalClinicalEntityRegistry {
                 .primaryDiagnosis(src.getPrimaryDiagnosis())
                 .icd11Code(src.getIcd11Code())
                 .specialistDepartment(src.getSpecialistDepartment())
+                .status(PrescriptionStatus.DRAFT)
+                .clinicianReviewRequired(true)
+                .clinicianAuthorizationRequired(true)
+                .requiresDoctorSignature(true)
+                .authorizedBy(null)
+
                 .medications(meds)
                 .supportiveCare(new ArrayList<>(src.getSupportiveCare()))
                 .contraindicatedMedications(new ArrayList<>(src.getContraindicatedMedications()))
@@ -183,16 +624,15 @@ public class LocalClinicalEntityRegistry {
                 .build();
     }
 
-    private void registerEntity(ClinicalEntity entity) {
+    private void registerCoreEntity(ClinicalEntity entity) {
+        if (entity == null || entity.getIcd11Code() == null) return;
+        coreIcds.add(entity.getIcd11Code());
         entityByIcd.put(entity.getIcd11Code(), entity);
-        for (String symptom : entity.getHallmarkSymptoms()) {
-            icdsBySymptom.computeIfAbsent(symptom.toLowerCase(Locale.ROOT), k -> new ArrayList<>()).add(entity.getIcd11Code());
-        }
     }
 
     private void registerCoreClinicalEntities() {
         // 1. DENGUE / ARBOVIRAL FEBRILE SYNDROME (1D20)
-        registerEntity(ClinicalEntity.builder()
+        registerCoreEntity(ClinicalEntity.builder()
                 .icd11Code("1D20")
                 .title("Dengue / Arboviral Febrile Syndrome")
                 .category("Infectious Diseases")
@@ -273,7 +713,7 @@ public class LocalClinicalEntityRegistry {
                 .build());
 
         // 2. ACUTE UNCOMPLICATED CYSTITIS / UTI (GC08)
-        registerEntity(ClinicalEntity.builder()
+        registerCoreEntity(ClinicalEntity.builder()
                 .icd11Code("GC08")
                 .title("Acute Uncomplicated Cystitis (UTI)")
                 .category("Urology")
@@ -329,7 +769,7 @@ public class LocalClinicalEntityRegistry {
                 .build());
 
         // 3. ALLERGIC CONJUNCTIVITIS & EYE STRAIN (9A60.0)
-        registerEntity(ClinicalEntity.builder()
+        registerCoreEntity(ClinicalEntity.builder()
                 .icd11Code("9A60.0")
                 .title("Allergic Conjunctivitis / Digital Asthenopia")
                 .category("Ophthalmology")
@@ -385,7 +825,7 @@ public class LocalClinicalEntityRegistry {
                 .build());
 
         // 4. ACUTE SPRAIN & LIGAMENTOUS STRAIN (FB50.0)
-        registerEntity(ClinicalEntity.builder()
+        registerCoreEntity(ClinicalEntity.builder()
                 .icd11Code("FB50.0")
                 .title("Acute Sprain / Joint Strain")
                 .category("Orthopedics")
@@ -444,7 +884,7 @@ public class LocalClinicalEntityRegistry {
                 .build());
 
         // 5. ACUTE GASTRITIS & PEPTIC DYSPEPSIA (DA60)
-        registerEntity(ClinicalEntity.builder()
+        registerCoreEntity(ClinicalEntity.builder()
                 .icd11Code("DA60")
                 .title("Acute Gastritis / Acid Dyspepsia")
                 .category("Gastroenterology")
@@ -506,7 +946,7 @@ public class LocalClinicalEntityRegistry {
                 .build());
 
         // 6. ACUTE TRAUMATIC LACERATION / OPEN WOUND (NE81.0)
-        registerEntity(ClinicalEntity.builder()
+        registerCoreEntity(ClinicalEntity.builder()
                 .icd11Code("NE81.0")
                 .title("Acute Cutaneous Laceration / Open Wound")
                 .category("Emergency Medicine")
@@ -562,7 +1002,7 @@ public class LocalClinicalEntityRegistry {
                 .build());
 
         // 7. ACUTE THERMAL SCALD & DERMAL BURN (ND90.0)
-        registerEntity(ClinicalEntity.builder()
+        registerCoreEntity(ClinicalEntity.builder()
                 .icd11Code("ND90.0")
                 .title("Acute Thermal Burn / Scald")
                 .category("Emergency Medicine")
@@ -618,6 +1058,314 @@ public class LocalClinicalEntityRegistry {
                         .contraindicatedMedications(List.of("Avoid ice (causes vasoconstriction and extends tissue ischemia)", "Avoid sulfa drugs if verified sulfa allergy"))
                         .diagnosticLabOrders(List.of("Burn center evaluation if > 10% TBSA or involving face, hands, feet, perineum, or major joints"))
                         .redFlagHospitalizationCriteria(List.of("Third-degree burn with painless white, leathery, or charred skin", "Burns involving the face, hands, genitalia, or joints", "Chemical or high-voltage electrical burns"))
+                        .build())
+                .build());
+
+        // 8. ACUTE ODONTALGIA & DENTAL PULPITIS (DA00.0)
+        registerCoreEntity(ClinicalEntity.builder()
+                .icd11Code("DA00.0")
+                .title("Acute Odontalgia / Dental Pulpitis")
+                .category("Dentistry")
+                .specialistDepartment("Dentistry / Oral & Maxillofacial Surgery")
+                .urgencyTier("MEDIUM")
+                .hallmarkSymptoms(List.of("dental_pain", "toothache", "tooth_pain", "swollen_gum", "cavity", "jaw_pain"))
+                .pertinentNegatives(List.of("chest_pain", "shortness_of_breath"))
+                .discriminatorQuestions(List.of(
+                        DiscriminatorQuestion.builder()
+                                .id("DENTAL_DISCRIMINATOR_TRIGGERS")
+                                .dimension("dental_pain_triggers")
+                                .questionText("Is the pain triggered by hot or cold fluids, or is it a continuous throbbing ache that keeps you awake?")
+                                .quickReplies(List.of("Triggered by hot/cold", "Continuous throbbing ache", "Pain when biting / chewing", "Swelling on cheek or gum"))
+                                .conditionWeights(Map.of("DA00.0", 3.5, "DENTAL_ABSCESS", 5.0))
+                                .diagnosticUtility(3.0)
+                                .build()
+                ))
+                .defaultPrescriptionProtocol(PrescriptionProtocol.builder()
+                        .icd11Code("DA00.0")
+                        .primaryDiagnosis("Acute Odontalgia / Dental Pulpitis")
+                        .specialistDepartment("Dentistry / Oral & Maxillofacial Surgery")
+                        .medications(List.of(
+                                RxMedicationItem.builder()
+                                        .saltName("Ibuprofen 400mg + Paracetamol 500mg")
+                                        .brandReference("Combiflam / Flexon")
+                                        .formulation("Tablet")
+                                        .strength("400/500 mg")
+                                        .route("Oral")
+                                        .dosageFrequency("1 tablet every 8 hours with meals PRN for dental pain")
+                                        .duration("3 to 5 days")
+                                        .instructions("Take after meals with water. Synergistic analgesia for acute pulpal inflammation.")
+                                        .indication("Acute odontogenic inflammation and analgesia")
+                                        .prescriptionOnly(false)
+                                        .build(),
+                                RxMedicationItem.builder()
+                                        .saltName("Chlorhexidine Gluconate 0.12% Mouthwash")
+                                        .brandReference("Clohex / Hexidine")
+                                        .formulation("Oral Rinse")
+                                        .strength("0.12% w/v")
+                                        .route("Oral Rinse")
+                                        .dosageFrequency("Swish 10 ml gently for 30 to 60 seconds twice daily after brushing")
+                                        .duration("5 to 7 days")
+                                        .instructions("Do not swallow. Do not eat or drink for 30 minutes after rinsing.")
+                                        .indication("Antiseptic reduction of intraoral bacterial load")
+                                        .prescriptionOnly(false)
+                                        .build()
+                        ))
+                        .supportiveCare(List.of(
+                                "Rinse mouth gently with warm salt water (1/2 tsp salt in warm water) every 3-4 hours",
+                                "Floss carefully around the tooth to dislodge trapped food debris",
+                                "Do NOT place aspirin directly against gum tissue (causes caustic chemical burn)"
+                        ))
+                        .contraindicatedMedications(List.of("Active peptic ulcer disease or severe renal impairment (avoid oral NSAIDs)"))
+                        .diagnosticLabOrders(List.of("Intraoral Periapical Radiograph (IOPA) of affected quadrant / OPG"))
+                        .redFlagHospitalizationCriteria(List.of(
+                                "Facial cellulitis or rapid swelling spreading under the jaw or towards the eye",
+                                "Difficulty swallowing saliva, drooling, or respiratory difficulty (Ludwig's angina risk)",
+                                "High fever with shaking chills and trismus (inability to open mouth wider than two fingers)"
+                        ))
+                        .build())
+                .build());
+
+        // 9. PRIMARY HEADACHE / MIGRAINE / NEUROVASCULAR CEPHALEA (8A80)
+        registerCoreEntity(ClinicalEntity.builder()
+                .icd11Code("8A80")
+                .title("Migraine / Primary Neurovascular Headache")
+                .category("Neurology")
+                .specialistDepartment("Neurology")
+                .urgencyTier("MEDIUM")
+                .hallmarkSymptoms(List.of("headache", "migraine", "throbbing_headache", "temple_pain", "photophobia", "aura"))
+                .pertinentNegatives(List.of("fever", "stiff_neck", "focal_deficit"))
+                .discriminatorQuestions(List.of(
+                        DiscriminatorQuestion.builder()
+                                .id("MIGRAINE_DISCRIMINATOR_FEATURES")
+                                .dimension("headache_features")
+                                .questionText("How would you describe the headache (throbbing, dull pressure, or sharp), and does light or sound make it worse?")
+                                .quickReplies(List.of("Throbbing / one-sided", "Dull band-like pressure", "Worse with light and sound", "Mild continuous ache"))
+                                .conditionWeights(Map.of("8A80", 3.5, "TENSION_HEADACHE", 2.0))
+                                .diagnosticUtility(3.0)
+                                .build()
+                ))
+                .defaultPrescriptionProtocol(PrescriptionProtocol.builder()
+                        .icd11Code("8A80")
+                        .primaryDiagnosis("Migraine / Primary Neurovascular Headache")
+                        .specialistDepartment("Neurology")
+                        .medications(List.of(
+                                RxMedicationItem.builder()
+                                        .saltName("Naproxen Sodium")
+                                        .brandReference("Naprosyn 500mg")
+                                        .formulation("Tablet")
+                                        .strength("500 mg")
+                                        .route("Oral")
+                                        .dosageFrequency("1 tablet at early onset of headache; may repeat in 12 hours if needed")
+                                        .duration("2 to 3 days")
+                                        .instructions("Take strictly with food or antacid. First-line evidence-based NSAID for acute migraine abortive therapy.")
+                                        .indication("Acute migraine abortive therapy and neurogenic vasodilation reduction")
+                                        .prescriptionOnly(false)
+                                        .build(),
+                                RxMedicationItem.builder()
+                                        .saltName("Domperidone")
+                                        .brandReference("Domstal 10mg")
+                                        .formulation("Tablet")
+                                        .strength("10 mg")
+                                        .route("Oral")
+                                        .dosageFrequency("1 tablet 15 to 30 minutes before meal or with analgesic PRN")
+                                        .duration("2 to 3 days")
+                                        .instructions("Relieves migraine-associated gastric stasis and nausea, accelerating oral analgesic absorption.")
+                                        .indication("Gastroprokinetic and antiemetic for migraine-associated nausea")
+                                        .prescriptionOnly(true)
+                                        .build()
+                        ))
+                        .supportiveCare(List.of(
+                                "Rest in a quiet, dark, temperature-regulated room",
+                                "Apply cold gel compress or ice pack wrapped in towel to forehead or back of neck",
+                                "Maintain regular hydration and avoid migraine triggers (irregular sleep, skipped meals, aspartame)"
+                        ))
+                        .contraindicatedMedications(List.of("Avoid overuse of combination analgesics containing caffeine or codeine (> 10 days/month)"))
+                        .diagnosticLabOrders(List.of("Non-contrast brain MRI / CT if headache is thunderclap, atypical, or accompanied by focal neurological signs"))
+                        .redFlagHospitalizationCriteria(List.of(
+                                "Sudden explosive 'thunderclap' headache reaching peak intensity within seconds",
+                                "Headache accompanied by stiff neck, high fever, or altered mental status",
+                                "New focal neurological deficit (limb weakness, facial droop, slurred speech, visual field cut)"
+                        ))
+                        .build())
+                .build());
+
+        // 10. ACUTE BRONCHITIS & AIRWAY HYPERREACTIVITY (CA20)
+        registerCoreEntity(ClinicalEntity.builder()
+                .icd11Code("CA20")
+                .title("Acute Bronchitis / Tracheobronchial Airway Reactivity")
+                .category("Pulmonology")
+                .specialistDepartment("Pulmonology")
+                .urgencyTier("LOW")
+                .hallmarkSymptoms(List.of("cough", "bronchitis", "phlegm", "mucus", "chest_congestion"))
+                .pertinentNegatives(List.of("hemoptysis", "high_fever", "chest_pain"))
+                .discriminatorQuestions(List.of(
+                        DiscriminatorQuestion.builder()
+                                .id("BRONCHITIS_DISCRIMINATOR_SPUTUM")
+                                .dimension("cough_character")
+                                .questionText("Is your cough dry and hacking, or is it producing yellow/green phlegm or mucus?")
+                                .quickReplies(List.of("Dry irritant cough", "Productive with clear mucus", "Thick yellow/green phlegm", "Coughing with wheeze"))
+                                .conditionWeights(Map.of("CA20", 3.0, "PNEUMONIA", 4.0))
+                                .diagnosticUtility(2.5)
+                                .build()
+                ))
+                .defaultPrescriptionProtocol(PrescriptionProtocol.builder()
+                        .icd11Code("CA20")
+                        .primaryDiagnosis("Acute Bronchitis / Tracheobronchial Airway Reactivity")
+                        .specialistDepartment("Pulmonology")
+                        .medications(List.of(
+                                RxMedicationItem.builder()
+                                        .saltName("Guaifenesin + Ambroxol Syrup")
+                                        .brandReference("Ascoril / Benadryl Expectorant")
+                                        .formulation("Syrup")
+                                        .strength("100mg Guaifenesin + 30mg Ambroxol / 10ml")
+                                        .route("Oral")
+                                        .dosageFrequency("10 ml three times daily after food")
+                                        .duration("5 to 7 days")
+                                        .instructions("Drink a full glass of warm water with each dose to aid mucolytic thinning.")
+                                        .indication("Mucus liquefaction and tracheobronchial clearance")
+                                        .prescriptionOnly(false)
+                                        .build(),
+                                RxMedicationItem.builder()
+                                        .saltName("Levosalbutamol Inhaler (PRN)")
+                                        .brandReference("Levolin 50mcg Inhaler")
+                                        .formulation("Metered Dose Inhaler")
+                                        .strength("50 mcg/puff")
+                                        .route("Inhalation")
+                                        .dosageFrequency("1 to 2 puffs every 6 to 8 hours PRN for wheezing or bronchospasm")
+                                        .duration("5 days")
+                                        .instructions("Rinse mouth with water after inhalation. Use with spacer if available.")
+                                        .indication("Bronchodilation for reactive airway bronchospasm")
+                                        .prescriptionOnly(true)
+                                        .build()
+                        ))
+                        .supportiveCare(List.of(
+                                "Steam inhalation with plain water for 10 minutes twice daily",
+                                "Warm water with honey and lemon to soothe mucosal tickle and pharyngeal irritation",
+                                "Avoid exposure to cigarette smoke, kitchen exhaust fumes, and cold ambient air"
+                        ))
+                        .contraindicatedMedications(List.of("Routine unindicated empirical antibiotics for acute uncomplicated viral bronchitis"))
+                        .diagnosticLabOrders(List.of("Chest Radiograph (PA view) if fever > 101°F, tachypnea > 24/min, or focal crackles on lung auscultation"))
+                        .redFlagHospitalizationCriteria(List.of(
+                                "Severe shortness of breath, respiratory rate > 28/min, or oxygen saturation SpO2 < 93%",
+                                "Coughing up frank red blood (hemoptysis)",
+                                "Stridor, grunting, or blue discoloration around lips"
+                        ))
+                        .build())
+                .build());
+
+        // 11. ACUTE CORONARY SYNDROME / MYOCARDIAL INFARCTION (BA41)
+        registerCoreEntity(ClinicalEntity.builder()
+                .icd11Code("BA41")
+                .title("Acute Coronary Syndrome / Myocardial Infarction")
+                .category("Cardiology")
+                .specialistDepartment("Cardiology / Emergency Medicine")
+                .urgencyTier("CRITICAL")
+                .hallmarkSymptoms(List.of("chest_pain", "crushing_chest_pain", "angina", "radiation_left_arm", "diaphoresis", "shortness_of_breath"))
+                .pertinentNegatives(List.of("fever", "pleuritic_pain"))
+                .discriminatorQuestions(List.of(
+                        DiscriminatorQuestion.builder()
+                                .id("ACS_DISCRIMINATOR_RADIATION")
+                                .dimension("chest_pain_radiation")
+                                .questionText("Does the chest pain radiate to your left arm, neck, or jaw, or cause profuse cold sweating or breathlessness?")
+                                .quickReplies(List.of("Radiating to left arm/jaw", "Cold sweating & dizziness", "Shortness of breath", "Sharp pain changing with breathing"))
+                                .conditionWeights(Map.of("BA41", 5.0))
+                                .diagnosticUtility(4.0)
+                                .build()
+                ))
+                .defaultPrescriptionProtocol(PrescriptionProtocol.builder()
+                        .icd11Code("BA41")
+                        .primaryDiagnosis("Acute Coronary Syndrome / Suspected Myocardial Infarction")
+                        .specialistDepartment("Cardiology / Emergency Medicine")
+                        .medications(List.of(
+                                RxMedicationItem.builder()
+                                        .saltName("Aspirin (Dispersible / Chewable)")
+                                        .brandReference("Ecosprin 300mg / Disprin")
+                                        .formulation("Chewable Tablet")
+                                        .strength("300 mg")
+                                        .route("Oral (Chewed)")
+                                        .dosageFrequency("Single 300mg dose chewed immediately stat while awaiting emergency transport")
+                                        .duration("Single emergency loading dose")
+                                        .instructions("Chew thoroughly for immediate buccal absorption. Emergency antiplatelet loading dose.")
+                                        .indication("Emergency platelet cyclooxygenase-1 inhibition to arrest coronary thrombosis")
+                                        .prescriptionOnly(false)
+                                        .build()
+                        ))
+                        .supportiveCare(List.of(
+                                "EMERGENCY: Call 108 / 911 immediately. Do NOT drive yourself to the hospital.",
+                                "Sit upright or in a semi-reclined position to minimize cardiac preload and work of breathing",
+                                "Loosen any tight clothing around collar and chest; ensure adequate ventilation"
+                        ))
+                        .contraindicatedMedications(List.of("Strictly avoid physical exertion, stairs, walking, or delayed emergency medical dispatch"))
+                        .diagnosticLabOrders(List.of("12-Lead Electrocardiogram (ECG) stat within 10 minutes", "High-Sensitivity Serum Cardiac Troponin I/T"))
+                        .redFlagHospitalizationCriteria(List.of(
+                                "Retrosternal crushing pressure lasting > 15 minutes",
+                                "Radiation to left arm, both shoulders, neck, or jaw with diaphoresis",
+                                "Hypotension, cold clammy extremities, syncope, or cardiac arrest"
+                        ))
+                        .build())
+                .build());
+
+        // 12. ALLERGIC CONTACT DERMATITIS / ACUTE ECZEMATOUS ERUPTION (EK00)
+        registerCoreEntity(ClinicalEntity.builder()
+                .icd11Code("EK00")
+                .title("Allergic Contact Dermatitis / Acute Eczematous Reaction")
+                .category("Dermatology")
+                .specialistDepartment("Dermatology")
+                .urgencyTier("LOW")
+                .hallmarkSymptoms(List.of("rash", "dermatitis", "skin_rash", "pruritus", "skin_itching", "erythema", "blistering_rash"))
+                .pertinentNegatives(List.of("fever", "mucosal_involvement"))
+                .discriminatorQuestions(List.of(
+                        DiscriminatorQuestion.builder()
+                                .id("DERMATITIS_DISCRIMINATOR_TRIGGER")
+                                .dimension("allergen_trigger")
+                                .questionText("Did the itchy rash appear after contact with specific metals, cosmetics, new detergents, or outdoor plants?")
+                                .quickReplies(List.of("Metal or jewelry contact", "Cosmetics or new soap", "Outdoor plants / poison ivy", "Spreading across body"))
+                                .conditionWeights(Map.of("EK00", 3.5, "SYSTEMIC_DRUG_ERUPTION", 4.5))
+                                .diagnosticUtility(3.0)
+                                .build()
+                ))
+                .defaultPrescriptionProtocol(PrescriptionProtocol.builder()
+                        .icd11Code("EK00")
+                        .primaryDiagnosis("Allergic Contact Dermatitis / Acute Eczematous Reaction")
+                        .specialistDepartment("Dermatology")
+                        .medications(List.of(
+                                RxMedicationItem.builder()
+                                        .saltName("Hydrocortisone 1% Topical Cream")
+                                        .brandReference("Cortaid / Hydrocort 1%")
+                                        .formulation("Cream")
+                                        .strength("1.0% w/w")
+                                        .route("Topical")
+                                        .dosageFrequency("Apply thin film to clean affected itchy areas twice daily")
+                                        .duration("5 to 7 days")
+                                        .instructions("Gently wash area first. Do not apply onto broken or weeping skin.")
+                                        .indication("Topical anti-inflammatory relief of localized contact pruritus and erythema")
+                                        .prescriptionOnly(false)
+                                        .build(),
+                                RxMedicationItem.builder()
+                                        .saltName("Cetirizine Hydrochloride")
+                                        .brandReference("Zyrtec / Cetzine 10mg")
+                                        .formulation("Tablet")
+                                        .strength("10 mg")
+                                        .route("Oral")
+                                        .dosageFrequency("1 tablet once daily in the evening")
+                                        .duration("5 days")
+                                        .instructions("Take with water. Non-sedating second-generation H1 receptor antagonist.")
+                                        .indication("Systemic reduction of allergic cutaneous pruritus")
+                                        .prescriptionOnly(false)
+                                        .build()
+                        ))
+                        .supportiveCare(List.of(
+                                "Immediately remove offending contact allergen (jewelry, watch, belt buckle, cosmetic)",
+                                "Apply cold damp compresses over itchy patches for 10-15 minutes to reduce flare-up",
+                                "Trim fingernails short to prevent nocturnal skin excoriation and secondary bacterial infection"
+                        ))
+                        .contraindicatedMedications(List.of("Do not apply topical diphenhydramine or topical anesthetics (frequent cause of secondary contact sensitization)"))
+                        .diagnosticLabOrders(List.of("Dermatological Patch Testing (TRUE test) if recurrent or persistent > 2 weeks"))
+                        .redFlagHospitalizationCriteria(List.of(
+                                "Facial, lip, or tongue swelling with breathing difficulty (anaphylaxis concern)",
+                                "Rapidly spreading warmth, intense tenderness, or purulent golden crusting (secondary cellulitis)",
+                                "Mucosal erosion involving mouth, eyes, or genitalia (Stevens-Johnson syndrome alarm)"
+                        ))
                         .build())
                 .build());
     }

@@ -58,6 +58,26 @@ public class ClinicalReasoningResult implements Serializable {
     @Builder.Default
     private long generatedAt = System.currentTimeMillis();
 
+    private String specialistDepartment;
+
+    @Builder.Default
+    private boolean clinicianReviewRequired = true;
+
+    private com.velocura.ai.clinical.model.PrescriptionProtocol draftPrescriptionProtocol;
+
+    @Builder.Default
+    private List<com.velocura.ai.clinical.retrieval.dto.ClinicalCandidate> differentialCandidates = new ArrayList<>();
+
+    @Builder.Default
+    private List<String> redFlags = new ArrayList<>();
+
+    @Builder.Default
+    private List<String> supportiveCare = new ArrayList<>();
+
+    @Builder.Default
+    private List<String> otcMedications = new ArrayList<>();
+
     private String patientFacingMessage;
     private String clinicianFacingSummary;
 }
+
