@@ -29,6 +29,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -134,6 +135,11 @@ class GoogleAuthenticationProductionTests {
         assertEquals("GOOGLE", user.getAuthProvider());
         assertEquals("google-sub-prod-9901", user.getGoogleId());
         assertTrue(patientRepository.existsById(user.getId()), "Patient profile record must be initialized");
+
+        // Verify that authenticated API requests work with this JWT (CustomUserDetailsService handles null password without 401)
+        mockMvc.perform(get("/api/patient/profile")
+                        .header("Authorization", "Bearer " + authRes.getToken()))
+                .andExpect(status().isOk());
     }
 
     @Test

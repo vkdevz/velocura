@@ -25,10 +25,6 @@ export async function sendChatMessage(message, conversationHistory = null, sessi
     conversationHistory: historyString,
     sessionId: sessionId || fallbackSessionId,
     clientRequestId: reqId
-  }, {
-    headers: {
-      "X-Client-Request-Id": reqId
-    }
   });
 
   return res.data;

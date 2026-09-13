@@ -59,8 +59,12 @@ public class SecurityConfig {
             "https://*.vercel.app"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers", "X-Correlation-ID"));
-        configuration.setExposedHeaders(List.of("Authorization", "Content-Type", "Retry-After", "X-Correlation-ID"));
+        configuration.setAllowedHeaders(List.of(
+            "Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin",
+            "Access-Control-Request-Method", "Access-Control-Request-Headers",
+            "X-Correlation-ID", "X-Client-Request-Id", "x-client-request-id", "*"
+        ));
+        configuration.setExposedHeaders(List.of("Authorization", "Content-Type", "Retry-After", "X-Correlation-ID", "X-Client-Request-Id"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
