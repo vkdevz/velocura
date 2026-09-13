@@ -102,7 +102,7 @@ public class DefaultGoogleTokenVerifier implements GoogleTokenVerifier {
                 if (!matches) {
                     log.warn("[DIAGNOSTIC] stage=GOOGLE_AUDIENCE_VALID success=false");
                     log.warn("Google token audience mismatch: expected '{}', got '{}'", cleanExpected, aud);
-                    throw new BadCredentialsException("Google authentication failed: Token audience does not match configured Client ID.");
+                    throw new BadCredentialsException("Google authentication failed: Token audience does not match configured Client ID. Expected: [" + cleanExpected + "], Token aud: [" + aud + "]");
                 }
                 log.info("[DIAGNOSTIC] stage=GOOGLE_AUDIENCE_VALID success=true");
             }
