@@ -175,8 +175,10 @@ public class ResponseComposer {
         String phaseName = state != null && state.getCurrentPhase() != null ? state.getCurrentPhase().name() : "GUIDANCE";
         response.setPhase(phaseName);
 
-        if (questionDecision != null && questionDecision.getQuickReplies() != null) {
-            response.setQuickReplies(questionDecision.getQuickReplies());
+        if (response.getQuickReplies() == null || response.getQuickReplies().isEmpty()) {
+            if (questionDecision != null && questionDecision.getQuickReplies() != null) {
+                response.setQuickReplies(questionDecision.getQuickReplies());
+            }
         }
         response.setClinicalMessage(validatedMessage);
 

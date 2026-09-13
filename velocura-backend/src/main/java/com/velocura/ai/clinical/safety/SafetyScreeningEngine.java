@@ -104,14 +104,19 @@ public class SafetyScreeningEngine {
 
         // 3. Chest Pain / Cardiac Emergency
         if (CHEST_EMERGENCY.matcher(text).find()) {
-            redFlags.add("Possible acute coronary syndrome or myocardial ischemia");
-            redFlags.add("Chest pain/pressure with potential radiation");
-            return buildEmergencyResponse(
-                "Possible acute cardiac event or angina.",
-                "Sit comfortably, rest quietly to minimize cardiac strain, and seek urgent medical care. "
-                    + getEmergencyContactInstruction(patientContext, false),
-                redFlags
-            );
+            String lowerText = text.toLowerCase();
+            boolean isEducationalQuery = (lowerText.startsWith("what is ") || lowerText.startsWith("what causes ") || lowerText.startsWith("definition of ") || lowerText.startsWith("explain "))
+                    && !lowerText.contains("i have") && !lowerText.contains("my ") && !lowerText.contains("experiencing") && !lowerText.contains("having") && !lowerText.contains("hurts") && !lowerText.contains("feel");
+            if (!isEducationalQuery) {
+                redFlags.add("Possible acute coronary syndrome or myocardial ischemia");
+                redFlags.add("Chest pain/pressure with potential radiation");
+                return buildEmergencyResponse(
+                    "Possible acute cardiac event or angina.",
+                    "Sit comfortably, rest quietly to minimize cardiac strain, and seek urgent medical care. "
+                        + getEmergencyContactInstruction(patientContext, false),
+                    redFlags
+                );
+            }
         }
 
         // 4. Anaphylaxis (Airway Compromise)

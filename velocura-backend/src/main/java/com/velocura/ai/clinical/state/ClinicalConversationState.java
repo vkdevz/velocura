@@ -112,6 +112,10 @@ public class ClinicalConversationState implements Serializable {
     private int stateVersion = 1;
 
     private String chiefConcern;
+    private String pendingClarificationTopic;
+
+    @Builder.Default
+    private boolean passportHydrated = false;
 
     @Builder.Default
     private String symptomTrajectory = "NEW"; // NEW, STABLE, WORSENING, IMPROVING, RESOLVED

@@ -31,6 +31,15 @@ public class DatabaseSchemaMigration implements CommandLineRunner {
             addColumnIfNotExists(stmt, "users", "is_active", "BOOLEAN DEFAULT TRUE");
             addColumnIfNotExists(stmt, "users", "is_deleted", "BOOLEAN DEFAULT FALSE");
 
+            // Ensure password column can be null for Google-only users
+            try {
+                stmt.execute("ALTER TABLE users ALTER COLUMN password DROP NOT NULL");
+            } catch (Exception ignored) {
+                try {
+                    stmt.execute("ALTER TABLE users ALTER COLUMN password SET NULL");
+                } catch (Exception ignored2) {}
+            }
+
             // Backfill any null auth_provider records
             try {
                 stmt.execute("UPDATE users SET auth_provider = 'LOCAL' WHERE auth_provider IS NULL");

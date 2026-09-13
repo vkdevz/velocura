@@ -5,6 +5,7 @@ import com.velocura.ai.clinical.engine.AdaptiveClinicalConversationEngine;
 import com.velocura.dto.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.velocura.ai.clinical.timing.RequestTimingContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -52,16 +53,22 @@ public class ChatController {
     public ResponseEntity<ChatResponse> chat(
             @RequestBody ChatRequest request,
             @org.springframework.beans.factory.annotation.Autowired(required = false) org.springframework.security.core.Authentication authentication) {
-        log.info("Chat request received. Processing through Adaptive Clinical Engine. Session: {}", request.getSessionId());
+        String clientReqId = request != null ? request.getClientRequestId() : null;
+        RequestTimingContext timing = RequestTimingContext.start(clientReqId);
+        log.info("[CHAT ENTRY] reqId={} clientReqId={} session={}", timing.getReqId(), clientReqId, request != null ? request.getSessionId() : null);
+
         try {
             if (request.getSessionId() == null || request.getSessionId().isBlank()) {
                 request.setSessionId(java.util.UUID.randomUUID().toString());
             }
 
+            long tSess = System.nanoTime();
             com.velocura.ai.clinical.state.ClinicalConversationState state = 
                     adaptiveEngine.getStateStore().getOrCreate(request.getSessionId());
+            timing.recordSession(System.nanoTime() - tSess);
 
             // 1. Authoritative Identity Binding: Never trust client-supplied patientId for unauthenticated callers
+            long tAuth = System.nanoTime();
             if (authentication == null) {
                 authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
             }
@@ -86,14 +93,13 @@ public class ChatController {
                         log.warn("[SECURITY / IDOR] Patient {} attempted to access session owned by {}", authEmail, state.getPatientEmail());
                         return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
                     }
-                    if (userRepository != null) {
+                    // Only query DB for caller user ID if not already cached in state
+                    if (state.getPatientId() == null && userRepository != null) {
+                        long tUser = System.nanoTime();
                         java.util.Optional<com.velocura.model.User> callerUser = userRepository.findByEmailIgnoreCase(authEmail);
+                        timing.recordDbQuery("user_find_by_email", System.nanoTime() - tUser);
                         if (callerUser.isPresent()) {
                             Long callerId = callerUser.get().getId();
-                            if (state.getPatientId() != null && !state.getPatientId().equals(callerId)) {
-                                log.warn("[SECURITY / IDOR] Patient ID {} attempted to access session owned by patient ID {}", callerId, state.getPatientId());
-                                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
-                            }
                             state.setPatientId(callerId);
                         }
                     }
@@ -113,11 +119,16 @@ public class ChatController {
                     state.setPatientEmail(request.getPatientEmail());
                 }
             }
+            timing.recordAuth(System.nanoTime() - tAuth);
 
-            // 3. Hydrate passport allergies & history if patientId is known
-            if (state.getPatientId() != null && patientRepository != null) {
+            // 3. Hydrate passport allergies & history ONCE if patientId is known and not already hydrated
+            if (state.getPatientId() != null && patientRepository != null && !state.isPassportHydrated()) {
+                long tHyd = System.nanoTime();
                 try {
-                    patientRepository.findById(state.getPatientId()).ifPresent(patient -> {
+                    long tPat = System.nanoTime();
+                    java.util.Optional<com.velocura.model.Patient> patOpt = patientRepository.findById(state.getPatientId());
+                    timing.recordDbQuery("patient_find_by_id", System.nanoTime() - tPat);
+                    patOpt.ifPresent(patient -> {
                         if (patient.getAllergies() != null && !patient.getAllergies().isBlank() && state.getAllergies().isEmpty()) {
                             java.util.List<String> allergies = java.util.Arrays.stream(patient.getAllergies().split("[,;\n]"))
                                     .map(String::trim)
@@ -133,8 +144,11 @@ public class ChatController {
                             state.importPassportHistory(history, com.velocura.ai.clinical.state.ProvenanceSource.PATIENT_REPORTED);
                         }
                     });
+                    state.setPassportHydrated(true);
                 } catch (Exception e) {
                     log.warn("Could not hydrate patient passport: {}", e.getMessage());
+                } finally {
+                    timing.recordStateHydration(System.nanoTime() - tHyd);
                 }
             }
 
@@ -164,6 +178,9 @@ public class ChatController {
             response.setError(true);
             response.setErrorMessage("Unexpected error. Please try again.");
             return ResponseEntity.status(500).body(response);
+        } finally {
+            timing.logSummary();
+            RequestTimingContext.clear();
         }
     }
 

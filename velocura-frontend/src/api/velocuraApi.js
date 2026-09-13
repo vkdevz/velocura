@@ -11,17 +11,24 @@ export function getCurrentSessionId() {
   return fallbackSessionId;
 }
 
-export async function sendChatMessage(message, conversationHistory = null, sessionId = null) {
+export async function sendChatMessage(message, conversationHistory = null, sessionId = null, clientRequestId = null) {
   const historyString = conversationHistory
     ? typeof conversationHistory === "string"
       ? conversationHistory
       : JSON.stringify(conversationHistory)
     : null;
 
+  const reqId = clientRequestId || `clientReq-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
   const res = await api.post("/api/chat", {
     message,
     conversationHistory: historyString,
-    sessionId: sessionId || fallbackSessionId
+    sessionId: sessionId || fallbackSessionId,
+    clientRequestId: reqId
+  }, {
+    headers: {
+      "X-Client-Request-Id": reqId
+    }
   });
 
   return res.data;

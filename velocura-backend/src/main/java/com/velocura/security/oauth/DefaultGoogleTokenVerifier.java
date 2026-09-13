@@ -24,7 +24,7 @@ public class DefaultGoogleTokenVerifier implements GoogleTokenVerifier {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    @Value("${velocura.google.client-id:${GOOGLE_CLIENT_ID:}}")
+    @Value("${velocura.google.client-id:${GOOGLE_CLIENT_ID:750331264882-crdl5gjg144tsm7453u74lq5hvd3ag5c.apps.googleusercontent.com}}")
     private String expectedClientId;
 
     public DefaultGoogleTokenVerifier() {
@@ -42,31 +42,39 @@ public class DefaultGoogleTokenVerifier implements GoogleTokenVerifier {
 
     @Override
     public VerifiedGoogleUser verify(String idToken) {
+        long startTime = System.currentTimeMillis();
         if (idToken == null || idToken.trim().isEmpty()) {
+            log.warn("[DIAGNOSTIC] stage=GOOGLE_CREDENTIAL_PRESENT success=false duration=0ms");
             throw new BadCredentialsException("Google authentication rejected: ID token is missing or empty.");
         }
 
+        log.info("[DIAGNOSTIC] stage=GOOGLE_CREDENTIAL_PRESENT success=true");
         String token = idToken.trim();
         try {
             ResponseEntity<String> response = restTemplate.getForEntity(GOOGLE_TOKENINFO_URL + token, String.class);
             if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+                log.warn("[DIAGNOSTIC] stage=GOOGLE_TOKEN_VERIFIED success=false httpStatus={} duration={}ms",
+                        response.getStatusCode(), System.currentTimeMillis() - startTime);
                 throw new BadCredentialsException("Google authentication failed: Token verification returned status " + response.getStatusCode());
             }
 
             JsonNode root = objectMapper.readTree(response.getBody());
+            log.info("[DIAGNOSTIC] stage=GOOGLE_TOKEN_VERIFIED success=true duration={}ms", System.currentTimeMillis() - startTime);
 
             // 1. Verify Issuer
             String iss = root.path("iss").asText("");
             if (!VALID_ISSUERS.contains(iss)) {
+                log.warn("[DIAGNOSTIC] stage=GOOGLE_ISSUER_VALID success=false");
                 log.warn("Google token verification rejected invalid issuer: '{}'", iss);
                 throw new BadCredentialsException("Google authentication failed: Invalid token issuer.");
             }
+            log.info("[DIAGNOSTIC] stage=GOOGLE_ISSUER_VALID success=true");
 
             // 2. Verify Expiry
             long exp = root.path("exp").asLong(0);
             long nowEpochSec = System.currentTimeMillis() / 1000;
             if (exp > 0 && exp < nowEpochSec) {
-                log.warn("Google token has expired (exp={}, now={})", exp, nowEpochSec);
+                log.warn("[DIAGNOSTIC] stage=GOOGLE_EXPIRY_VALID success=false exp={} now={}", exp, nowEpochSec);
                 throw new BadCredentialsException("Google authentication failed: Token has expired.");
             }
 
@@ -92,9 +100,11 @@ public class DefaultGoogleTokenVerifier implements GoogleTokenVerifier {
                     }
                 }
                 if (!matches) {
+                    log.warn("[DIAGNOSTIC] stage=GOOGLE_AUDIENCE_VALID success=false");
                     log.warn("Google token audience mismatch: expected '{}', got '{}'", cleanExpected, aud);
                     throw new BadCredentialsException("Google authentication failed: Token audience does not match configured Client ID.");
                 }
+                log.info("[DIAGNOSTIC] stage=GOOGLE_AUDIENCE_VALID success=true");
             }
 
             // 4. Verify Subject (Google User ID)
@@ -112,8 +122,10 @@ public class DefaultGoogleTokenVerifier implements GoogleTokenVerifier {
             boolean emailVerified = root.path("email_verified").asBoolean(false)
                     || "true".equalsIgnoreCase(root.path("email_verified").asText(""));
             if (!emailVerified) {
+                log.warn("[DIAGNOSTIC] stage=GOOGLE_EMAIL_VERIFIED success=false");
                 throw new BadCredentialsException("Google authentication rejected: Google email is not verified.");
             }
+            log.info("[DIAGNOSTIC] stage=GOOGLE_EMAIL_VERIFIED success=true");
 
             // 6. Extract clean profile claims
             String givenName = root.path("given_name").asText("");

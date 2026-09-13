@@ -48,6 +48,7 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
   const sessionIdRef = useRef(`session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
   const fileInputRef = useRef(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const inFlightRef = useRef(false);
 
   const handleExportFhirChat = async () => {
     try {
@@ -371,7 +372,8 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
 
   const handleSend = async (overrideText) => {
     const queryText = (overrideText || input).trim();
-    if (!queryText || loading || isSessionExpired) return;
+    if (!queryText || loading || isSessionExpired || inFlightRef.current) return;
+    inFlightRef.current = true;
 
     if (!firstMedicalIssue) {
       setFirstMedicalIssue(queryText);
@@ -411,7 +413,12 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
         }));
 
       const historyString = historyPayload.length > 0 ? JSON.stringify(historyPayload) : null;
-      const rawResponse = await sendChatMessage(queryText, historyString, sessionIdRef.current);
+      const clientRequestId = `clientReq-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const clientStartTime = performance.now();
+
+      const rawResponse = await sendChatMessage(queryText, historyString, sessionIdRef.current, clientRequestId);
+      const elapsedClientMs = Math.round(performance.now() - clientStartTime);
+      console.info(`[FRONTEND TIMING] POST /api/chat finished in ${elapsedClientMs}ms [clientRequestId=${clientRequestId}]`);
       const assistantMessageId = `asst-${Date.now()}`;
 
       if (rawResponse?.error) {
@@ -491,6 +498,7 @@ export default function ChatWindow({ initialQuery = "", onTriageComplete }) {
       };
       setMessages((prev) => [...prev, errorMsg]);
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   };

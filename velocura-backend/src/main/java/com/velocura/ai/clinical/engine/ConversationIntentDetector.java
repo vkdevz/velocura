@@ -18,7 +18,7 @@ public class ConversationIntentDetector {
     );
 
     private static final Pattern EDUCATIONAL_QUERY = Pattern.compile(
-        "(?i)^(what\\s*is|what\\s*are|explain|how\\s*does|how\\s*do|difference\\s*between|definition\\s*of|mechanism\\s*of|pathophysiology|prognosis|cause\\s*of|why\\s*does|symptoms\\s*of)\\b"
+        "(?i)^(what\\s*is|what\\s*are|what\\s*causes|what\\s*does.*mean|meaning\\s*of|explain|how\\s*does|how\\s*do|difference\\s*between|definition\\s*of|mechanism\\s*of|pathophysiology|prognosis|cause\\s*of|why\\s*does|symptoms\\s*of)\\b"
     );
 
     private static final Pattern MEDICATION_SAFETY = Pattern.compile(
@@ -34,7 +34,7 @@ public class ConversationIntentDetector {
     );
 
     private static final Pattern SELF_CARE = Pattern.compile(
-        "(?i)\\b(home\\s*remed(y|ies)|what\\s*to\\s*eat|diet\\s*for|food\\s*for|how\\s*to\\s*recover|natural\\s*remed(y|ies)|home\\s*care|steam\\s*inhalation)\\b"
+        "(?i)\\b(home\\s*remed(y|ies)|what\\s*to\\s*eat|diet\\s*for|food\\s*for|how\\s*to\\s*recover|natural\\s*remed(y|ies)|home\\s*care|steam\\s*inhalation|what\\s*should\\s*i\\s*do\\s*for)\\b"
     );
 
     private static final Pattern BODY_PART = Pattern.compile(
@@ -44,7 +44,7 @@ public class ConversationIntentDetector {
         "heart|liver|bowel|rectum|anus|spine|rib|calf|thigh|forehead|temple|cheek)\\b");
 
     private static final Pattern SYMPTOM_VERB = Pattern.compile(
-        "(?i)\\b(cut|cuts|cutting|laceration|wound|wounds|scald|puncture|bite|sting|pain|ache|aching|burn|burning|itch|itching|itchy|watery|red|redness|bleed|bleeding|swell|swelling|" +
+        "(?i)\\b(cut|cuts|cutting|laceration|wound|wounds|scald|puncture|bite|sting|pain|ache|aching|headache|headaches|migraine|migraines|burn|burning|itch|itching|itchy|watery|red|redness|bleed|bleeding|swell|swelling|" +
         "nausea|vomit|vomiting|cough|coughing|fever|discharge|cramp|cramps|dizzy|dizziness|blur|blury|blurry|vision|strain|rash|fatigue|" +
         "weakness|shortness|breathless|palpitat|tingle|tingling|numbness|numb|stiff|" +
         "constipat|diarrhea|bloat|wheez|sneez|runny|congestion|lump|lesion|bruise|" +
@@ -52,7 +52,7 @@ public class ConversationIntentDetector {
         "problem|issue|trouble|difficulty|discomfort|infection)\\b");
 
     private static final Pattern FIRST_PERSON_OR_PATIENT_SYMPTOM = Pattern.compile(
-        "(?i)\\b(i\\s*have|i'm\\s*having|i\\s*feel|i've\\s*had|my\\s*\\w+\\s*hurts|my\\s*(mother|father|husband|wife|child|baby|son|daughter)\\s*has|suffering\\s*from|experiencing|pain|hurts|burning|fever|cough|ache|vomit|rash|swelling|bleeding|cut|wound|burn|sprain|problem\\s*in|issue\\s*in|trouble\\s*(with|in))\\b"
+        "(?i)\\b(i\\s*have|i'm\\s*having|i\\s*feel|i've\\s*had|my\\s*\\w+\\s*hurts|my\\s*(mother|father|husband|wife|child|baby|son|daughter)\\s*has|my\\s*temperature|temp\\s*(is|of)|suffering\\s*from|experiencing|pain|hurts|burning|fever|cough|ache|vomit|rash|swelling|bleeding|cut|wound|burn|sprain|problem\\s*in|issue\\s*in|trouble\\s*(with|in))\\b"
     );
 
     private static final Set<String> SINGLE_WORD_SYMPTOMS = Set.of(
@@ -77,9 +77,13 @@ public class ConversationIntentDetector {
             return ClinicalIntent.CLARIFICATION;
         }
 
-        // Quick replies / vitals / timeline answers should never be classified as general conversation
-        if (text.contains("general information") || text.contains("general medical information") || text.contains("just want to know") || text.contains("wanna know")) {
+        // Clarification follow-up choices
+        if (text.contains("general information") || text.contains("general medical information") || text.contains("just want to know") || text.contains("wanna know") || text.equals("just general information")) {
             return ClinicalIntent.EDUCATIONAL;
+        }
+
+        if (text.contains("currently experiencing") || text.contains("experiencing it") || text.contains("i am experiencing") || text.contains("i'm experiencing")) {
+            return ClinicalIntent.SYMPTOM_ASSESSMENT;
         }
 
         // Post-consultation action chips & follow-up Q&A
@@ -132,9 +136,18 @@ public class ConversationIntentDetector {
             return ClinicalIntent.SELF_CARE;
         }
 
-        // 8. Casual Greetings (Only when NO symptoms or body parts present)
+        // 8. Casual Greetings (Only when NO symptoms or clinical descriptions are present)
         if (CASUAL_GREETINGS.matcher(text).find()) {
-            if (!BODY_PART.matcher(text).find() && !SYMPTOM_VERB.matcher(text).find()) {
+            if (!BODY_PART.matcher(text).find() 
+                    && !SYMPTOM_VERB.matcher(text).find()
+                    && !text.contains("headache")
+                    && !text.contains("having")
+                    && !text.contains("i have")
+                    && !text.contains("pain")
+                    && !text.contains("fever")
+                    && !text.contains("cough")
+                    && !text.contains("days")
+                    && !text.contains("hurts")) {
                 return ClinicalIntent.GENERAL_CONVERSATION;
             }
         }

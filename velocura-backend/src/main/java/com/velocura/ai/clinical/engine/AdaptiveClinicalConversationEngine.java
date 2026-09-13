@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import com.velocura.ai.clinical.timing.RequestTimingContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -246,25 +247,49 @@ public class AdaptiveClinicalConversationEngine {
         ClinicalIntent intent = intentDetector.detectIntent(normText, state);
         state.setIntent(intent);
 
-        // ─── STAGE 8: CLINICAL INFORMATION EXTRACTION & LONGITUDINAL TRACKING ─
-        ClinicalRiskLevel priorRisk = state.getCurrentRiskLevel();
-        List<String> priorSymptoms = new ArrayList<>(state.getSymptoms().keySet());
-        informationExtractor.extractAndUpdate(normText, state);
-        if (state.getChiefConcern() == null && !normText.isBlank()) {
-            state.setChiefConcern(normText);
+        // Ambiguous one-word symptom topic retention
+        if (intent == ClinicalIntent.CLARIFICATION) {
+            state.setPendingClarificationTopic(normText.trim().toLowerCase());
+        } else if (normText.toLowerCase().contains("experiencing") && state.getPendingClarificationTopic() != null) {
+            String sym = state.getPendingClarificationTopic();
+            state.getSymptoms().put(sym, ClinicalFact.present(sym, "reported", state.getTurnCount()));
+            state.setIntent(ClinicalIntent.SYMPTOM_ASSESSMENT);
+            intent = ClinicalIntent.SYMPTOM_ASSESSMENT;
         }
-        List<String> currentSymptoms = new ArrayList<>(state.getSymptoms().keySet());
-        currentSymptoms.removeAll(priorSymptoms);
 
-        if (longitudinalTracker != null) {
-            longitudinalTracker.trackChanges(state, normText, currentSymptoms, priorRisk);
+        // Fast Conversational Path evaluation (Non-emergency greetings, general educational info, clarifications)
+        boolean isFastPath = (intent == ClinicalIntent.GENERAL_CONVERSATION
+                           || intent == ClinicalIntent.EDUCATIONAL
+                           || intent == ClinicalIntent.CLARIFICATION)
+                           && (state.getCurrentRiskLevel() == null || !state.getCurrentRiskLevel().isEmergencyOrCritical())
+                           && (state.getRedFlags() == null || state.getRedFlags().isEmpty());
+
+        // ─── STAGE 8: CLINICAL INFORMATION EXTRACTION & LONGITUDINAL TRACKING ─
+        if (!isFastPath) {
+            ClinicalRiskLevel priorRisk = state.getCurrentRiskLevel();
+            List<String> priorSymptoms = new ArrayList<>(state.getSymptoms().keySet());
+            informationExtractor.extractAndUpdate(normText, state);
+            if (state.getChiefConcern() == null && !normText.isBlank()) {
+                state.setChiefConcern(normText);
+            }
+            List<String> currentSymptoms = new ArrayList<>(state.getSymptoms().keySet());
+            currentSymptoms.removeAll(priorSymptoms);
+
+            if (longitudinalTracker != null) {
+                longitudinalTracker.trackChanges(state, normText, currentSymptoms, priorRisk);
+            }
         }
 
         // ─── STAGE 9: NEXT BEST ACTION & VALUE-OF-INFORMATION ────────────────
         NextBestActionEngine.ActionDecision actionDecision = null;
-        if (actionEngine != null) {
+        if (!isFastPath && actionEngine != null) {
+            long tVoi = System.nanoTime();
             actionDecision = actionEngine.evaluateNextAction(state);
             state.setRecommendedAction(actionDecision.getAction());
+            RequestTimingContext timing = RequestTimingContext.get();
+            if (timing != null) {
+                timing.recordVoiNbq(System.nanoTime() - tVoi);
+            }
         }
 
         NextBestQuestionEngine.QuestionDecision questionDecision;
@@ -294,30 +319,55 @@ public class AdaptiveClinicalConversationEngine {
 
         // ─── STAGE 10: 11K CANDIDATE RETRIEVAL & UNIFIED CLINICAL DECISION ENGINE ───
         List<ClinicalCandidate> candidates = Collections.emptyList();
-        if (localClinicalEntityRegistry != null) {
-            Set<String> symptoms = state.getSymptoms() != null ? state.getSymptoms().keySet() : Collections.emptySet();
-            candidates = localClinicalEntityRegistry.retrieveCandidates(
-                    symptoms,
-                    normText != null ? normText : rawInput,
-                    5,
-                    state.getNegatedFindings(),
-                    state.getActiveSnapshotId()
-            );
-        }
-
         ClinicalReasoningResult reasoningResult = null;
-        if (unifiedDecisionEngine != null) {
-            try {
-                reasoningResult = unifiedDecisionEngine.reason(rawInput, normText, state.getPatientContext(), state, candidates);
-            } catch (Exception e) {
-                log.warn("[UNIFIED DECISION ENGINE] Execution note: {}", e.getMessage());
+
+        if (!isFastPath) {
+            long tRet = System.nanoTime();
+            if (localClinicalEntityRegistry != null) {
+                Set<String> symptoms = state.getSymptoms() != null ? state.getSymptoms().keySet() : Collections.emptySet();
+                candidates = localClinicalEntityRegistry.retrieveCandidates(
+                        symptoms,
+                        normText != null ? normText : rawInput,
+                        5,
+                        state.getNegatedFindings(),
+                        state.getActiveSnapshotId()
+                );
             }
+            RequestTimingContext timing = RequestTimingContext.get();
+            if (timing != null) {
+                timing.recordRetrieval11k(System.nanoTime() - tRet);
+            }
+
+            if (unifiedDecisionEngine != null) {
+                long tDec = System.nanoTime();
+                try {
+                    reasoningResult = unifiedDecisionEngine.reason(rawInput, normText, state.getPatientContext(), state, candidates);
+                } catch (Exception e) {
+                    log.warn("[UNIFIED DECISION ENGINE] Execution note: {}", e.getMessage());
+                } finally {
+                    if (timing != null) {
+                        timing.recordDecisionEngine(System.nanoTime() - tDec);
+                    }
+                }
+            }
+        } else {
+            log.info("[FAST CONVERSATIONAL PATH] Bypassing expensive 11k retrieval and Bayesian reasoning for intent={}", intent);
         }
 
         ClinicalReasoningEngine.ReasoningOutput reasoning = reasoningEngine.reason(normText, state, questionDecision);
 
         // Safety Gate #2: Enforce non-overrideable safety kernel boundaries
+        long tSaf2 = System.nanoTime();
         String validatedMessage = answerValidator.validateAndSanitize(reasoning.getClinicalMessage(), state, rawInput);
+        RequestTimingContext timing = RequestTimingContext.get();
+        if (timing != null) {
+            timing.recordSafety2(System.nanoTime() - tSaf2);
+        }
+
+        // Use reasoning quick replies if present, else questionDecision
+        List<String> effectiveReplies = (reasoning.getQuickReplies() != null && !reasoning.getQuickReplies().isEmpty())
+                ? reasoning.getQuickReplies()
+                : questionDecision.getQuickReplies();
 
         // Record Decision Trace
         ClinicalDecisionTrace trace = ClinicalDecisionTrace.builder()
@@ -331,8 +381,17 @@ public class AdaptiveClinicalConversationEngine {
                 .safetyKernelStatus("EVALUATED")
                 .build();
 
+        long tAudit = System.nanoTime();
         stateStore.save(state);
+        if (timing != null) {
+            timing.recordAudit(System.nanoTime() - tAudit);
+        }
+
+        long tComp = System.nanoTime();
         ChatResponse resp = responseComposer.composeStandard(validatedMessage, state, questionDecision, rawInput, reasoningResult);
+        if (effectiveReplies != null && !effectiveReplies.isEmpty()) {
+            resp.setQuickReplies(effectiveReplies);
+        }
         if (reasoningResult != null) {
             resp.setReasoningResult(reasoningResult);
             resp.setNextBestQuestion(reasoningResult.getNextBestQuestion());
@@ -342,6 +401,9 @@ public class AdaptiveClinicalConversationEngine {
             if (reasoningResult.getRiskLevel() != null) {
                 resp.setRiskLevel(reasoningResult.getRiskLevel().name());
             }
+        }
+        if (timing != null) {
+            timing.recordComposition(System.nanoTime() - tComp);
         }
         return resp;
     }

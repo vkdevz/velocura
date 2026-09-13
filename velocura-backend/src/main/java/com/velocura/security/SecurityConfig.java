@@ -48,6 +48,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(
+            "https://velocura.vercel.app",
             "http://localhost:5172",
             "http://localhost:3000",
             "http://127.0.0.1:5172",

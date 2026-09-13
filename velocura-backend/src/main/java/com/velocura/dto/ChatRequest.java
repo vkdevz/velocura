@@ -13,6 +13,7 @@ public class ChatRequest {
     private String sessionId;             // nullable
     private Long patientId;               // optional
     private String patientEmail;          // optional
+    private String clientRequestId;       // optional client-generated correlation ID
 
     public ChatRequest(String message, String conversationHistory, String sessionId) {
         this.message = message;

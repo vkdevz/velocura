@@ -146,6 +146,18 @@
   position: relative;
   width: 100%;
   min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.googleNativeContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
 }
 
 .googleBtn {
@@ -187,25 +199,4 @@
   cursor: not-allowed;
 }
 
-.googleHiddenOverlay {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0.001;
-  overflow: hidden;
-  cursor: pointer;
-  border-radius: var(--radius-full);
-  z-index: 2;
-}
-
-.googleHiddenOverlay > div,
-.googleHiddenOverlay iframe {
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 44px !important;
-  cursor: pointer !important;
-  transform: scale(1.4);
-  transform-origin: center center;
-}
 

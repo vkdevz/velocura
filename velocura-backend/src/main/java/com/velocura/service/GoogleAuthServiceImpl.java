@@ -64,12 +64,20 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
         this(userRepository, patientRepository, doctorRepository, passwordEncoder, jwtUtils, notificationService, new DefaultGoogleTokenVerifier());
     }
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GoogleAuthServiceImpl.class);
+
     @Override
     @Transactional
     public AuthResponse authenticateWithGoogle(GoogleAuthRequest request) {
+        String correlationId = UUID.randomUUID().toString().substring(0, 8);
+        long startTime = System.currentTimeMillis();
+        log.info("[DIAGNOSTIC] correlationId={} stage=GOOGLE_AUTH_START", correlationId);
+
         if (request == null || request.getIdToken() == null || request.getIdToken().trim().isEmpty()) {
+            log.warn("[DIAGNOSTIC] correlationId={} stage=GOOGLE_CALLBACK_RECEIVED success=false", correlationId);
             throw new BadCredentialsException("Google authentication failed: Cryptographic ID token is required.");
         }
+        log.info("[DIAGNOSTIC] correlationId={} stage=GOOGLE_CALLBACK_RECEIVED success=true", correlationId);
 
         // Strictly verify cryptographic Google ID token - NEVER trust raw client-supplied email/profile
         VerifiedGoogleUser verifiedUser = googleTokenVerifier.verify(request.getIdToken().trim());
@@ -86,6 +94,14 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
         String lastName = verifiedUser.getLastName();
         String picture = verifiedUser.getPicture();
 
+        log.info("[DIAGNOSTIC] correlationId={} stage=GOOGLE_IDENTITY_RESOLVED success=true", correlationId);
+
+        // Administrative privileges cannot be claimed or provisioned via public Google SSO
+        if (request.getRole() == Role.ADMIN) {
+            log.warn("[DIAGNOSTIC] correlationId={} stage=ROLE_ASSIGNED success=false reason=ADMIN_BLOCKED", correlationId);
+            throw new AccessDeniedException("Administrative accounts cannot authenticate or be provisioned via standard Google SSO.");
+        }
+
         // 1. Google identity key lookup: Google sub is the primary identity key
         Optional<User> userByGoogleId = userRepository.findByGoogleId(googleId);
         User user;
@@ -95,6 +111,7 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
 
             // Administrative accounts cannot authenticate through public Google SSO
             if (user.getRole() == Role.ADMIN) {
+                log.warn("[DIAGNOSTIC] correlationId={} stage=ROLE_ASSIGNED success=false reason=ADMIN_BLOCKED", correlationId);
                 throw new AccessDeniedException("Administrative accounts cannot authenticate via standard Google SSO.");
             }
             if (!user.isActive() || user.isDeleted()) {
@@ -109,6 +126,7 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
             if (needsUpdate) {
                 userRepository.save(user);
             }
+            log.info("[DIAGNOSTIC] correlationId={} stage=VELO_USER_FOUND_OR_CREATED mode=EXISTING_GOOGLE_USER", correlationId);
         } else {
             // 2. Not found by googleId. Check if user exists by verified email (account linking flow)
             Optional<User> existingEmailUserOpt = userRepository.findByEmailIgnoreCase(verifiedEmail);
@@ -117,6 +135,7 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
                 user = existingEmailUserOpt.get();
 
                 if (user.getRole() == Role.ADMIN) {
+                    log.warn("[DIAGNOSTIC] correlationId={} stage=ROLE_ASSIGNED success=false reason=ADMIN_BLOCKED", correlationId);
                     throw new AccessDeniedException("Administrative accounts cannot authenticate via standard Google SSO.");
                 }
                 if (!user.isActive() || user.isDeleted()) {
@@ -154,16 +173,15 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
                     user.setProfilePicture(picture);
                 }
                 userRepository.save(user);
+                log.info("[DIAGNOSTIC] correlationId={} stage=VELO_USER_FOUND_OR_CREATED mode=LINKED_ACCOUNT", correlationId);
             } else {
                 // 3. New User: Auto-register user with verified Google identity
-                Role targetRole = request.getRole() != null ? request.getRole() : Role.PATIENT;
-                if (targetRole == Role.ADMIN) {
-                    throw new AccessDeniedException("Administrative accounts cannot be registered via Google SSO.");
-                }
+                // Google public SSO strictly grants standard Role.PATIENT (never DOCTOR or ADMIN)
+                Role targetRole = Role.PATIENT;
 
                 user = User.builder()
                         .email(verifiedEmail)
-                        .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                        .password(null) // Phase 8: Google-only users have null password
                         .firstName(firstName)
                         .lastName(lastName)
                         .role(targetRole)
@@ -178,43 +196,37 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
                 user = savedUser;
 
                 // Cascade creation of role profile
-                if (targetRole == Role.PATIENT) {
-                    LocalDate dob = LocalDate.of(1995, 1, 1);
-                    if (request.getDateOfBirth() != null && !request.getDateOfBirth().trim().isEmpty()) {
-                        try {
-                            dob = LocalDate.parse(request.getDateOfBirth().trim());
-                        } catch (Exception ignored) {}
-                    }
-
-                    Patient patient = Patient.builder()
-                            .user(savedUser)
-                            .dateOfBirth(dob)
-                            .gender(request.getGender() != null ? request.getGender() : "Not Specified")
-                            .phoneNumber(request.getPhoneNumber() != null ? request.getPhoneNumber() : "")
-                            .bloodGroup(request.getBloodGroup() != null ? request.getBloodGroup() : "O+")
-                            .address(request.getAddress() != null ? request.getAddress() : "")
-                            .allergies(null)
-                            .medicalHistoryTimeline(null)
-                            .build();
-                    patientRepository.save(patient);
-                } else if (targetRole == Role.DOCTOR) {
-                    Doctor doctor = Doctor.builder()
-                            .user(savedUser)
-                            .specialization(request.getSpecialization() != null ? request.getSpecialization() : "General Medicine")
-                            .licenseNumber(request.getLicenseNumber() != null ? request.getLicenseNumber() : ("DOC-" + System.currentTimeMillis()))
-                            .experienceYears(request.getExperienceYears() != null ? request.getExperienceYears() : 1)
-                            .consultationFee(request.getConsultationFee() != null ? BigDecimal.valueOf(request.getConsultationFee()) : BigDecimal.valueOf(50.0))
-                            .biography(request.getBiography() != null ? request.getBiography() : "Board certified clinician.")
-                            .isVerified(false)
-                            .build();
-                    doctorRepository.save(doctor);
+                LocalDate dob = LocalDate.of(1995, 1, 1);
+                if (request.getDateOfBirth() != null && !request.getDateOfBirth().trim().isEmpty()) {
+                    try {
+                        dob = LocalDate.parse(request.getDateOfBirth().trim());
+                    } catch (Exception ignored) {}
                 }
 
+                Patient patient = Patient.builder()
+                        .user(savedUser)
+                        .dateOfBirth(dob)
+                        .gender(request.getGender() != null ? request.getGender() : "Not Specified")
+                        .phoneNumber(request.getPhoneNumber() != null ? request.getPhoneNumber() : "")
+                        .bloodGroup(request.getBloodGroup() != null ? request.getBloodGroup() : "O+")
+                        .address(request.getAddress() != null ? request.getAddress() : "")
+                        .allergies(null)
+                        .medicalHistoryTimeline(null)
+                        .build();
+                patientRepository.save(patient);
+
                 notificationService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFirstName() + " " + savedUser.getLastName());
+                log.info("[DIAGNOSTIC] correlationId={} stage=VELO_USER_FOUND_OR_CREATED mode=NEW_GOOGLE_USER", correlationId);
             }
         }
 
+        log.info("[DIAGNOSTIC] correlationId={} stage=ROLE_ASSIGNED role={}", correlationId, user.getRole());
+
         String jwt = jwtUtils.generateToken(user.getEmail(), user.getRole().name());
+        log.info("[DIAGNOSTIC] correlationId={} stage=JWT_CREATED success=true", correlationId);
+
+        long duration = System.currentTimeMillis() - startTime;
+        log.info("[DIAGNOSTIC] correlationId={} stage=AUTH_RESPONSE_SENT duration={}ms", correlationId, duration);
 
         return AuthResponse.builder()
                 .token(jwt)

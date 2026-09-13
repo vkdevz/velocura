@@ -169,6 +169,12 @@ public class AuthController {
         }
 
         User user = userOpt.get();
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            auditService.logEvent(user.getId(), email, user.getRole().name(), "LOGIN_FAILED", "User", String.valueOf(user.getId()), "CLIENT", "DENIED", "Google-only account has no password set");
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                    .body(java.util.Map.of("status", 401, "message", "This account was registered with Google. Please sign in with Google."));
+        }
+
         boolean passwordMatches = passwordEncoder.matches(rawPassword, user.getPassword());
         if (!passwordMatches) {
             auditService.logEvent(user.getId(), email, user.getRole().name(), "LOGIN_FAILED", "User", String.valueOf(user.getId()), "CLIENT", "DENIED", "Invalid credentials");

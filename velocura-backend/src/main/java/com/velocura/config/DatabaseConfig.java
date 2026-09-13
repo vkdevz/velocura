@@ -49,7 +49,8 @@ public class DatabaseConfig {
                     }
                     
                     int port = uri.getPort() != -1 ? uri.getPort() : 5432;
-                    dbUrl = "jdbc:postgresql://" + uri.getHost() + ":" + port + uri.getPath();
+                    String query = uri.getQuery() != null ? "?" + uri.getQuery() : "";
+                    dbUrl = "jdbc:postgresql://" + uri.getHost() + ":" + port + uri.getPath() + query;
                     driverClassName = "org.postgresql.Driver";
                 } catch (Exception e) {
                     System.err.println("DatabaseConfig: Error parsing postgres URI (" + e.getMessage() + "). Falling back to raw URL.");
@@ -77,11 +78,17 @@ public class DatabaseConfig {
         System.out.println("Username: " + (username != null ? username : "N/A"));
         System.out.println("--------------------------------------------------");
 
-        return DataSourceBuilder.create()
-                .driverClassName(driverClassName)
-                .url(dbUrl)
-                .username(username)
-                .password(password)
-                .build();
+        com.zaxxer.hikari.HikariConfig hikariConfig = new com.zaxxer.hikari.HikariConfig();
+        hikariConfig.setDriverClassName(driverClassName);
+        hikariConfig.setJdbcUrl(dbUrl);
+        hikariConfig.setUsername(username);
+        hikariConfig.setPassword(password);
+        hikariConfig.setMaximumPoolSize(10);
+        hikariConfig.setMinimumIdle(3);
+        hikariConfig.setConnectionTimeout(15000);
+        hikariConfig.setIdleTimeout(300000);
+        hikariConfig.setMaxLifetime(1200000);
+        hikariConfig.setLeakDetectionThreshold(60000);
+        return new com.zaxxer.hikari.HikariDataSource(hikariConfig);
     }
 }

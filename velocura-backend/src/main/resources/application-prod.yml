@@ -41,7 +41,7 @@ velocura:
   payment:
     mock-enabled: false
   google:
-    client-id: ${GOOGLE_CLIENT_ID:}
+    client-id: ${GOOGLE_CLIENT_ID:750331264882-crdl5gjg144tsm7453u74lq5hvd3ag5c.apps.googleusercontent.com}
     client-secret: ${GOOGLE_CLIENT_SECRET:}
 
 app:

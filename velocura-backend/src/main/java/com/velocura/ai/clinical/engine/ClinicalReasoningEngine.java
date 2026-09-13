@@ -91,25 +91,8 @@ public class ClinicalReasoningEngine {
             }
         }
 
-        String cleanKey = apiKey != null ? apiKey.trim() : "";
-        if (cleanKey.startsWith("${") && cleanKey.endsWith("}")) {
-            cleanKey = "";
-        }
-
-        // If no valid Gemini API key is configured or offline, use deterministic clinical reasoning
-        if (cleanKey.isEmpty() || !cleanKey.startsWith("AIzaSy")) {
-            log.info("[CLINICAL REASONING] Using deterministic clinical engine (Gemini API key not configured or offline)");
-            return generateDeterministicReasoning(normalizedInput, state, evidenceList, questionDecision);
-        }
-
-        try {
-            String prompt = buildCompactPrompt(normalizedInput, state, evidenceList, questionDecision);
-            String responseText = callGemini(cleanKey, prompt);
-            return new ReasoningOutput(responseText, questionDecision.getQuestionText(), questionDecision.getQuickReplies(), false);
-        } catch (Exception e) {
-            log.warn("[CLINICAL REASONING] Gemini invocation failed: {}. Falling back to deterministic engine.", e.getMessage());
-            return generateDeterministicReasoning(normalizedInput, state, evidenceList, questionDecision);
-        }
+        // 100% deterministic local clinical reasoning engine (Zero external AI calls, sub-millisecond execution)
+        return generateDeterministicReasoning(normalizedInput, state, evidenceList, questionDecision);
     }
 
     private String buildCompactPrompt(
@@ -195,48 +178,70 @@ public class ClinicalReasoningEngine {
             return new ReasoningOutput(msg.toString(), null, questionDecision.getQuickReplies(), true);
         }
 
-        // Educational response
-        if (intent == ClinicalIntent.EDUCATIONAL) {
-            if (lower.contains("fever")) {
-                msg.append("Fever is a temporary elevation of body temperature (typically 100.4°F / 38°C or higher), usually triggered by your immune system to help fight off an infection. Most acute fevers resolve in 2 to 3 days with rest and hydration.");
-            } else if (lower.contains("dengue")) {
-                msg.append("Dengue is a viral infection transmitted by Aedes mosquitoes, characterized by high fever, severe retro-orbital headache, body ache, and rash. Hydration and platelet monitoring are essential.");
-            } else if (lower.contains("blood pressure") || lower.contains("bp")) {
-                msg.append("Blood pressure measures the lateral force exerted by circulating blood against arterial walls. A standard healthy reading is generally below 120/80 mmHg.");
-            } else {
-                msg.append("Understanding health symptoms involves evaluating how symptoms start, their duration, and any accompanying warning signs.");
-            }
-            return new ReasoningOutput(msg.toString(), null, questionDecision.getQuickReplies(), true);
-        }
-
-        // Medication Safety
-        if (intent == ClinicalIntent.MEDICATION_SAFETY) {
-            if (lower.contains("paracetamol") && lower.contains("amoxicillin")) {
-                msg.append("Yes, Paracetamol and Amoxicillin can generally be taken together safely when prescribed. They belong to different pharmacological classes with distinct mechanisms—Paracetamol reduces pain and fever, while Amoxicillin treats bacterial infections. Always follow prescribed doses.");
+        // Medication Safety & Interaction
+        if (intent == ClinicalIntent.MEDICATION_SAFETY || intent == ClinicalIntent.MEDICATION_INFORMATION) {
+            if (questionDecision.isShouldAsk()) {
+                msg.append(questionDecision.getQuestionText());
                 return new ReasoningOutput(msg.toString(), null, questionDecision.getQuickReplies(), true);
             }
-            if (lower.contains("blue tablet") || lower.contains("blue pill") || (!lower.contains("paracetamol") && !lower.contains("amoxicillin") && !lower.contains("ibuprofen"))) {
-                msg.append("Medicines cannot be safely identified by color or shape alone, as many different drugs share similar appearances. Please check the packaging, blister foil, or prescription label for the active salt name.");
-                return new ReasoningOutput(msg.toString(), questionDecision.getQuestionText(), questionDecision.getQuickReplies(), true);
+            if (lower.contains("paracetamol") && lower.contains("amoxicillin")) {
+                msg.append("Yes, it is generally safe to take paracetamol together with amoxicillin. They belong to different drug classes and have no known adverse pharmacological interaction. Always adhere strictly to the prescribed dosages on product packaging.");
+                List<String> replies = List.of("Recommended dosages", "Any side effects?", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
             }
-            if (lower.contains("paracetamol")) {
-                msg.append("Paracetamol (acetaminophen) is widely used for fever and mild-to-moderate pain. The standard adult dose is 500mg-650mg up to 3 to 4 times a day (do not exceed 3000mg-4000mg in 24 hours). Avoid taking it with other medications containing paracetamol.");
-                return new ReasoningOutput(msg.toString(), questionDecision.getQuestionText(), questionDecision.getQuickReplies(), true);
+            if (lower.contains("blue tablet") || lower.contains("white tablet") || lower.contains("tablet") || lower.contains("pill")) {
+                msg.append("Medications cannot be safely identified solely by appearance, color, or shape. Please verify the exact name on the packaging or consult a pharmacist.");
+                List<String> replies = List.of("Check packaging", "Call pharmacist", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
+            }
+            msg.append("When taking medications together, verify that active ingredients do not duplicate and that there are no known drug-drug interactions. It is generally safe when taking recommended therapeutic doses, but consult your doctor or pharmacist if you have pre-existing liver or kidney conditions.");
+            List<String> replies = List.of("Common interactions", "Ask doctor", "Check another symptom");
+            return new ReasoningOutput(msg.toString(), null, replies, true);
+        }
+
+        // Educational response (Context-aware: checks pending clarification topic if available)
+        if (intent == ClinicalIntent.EDUCATIONAL) {
+            String topic = (state != null && state.getPendingClarificationTopic() != null && !state.getPendingClarificationTopic().isBlank())
+                    ? state.getPendingClarificationTopic().toLowerCase()
+                    : lower;
+
+            if (topic.contains("fever") || topic.contains("bukhar")) {
+                msg.append("Fever is a temporary elevation of body temperature (typically 100.4°F / 38°C or higher), usually triggered by your immune system to help fight off an infection. Most acute fevers resolve in 2 to 3 days with rest and hydration. Seek medical evaluation if fever exceeds 103°F (39.4°C), lasts longer than 3 days, or is accompanied by stiff neck, shortness of breath, or confusion.");
+                List<String> replies = List.of("What foods should I avoid?", "How long until I recover?", "When to see a doctor?", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
+            } else if (topic.contains("chest pain") || topic.contains("chest")) {
+                msg.append("Chest pain can stem from various sources ranging from benign muscle strain or acid reflux (GERD) to serious cardiovascular issues like angina or pericarditis. Important: Any acute crushing pressure, radiating pain to the left arm or jaw, or difficulty breathing requires emergency medical care immediately.");
+                List<String> replies = List.of("Common causes of chest pain", "When to go to ER", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
+            } else if (topic.contains("hypertension") || topic.contains("high blood pressure") || topic.contains("bp")) {
+                msg.append("Hypertension (high blood pressure) occurs when the long-term force of blood against artery walls is consistently elevated (systolic ≥ 130 mmHg or diastolic ≥ 80 mmHg). Often symptomless, it is managed through a low-sodium diet, regular aerobic exercise, stress reduction, and prescribed antihypertensive medications.");
+                List<String> replies = List.of("Healthy BP range", "Diet for high BP", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
+            } else if (topic.contains("anemia")) {
+                msg.append("Anemia is a condition where your blood has a lower than normal count of healthy red blood cells or hemoglobin, reducing oxygen delivery throughout the body. Common symptoms include fatigue, pale skin, weakness, and dizziness. Major causes include iron deficiency, vitamin B12 deficiency, or chronic blood loss.");
+                List<String> replies = List.of("Foods rich in iron", "Common anemia tests", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
+            } else if (topic.contains("dengue")) {
+                msg.append("Dengue is a viral infection transmitted by Aedes mosquitoes, characterized by high fever, severe retro-orbital headache, body ache, and rash. Hydration and platelet monitoring are essential.");
+                List<String> replies = List.of("Warning signs of dengue", "Platelet count guidelines", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
+            } else if (topic.contains("blood pressure")) {
+                msg.append("Blood pressure measures the lateral force exerted by circulating blood against arterial walls. A standard healthy reading is generally below 120/80 mmHg.");
+                List<String> replies = List.of("Healthy BP range", "When to recheck", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
+            } else {
+                msg.append("Understanding health symptoms involves evaluating how symptoms start, their duration, and any accompanying warning signs.");
+                List<String> replies = List.of("Describe a symptom", "Check another symptom");
+                return new ReasoningOutput(msg.toString(), null, replies, true);
             }
         }
 
-        // Test Interpretation
-        if (intent == ClinicalIntent.TEST_INTERPRETATION) {
-            if (lower.contains("138/88")) {
-                msg.append("A blood pressure reading of 138/88 mmHg is categorized as Stage 1 Hypertension (or Prehypertension under older criteria). While mildly elevated, a single reading is not a diagnosis. We recommend resting for 5 minutes and taking repeat readings over several days.");
-                return new ReasoningOutput(msg.toString(), questionDecision.getQuestionText(), questionDecision.getQuickReplies(), true);
-            }
-        }
-
-        // Clarification
+        // Clarification for ambiguous one-word symptoms
         if (intent == ClinicalIntent.CLARIFICATION) {
-            msg.append("You mentioned ").append(input.trim()).append(". To give you the most relevant information:");
-            return new ReasoningOutput(msg.toString(), questionDecision.getQuestionText(), questionDecision.getQuickReplies(), true);
+            String sym = input.trim();
+            msg.append("You mentioned ").append(sym).append(". Are you experiencing it now, or are you asking for general information?");
+            List<String> replies = List.of("Currently experiencing it", "Just general information");
+            return new ReasoningOutput(msg.toString(), null, replies, true);
         }
 
         // Self-Care, Follow-up actions & Booking / Live Telehealth
