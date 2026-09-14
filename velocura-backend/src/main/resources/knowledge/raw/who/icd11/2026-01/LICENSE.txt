@@ -1,0 +1,27 @@
+WHO ICD-11 TERMS OF USE AND LICENSE METADATA
+==================================================================
+Licensor: World Health Organization (WHO)
+Classification: International Statistical Classification of Diseases and Related Health Problems, 11th Revision (ICD-11)
+Release: 2026-01 MMS (Mortality and Morbidity Statistics)
+
+Applicable License:
+Creative Commons Attribution-NoDerivatives 3.0 IGO (CC BY-ND 3.0 IGO)
+URL: https://creativecommons.org/licenses/by-nd/3.0/igo/
+
+Official WHO License Agreement:
+"Terms of Use and License Agreement for the International Statistical Classification of Diseases and Related Health Problems 11th Revision (ICD-11)"
+Document Reference: https://icd.who.int/en/docs/ICD11-license.pdf
+Portal: https://icd.who.int/en
+
+Mandatory Attribution Statement:
+"Based on the International Classification of Diseases, Eleventh Revision (ICD-11), World Health Organization (WHO) 2026. Licensed under Creative Commons Attribution-NoDerivatives 3.0 IGO (CC BY-ND 3.0 IGO)."
+
+Permitted Use in Velocura:
+- Local-first terminology foundation and classification reference.
+- Internal clinical decision support classification.
+- Health system interoperability and disease indexing.
+
+Restrictions:
+- No endorsement by WHO of any product, service, or clinical advice is implied.
+- Use of the WHO emblem/logo is strictly prohibited.
+- Classification categories, codes, and hierarchies must not be altered, adapted, or fabricated.

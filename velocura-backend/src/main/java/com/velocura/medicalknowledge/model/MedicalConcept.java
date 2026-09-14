@@ -71,6 +71,9 @@ public class MedicalConcept {
     @Column(name = "batch_id", length = 64)
     private String batchId;
 
+    @Column(name = "metadata_json", columnDefinition = "TEXT")
+    private String metadataJson;
+
     @Builder.Default
     @OneToMany(mappedBy = "concept", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonManagedReference

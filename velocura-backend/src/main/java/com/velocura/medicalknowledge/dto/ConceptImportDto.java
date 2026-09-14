@@ -41,4 +41,6 @@ public class ConceptImportDto {
 
     @Builder.Default
     private List<TerminologyMappingDto> terminologyMappings = new ArrayList<>();
+
+    private String metadataJson;
 }

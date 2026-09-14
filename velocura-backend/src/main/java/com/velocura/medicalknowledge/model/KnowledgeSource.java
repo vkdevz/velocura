@@ -79,6 +79,12 @@ public class KnowledgeSource {
     @Builder.Default
     private Boolean attributionRequired = true;
 
+    @Column(name = "attribution_statement", columnDefinition = "TEXT")
+    private String attributionStatement;
+
+    @Column(name = "license_document_url", length = 512)
+    private String licenseDocumentUrl;
+
     @Column(name = "license_verified")
     @Builder.Default
     private Boolean licenseVerified = false;

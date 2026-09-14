@@ -92,11 +92,27 @@ public class LocalClinicalEntityRegistry {
 
     @PostConstruct
     public void init() {
-        log.info("[CLINICAL REGISTRY] Initializing local 11k clinical knowledge base and discriminator graph...");
+        log.info("[CLINICAL REGISTRY] Initializing local clinical knowledge base and discriminator graph...");
         load11kDataset();
         registerCoreClinicalEntities();
         finalizeInvertedIndex();
         log.info("[CLINICAL REGISTRY] Total registered entities in local clinical knowledge base: {}", entityByIcd.size());
+    }
+
+    public synchronized int rebuildFromAuthoritativeWhoRelease() {
+        log.info("[CLINICAL REGISTRY] Rebuilding local clinical entity registry from authoritative WHO 2026-01 release...");
+        entityByIcd.clear();
+        icdsBySymptom.clear();
+        invertedIndex.clear();
+        idfMap.clear();
+        coreIcds.clear();
+        boolean loaded = loadAuthoritativeWhoDataset();
+        if (loaded) {
+            registerCoreClinicalEntities();
+            finalizeInvertedIndex();
+            log.info("[CLINICAL REGISTRY] Successfully rebuilt local index with {} authoritative WHO entities.", entityByIcd.size());
+        }
+        return entityByIcd.size();
     }
 
     private void finalizeInvertedIndex() {
@@ -202,6 +218,113 @@ public class LocalClinicalEntityRegistry {
         } else {
             list.add(new Posting(docId, weight, isHallmark));
         }
+    }
+
+    private boolean loadAuthoritativeWhoDataset() {
+        try {
+            org.springframework.core.io.Resource resource = new org.springframework.core.io.ClassPathResource("knowledge/raw/who/icd11/2026-01/SimpleTabulation-ICD-11-MMS-en.txt.gz");
+            if (!resource.exists()) {
+                return false;
+            }
+            int loaded = 0;
+            try (java.io.InputStream is = resource.getInputStream();
+                 java.util.zip.GZIPInputStream gis = new java.util.zip.GZIPInputStream(is);
+                 java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(gis, java.nio.charset.StandardCharsets.UTF_8))) {
+
+                String header = reader.readLine();
+                if (header == null || !header.contains("Foundation URI")) {
+                    return false;
+                }
+
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.trim().isEmpty()) continue;
+                    String[] parts = line.split("\t", -1);
+                    if (parts.length < 6) continue;
+
+                    String code = parts[2].trim();
+                    String rawTitle = parts[4].trim();
+                    String classKind = parts[5].trim();
+                    String chapterNo = parts.length > 8 ? parts[8].trim() : "";
+
+                    if (!"category".equalsIgnoreCase(classKind) || code.isEmpty()) {
+                        continue;
+                    }
+
+                    String cleanTitle = rawTitle;
+                    if (cleanTitle.startsWith("\"") && cleanTitle.endsWith("\"") && cleanTitle.length() >= 2) {
+                        cleanTitle = cleanTitle.substring(1, cleanTitle.length() - 1).trim();
+                    }
+                    cleanTitle = cleanTitle.replaceAll("^(?:-\\s*)+", "").trim();
+
+                    ClinicalEntity ce = ClinicalEntity.builder()
+                            .icd11Code(code)
+                            .title(cleanTitle)
+                            .category("Chapter " + chapterNo)
+                            .specialistDepartment(getDepartmentForChapter(chapterNo))
+                            .urgencyTier("MEDIUM")
+                            .hallmarkSymptoms(new ArrayList<>())
+                            .pertinentNegatives(new ArrayList<>())
+                            .discriminatorQuestions(new ArrayList<>())
+                            .build();
+
+                    entityByIcd.put(code.toUpperCase(Locale.ROOT), ce);
+                    loaded++;
+                }
+            }
+            log.info("[CLINICAL REGISTRY] Successfully ingested {} authoritative WHO ICD-11 2026-01 entities from raw local release.", loaded);
+            return loaded > 0;
+        } catch (Exception e) {
+            log.warn("[CLINICAL REGISTRY] Authoritative WHO dataset load failed, falling back: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    private String getDepartmentForChapter(String chapterNo) {
+        if (chapterNo == null) return "General Medicine";
+        return switch (chapterNo.trim()) {
+            case "01" -> "Infectious Diseases";
+            case "02" -> "Oncology";
+            case "03" -> "Hematology";
+            case "04" -> "Immunology / Allergy";
+            case "05" -> "Endocrinology / Metabolism";
+            case "06" -> "Psychiatry / Mental Health";
+            case "07" -> "Sleep Medicine / Neurology";
+            case "08" -> "Neurology";
+            case "09" -> "Ophthalmology";
+            case "10" -> "Otolaryngology (ENT)";
+            case "11" -> "Cardiology / Vascular Medicine";
+            case "12" -> "Pulmonology / Respiratory Medicine";
+            case "13" -> "Gastroenterology / Hepatology";
+            case "14" -> "Dermatology";
+            case "15" -> "Rheumatology / Orthopedics";
+            case "16" -> "Urology / Nephrology";
+            case "17" -> "Sexual Health / Reproductive Medicine";
+            case "18" -> "Obstetrics / Gynecology";
+            case "19" -> "Neonatology / Pediatrics";
+            case "20" -> "Pediatrics / Genetics";
+            case "21" -> "Internal Medicine / Diagnostics";
+            case "22" -> "Trauma / Emergency Medicine";
+            default -> "General Medicine";
+        };
+    }
+
+    public synchronized void rebuildIndexFromSnapshot(Collection<ClinicalEntity> entities) {
+        log.info("[CLINICAL REGISTRY] Rebuilding local clinical index with {} entities...", entities.size());
+        entityByIcd.clear();
+        icdsBySymptom.clear();
+        invertedIndex.clear();
+        idfMap.clear();
+        coreIcds.clear();
+
+        for (ClinicalEntity ce : entities) {
+            if (ce != null && ce.getIcd11Code() != null) {
+                entityByIcd.put(ce.getIcd11Code().toUpperCase(Locale.ROOT), ce);
+            }
+        }
+        registerCoreClinicalEntities();
+        finalizeInvertedIndex();
+        log.info("[CLINICAL REGISTRY] Index rebuild complete. Total entities: {}", entityByIcd.size());
     }
 
     private void load11kDataset() {

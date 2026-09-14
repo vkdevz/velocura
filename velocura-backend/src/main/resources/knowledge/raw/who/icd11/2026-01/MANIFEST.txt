@@ -1,0 +1,31 @@
+ACQUISITION MANIFEST: WHO ICD-11 2026-01 MMS RAW RELEASE
+==================================================================
+Acquisition Timestamp: 2026-09-14T14:24:00Z
+Source Publisher: World Health Organization (WHO)
+Official Source URL: https://icdcdn.who.int/static/releasefiles/2026-01/SimpleTabulation-ICD-11-MMS-en.zip
+Release Version: 2026-01
+Build Version Tag: Version:2026 Jan 17 - 05:30 UTC
+Linearization: MMS (Mortality and Morbidity Statistics)
+Language: English (en)
+
+Source Archive Contents:
+1. SimpleTabulation-ICD-11-MMS-en.txt (Uncompressed: 11,661,691 bytes, SHA-256: 91b6e19048918b0f5cfb5ff56b16262c96e6e301214018f707d84dd6c775e93b)
+2. SimpleTabulation-ICD-11-MMS-en.xlsx (2,863,354 bytes)
+3. readme.txt (1,228 bytes, SHA-256: c48e8318fca91bcc443600868506a7181a743d78f3fbb56cacee28b9511e17df)
+
+Local Immutable Storage Representation:
+- File: SimpleTabulation-ICD-11-MMS-en.txt.gz (Gzip compressed raw text stream)
+- Compressed Size: 1,185,630 bytes
+- Compressed SHA-256: c4f8dfa7ab30150f6ad425423b0bb814fa37bcd648050ef3617a428f835b82d1
+- Decompressed Size: 11,661,691 bytes
+- Decompressed SHA-256: 91b6e19048918b0f5cfb5ff56b16262c96e6e301214018f707d84dd6c775e93b
+
+Classification Metrics:
+- Total Data Rows: 37,052
+- Header Columns: 20
+- Chapters: 28 (01 through 26, V, X)
+- Blocks: 1,360
+- Categories: 35,664
+- Explicit Parents: 37,024 (1,360 blocks + 35,664 categories)
+- Unresolved References: 0
+- Cycles: 0

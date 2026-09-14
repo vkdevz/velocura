@@ -79,7 +79,7 @@ public interface MedicalRelationshipRepository extends JpaRepository<MedicalRela
     @Query("SELECT COUNT(r) FROM MedicalRelationship r WHERE r.batchId = :batchId AND r.source IS NULL AND (r.guidelineReference IS NULL OR TRIM(r.guidelineReference) = '')")
     long countMissingProvenanceByBatchId(@Param("batchId") String batchId);
 
-    @Query("SELECT COUNT(r) FROM MedicalRelationship r WHERE r.batchId = :batchId AND (r.source.sourceId = 'WHO-ICD-11-2024' OR r.source.sourceType = com.velocura.medicalknowledge.model.SourceType.WHO) AND r.provenanceClass != com.velocura.medicalknowledge.model.ProvenanceClass.REAL_AUTHORITATIVE")
+    @Query("SELECT COUNT(r) FROM MedicalRelationship r WHERE r.batchId = :batchId AND (r.source.sourceId = 'WHO-ICD-11-2024' OR r.source.sourceId = 'WHO-ICD-11-2026-01-MMS' OR r.source.sourceType = com.velocura.medicalknowledge.model.SourceType.WHO) AND r.provenanceClass != com.velocura.medicalknowledge.model.ProvenanceClass.REAL_AUTHORITATIVE")
     long countWhoAttributionMismatchesByBatchId(@Param("batchId") String batchId);
 }
 

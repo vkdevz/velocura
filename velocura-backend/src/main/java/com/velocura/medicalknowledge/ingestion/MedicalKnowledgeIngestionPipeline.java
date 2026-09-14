@@ -286,6 +286,7 @@ public class MedicalKnowledgeIngestionPipeline {
                     concept.setSource(conceptSource);
                     concept.setSourceVersion(conceptSource != null ? conceptSource.getVersion() : request.getDatasetVersion());
                     concept.setBatchId(batchId);
+                    concept.setMetadataJson(dto.getMetadataJson());
                     conceptsUpdated++;
                 } else {
                     concept = MedicalConcept.builder()
@@ -300,6 +301,7 @@ public class MedicalKnowledgeIngestionPipeline {
                             .source(conceptSource)
                             .sourceVersion(conceptSource != null ? conceptSource.getVersion() : request.getDatasetVersion())
                             .batchId(batchId)
+                            .metadataJson(dto.getMetadataJson())
                             .build();
                     conceptsCreated++;
                 }
@@ -569,7 +571,7 @@ public class MedicalKnowledgeIngestionPipeline {
                 .promotedBy(batch.getInitiatedBy())
                 .promotedAt(LocalDateTime.now())
                 .build();
-        snapshotRepository.save(snapshot);
+        snapshotRepository.saveAndFlush(snapshot);
 
         log.info("[INGESTION PIPELINE] Batch '{}' PROMOTED. Created immutable snapshot '{}' with checksum {} ({} concepts, {} relationships).",
                 batchId, snapshotId, checksum, conceptsUpdated, relationshipsUpdated);
@@ -593,7 +595,7 @@ public class MedicalKnowledgeIngestionPipeline {
         String snapshotId = "SNAP-" + batchId;
         snapshotRepository.findById(snapshotId).ifPresent(snap -> {
             snap.setStatus("SUPERSEDED");
-            snapshotRepository.save(snap);
+            snapshotRepository.saveAndFlush(snap);
         });
 
         log.warn("[INGESTION PIPELINE] Batch '{}' ROLLED BACK. All associated records marked SUPERSEDED ({} concepts, {} relationships).",
