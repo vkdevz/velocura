@@ -258,4 +258,64 @@ public class AuthoritativeWhoIcd11IngestionTests {
                     "WHO ICD-11 concepts must NOT be fabricated lab tests");
         }
     }
+
+    @Test
+    @DisplayName("Correction 1 & 2: WHO Provenance Isolation, Curated Separation & Synonym Truth")
+    void testCorrection1And2WhoProvenanceIsolationAndSynonymTruth() {
+        ImportValidationResultDto result = whoIcd11SourceAdapter.ingestAuthoritativeWhoIcd11Release(100, "CLOSURE_VERIFICATION");
+        List<MedicalConcept> concepts = conceptRepository.findByBatchId(result.getBatchId());
+
+        assertFalse(concepts.isEmpty());
+        for (MedicalConcept c : concepts) {
+            // Provenance verification
+            assertEquals("WHO-ICD-11-2026-01-MMS", c.getSource().getSourceId());
+            assertEquals("2026-01", c.getSource().getReleaseVersion());
+            assertEquals(ProvenanceClass.REAL_AUTHORITATIVE, c.getProvenanceClass());
+
+            // Correction 2: Synonym Truth - Separate synonym records: 0 / not represented in SimpleTabulation
+            assertTrue(c.getSynonyms() == null || c.getSynonyms().isEmpty(),
+                    "SimpleTabulation contains no separate synonym records; synonyms must be empty");
+        }
+
+        // Verify logical separation between curated and WHO entities in runtime index
+        clinicalEntityRegistry.rebuildFromAuthoritativeWhoRelease();
+
+        // Curated entity
+        ClinicalEntity curated = clinicalEntityRegistry.getEntity("1D20");
+        assertNotNull(curated);
+        assertTrue(curated.isCurated(), "Curated entity must have isCurated=true");
+        assertEquals("VELOCURA_INTERNAL", curated.getSource());
+        assertEquals("CURATED_CORE", curated.getProvenanceClass());
+
+        // Pure WHO entity
+        ClinicalEntity whoEntity = clinicalEntityRegistry.getEntity("1A00");
+        assertNotNull(whoEntity);
+        assertFalse(whoEntity.isCurated(), "Pure WHO entity must have isCurated=false");
+        assertEquals("WHO", whoEntity.getSource());
+        assertEquals("2026-01", whoEntity.getSourceVersion());
+        assertEquals("REAL_AUTHORITATIVE", whoEntity.getProvenanceClass());
+        assertTrue(whoEntity.getHallmarkSymptoms().isEmpty(), "WHO concepts must NOT acquire fabricated symptoms");
+        assertNull(whoEntity.getDefaultPrescriptionProtocol(), "WHO concepts must NOT acquire fabricated prescriptions");
+    }
+
+    @Test
+    @DisplayName("Correction 3: Raw -> Canonical -> Retrieval Index Separation & Reproducibility")
+    void testCorrection3RawCanonicalIndexSeparationAndReproducibility() {
+        // 1. Raw Source Layer: Verify immutable local file
+        org.springframework.core.io.Resource rawResource = new org.springframework.core.io.ClassPathResource(
+                "knowledge/raw/who/icd11/2026-01/SimpleTabulation-ICD-11-MMS-en.txt.gz");
+        assertTrue(rawResource.exists(), "Raw source artifact must be present locally");
+
+        // 2. Canonical Knowledge Layer: Stage and validate without impacting retrieval index
+        ImportValidationResultDto result = whoIcd11SourceAdapter.ingestAuthoritativeWhoIcd11Release(50, "REPRODUCIBILITY_TEST");
+        assertEquals(BatchStatus.VALIDATED, result.getStatus());
+        assertEquals(148, result.getAcceptedCount(), "Batch must accept 50 concepts + 98 explicit hierarchy relationships");
+        assertEquals(50, conceptRepository.findByBatchId(result.getBatchId()).size());
+
+        // 3. Retrieval Index Layer: Deterministic rebuild from raw release
+        int totalBefore = clinicalEntityRegistry.getTotalRegisteredEntities();
+        int totalRebuilt = clinicalEntityRegistry.rebuildFromAuthoritativeWhoRelease();
+        assertEquals(totalBefore, totalRebuilt, "Index rebuild must be deterministic and reproducible");
+        assertTrue(totalRebuilt >= 35000, "Local index must retain 35,000+ WHO categories");
+    }
 }

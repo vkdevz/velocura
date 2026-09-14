@@ -29,4 +29,16 @@ public class ClinicalEntity {
     private List<DiscriminatorQuestion> discriminatorQuestions = new ArrayList<>();
 
     private PrescriptionProtocol defaultPrescriptionProtocol;
+
+    @Builder.Default
+    private String source = "WHO";
+
+    @Builder.Default
+    private String sourceVersion = "2026-01";
+
+    @Builder.Default
+    private String provenanceClass = "REAL_AUTHORITATIVE";
+
+    @Builder.Default
+    private boolean isCurated = false;
 }

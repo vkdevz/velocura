@@ -302,20 +302,8 @@ public class WhoIcd11SourceAdapter {
                             .build());
                 }
 
-                // Synonyms from title slash splits where genuine
-                List<String> synonyms = new ArrayList<>();
-                if (cleanTitle.contains("/")) {
-                    for (String part : cleanTitle.split("/")) {
-                        String sp = part.trim();
-                        if (!sp.isEmpty() && !sp.equalsIgnoreCase(cleanTitle)) {
-                            synonyms.add(sp);
-                        }
-                    }
-                }
-                if ("chapter".equalsIgnoreCase(classKind)) {
-                    synonyms.add("Chapter " + chapterNo);
-                    synonyms.add("ICD-11 Chapter " + chapterNo);
-                }
+                // Correction 2: SimpleTabulation has no separate synonym records/columns. Do NOT infer or fabricate.
+                List<String> synonyms = Collections.emptyList();
 
                 // Canonical description
                 String desc;

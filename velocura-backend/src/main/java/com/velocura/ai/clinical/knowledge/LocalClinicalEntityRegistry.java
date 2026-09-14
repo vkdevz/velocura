@@ -83,6 +83,9 @@ public class LocalClinicalEntityRegistry {
         public ClinicalEntity getEntity() { return entity; }
         public double getScore() { return score; }
         public List<String> getMatchedFeatures() { return matchedFeatures; }
+        public String getSource() { return entity != null ? entity.getSource() : "UNKNOWN"; }
+        public String getProvenanceClass() { return entity != null ? entity.getProvenanceClass() : "UNKNOWN"; }
+        public boolean isCurated() { return entity != null && entity.isCurated(); }
 
         @Override
         public int compareTo(ScoredCandidate o) {
@@ -263,6 +266,10 @@ public class LocalClinicalEntityRegistry {
                             .category("Chapter " + chapterNo)
                             .specialistDepartment(getDepartmentForChapter(chapterNo))
                             .urgencyTier("MEDIUM")
+                            .source("WHO")
+                            .sourceVersion("2026-01")
+                            .provenanceClass("REAL_AUTHORITATIVE")
+                            .isCurated(false)
                             .hallmarkSymptoms(new ArrayList<>())
                             .pertinentNegatives(new ArrayList<>())
                             .discriminatorQuestions(new ArrayList<>())
@@ -343,6 +350,10 @@ public class LocalClinicalEntityRegistry {
                 List<ClinicalEntity> list = mapper.readValue(in, typeRef);
                 for (ClinicalEntity ce : list) {
                     if (ce != null && ce.getIcd11Code() != null) {
+                        ce.setSource("WHO_DEMO_QUARANTINED");
+                        ce.setSourceVersion("2024-01-DEMO");
+                        ce.setProvenanceClass("SYNTHETIC_TEST_ONLY");
+                        ce.setCurated(false);
                         entityByIcd.put(ce.getIcd11Code(), ce);
                     }
                 }
@@ -749,6 +760,10 @@ public class LocalClinicalEntityRegistry {
 
     private void registerCoreEntity(ClinicalEntity entity) {
         if (entity == null || entity.getIcd11Code() == null) return;
+        entity.setSource("VELOCURA_INTERNAL");
+        entity.setSourceVersion("2026.1");
+        entity.setProvenanceClass("CURATED_CORE");
+        entity.setCurated(true);
         coreIcds.add(entity.getIcd11Code());
         entityByIcd.put(entity.getIcd11Code(), entity);
     }
