@@ -170,4 +170,28 @@ public class ClinicalFeatureExtractionTests {
         assertEquals("WORSENING", state.getSymptomTrajectory());
         assertTrue(state.getTimeline().containsKey("progression"));
     }
+
+    @Test
+    @DisplayName("Extraction: Throat concepts (odynophagia, tonsillar exudate, cervical nodes)")
+    public void testExtraction_ThroatConcepts() {
+        List<StructuredClinicalFeature> features = v2Extractor.extractFeatures(
+                "Severe painful swallowing with white patches on tonsils and tender swollen neck glands", 1);
+
+        assertNotNull(features);
+        assertTrue(features.stream().anyMatch(f -> "odynophagia".equals(f.getCanonicalConcept()) && f.isPresent()));
+        assertTrue(features.stream().anyMatch(f -> "tonsillar_exudate".equals(f.getCanonicalConcept()) && f.isPresent()));
+        assertTrue(features.stream().anyMatch(f -> "cervical_adenopathy".equals(f.getCanonicalConcept()) && f.isPresent()));
+    }
+
+    @Test
+    @DisplayName("Extraction: Preserved functional swallowing does not infer inability to swallow")
+    public void testExtraction_PreservedFunctionalSwallowing() {
+        List<StructuredClinicalFeature> features = v2Extractor.extractFeatures(
+                "My throat hurts to swallow, but I can still drink water normally", 1);
+
+        assertNotNull(features);
+        assertTrue(features.stream().anyMatch(f -> "odynophagia".equals(f.getCanonicalConcept()) && f.isPresent()));
+        assertTrue(features.stream().anyMatch(f -> "preserved_swallowing".equals(f.getCanonicalConcept()) && f.isPresent()));
+        assertFalse(features.stream().anyMatch(f -> "inability_to_swallow".equals(f.getCanonicalConcept()) && f.isPresent()));
+    }
 }

@@ -88,7 +88,47 @@ public class ClinicalFeatureExtractorV2 {
     );
 
     private static final Pattern SORE_THROAT_PATTERN = Pattern.compile(
-            "(?i)\\b(sore\\s*throat|throat\\s*pain|scratchy\\s*throat|pharyngitis|painful\\s*swallowing|hurts\\s*to\\s*swallow)\\b"
+            "(?i)\\b(sore\\s*throat|throat\\s*pain|scratchy\\s*throat|pharyngitis|red\\s*throat|pharyngeal\\s*(?:pain|erythema)|throat\\s*hurts)\\b"
+    );
+
+    private static final Pattern ODYNOPHAGIA_PATTERN = Pattern.compile(
+            "(?i)\\b(painful\\s*swallowing|hurts?\\s*to\\s*swallow|hurts?\\s*when\\s*i\\s*swallow|pain\\s*when\\s*swallowing|odynophagia|pain\\s*on\\s*swallowing)\\b"
+    );
+
+    private static final Pattern DYSPHAGIA_PATTERN = Pattern.compile(
+            "(?i)\\b(difficulty\\s*swallowing|hard\\s*to\\s*swallow|trouble\\s*swallowing|dysphagia)\\b"
+    );
+
+    private static final Pattern INABILITY_TO_SWALLOW_PATTERN = Pattern.compile(
+            "(?i)\\b(can't\\s*swallow|cannot\\s*swallow|unable\\s*to\\s*swallow|cant\\s*swallow)\\b"
+    );
+
+    private static final Pattern FUNCTIONAL_SWALLOW_PATTERN = Pattern.compile(
+            "(?i)\\b(can\\s*(?:still\\s*)?drink(?:\s*normally|\s*water)?|able\\s*to\\s*drink|swallowing\\s*is\\s*fine|can\\s*swallow\\s*liquids?|able\\s*to\\s*swallow|can\\s*drink\\s*normally)\\b"
+    );
+
+    private static final Pattern DROOLING_PATTERN = Pattern.compile(
+            "(?i)\\b(drooling|drool|sialorrhea|spitting\\s*saliva|can't\\s*swallow\\s*(?:my\\s*)?saliva|cannot\\s*swallow\\s*(?:my\\s*)?saliva|unable\\s*to\\s*swallow\\s*saliva|cant\\s*swallow\\s*(?:my\\s*)?saliva)\\b"
+    );
+
+    private static final Pattern TONSILLAR_EXUDATE_PATTERN = Pattern.compile(
+            "(?i)\\b(tonsillar\\s*exudate|exudate|white\\s*patches?\\s*(?:on\\s*tonsils?|in\\s*throat)|white\\s*spots?\\s*(?:on\\s*tonsils?|in\\s*throat)|pus\\s*on\\s*tonsils?|tonsillar\\s*pus)\\b"
+    );
+
+    private static final Pattern TONSILLAR_SWELLING_PATTERN = Pattern.compile(
+            "(?i)\\b(tonsillar\\s*(?:swelling|enlargement|hypertrophy)|swollen\\s*tonsils?|enlarged\\s*tonsils?|red\\s*tonsils?)\\b"
+    );
+
+    private static final Pattern CERVICAL_ADENOPATHY_PATTERN = Pattern.compile(
+            "(?i)\\b(tender\\s*(?:and\\s*)?(?:swollen\\s*)?(?:neck\\s*)?(?:glands|lymph\\s*nodes?)|swollen\\s*(?:and\\s*)?(?:tender\\s*)?(?:neck\\s*)?(?:glands|lymph\\s*nodes?)|swollen\\s*glands|anterior\\s*cervical\\s*(?:tenderness|nodes?|adenopathy)|painful\\s*(?:neck\\s*)?nodes?|lumps?\\s*in\\s*neck)\\b"
+    );
+
+    private static final Pattern VOICE_CHANGE_PATTERN = Pattern.compile(
+            "(?i)\\b(muffled\\s*voice|hot\\s*potato\\s*voice|voice\\s*change|hoarse(?:ness)?|raspy\\s*voice|lost\\s*my\\s*voice)\\b"
+    );
+
+    private static final Pattern STRIDOR_PATTERN = Pattern.compile(
+            "(?i)\\b(stridor|noisy\\s*breathing|high[- ]pitched\\s*breathing|noisy\\s*airway)\\b"
     );
 
     private static final Pattern HEADACHE_PATTERN = Pattern.compile(
@@ -159,6 +199,16 @@ public class ClinicalFeatureExtractorV2 {
             matchAndBind(c, CHEST_TIGHT_PATTERN, "chest_symptoms", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "CHEST", turn, extractedFeatures);
             matchAndBind(c, FEVER_PATTERN, "fever", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, null, turn, extractedFeatures);
             matchAndBind(c, SORE_THROAT_PATTERN, "sore_throat", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "THROAT", turn, extractedFeatures);
+            matchAndBind(c, ODYNOPHAGIA_PATTERN, "odynophagia", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "THROAT", turn, extractedFeatures);
+            matchAndBind(c, DYSPHAGIA_PATTERN, "dysphagia", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "THROAT", turn, extractedFeatures);
+            matchAndBind(c, INABILITY_TO_SWALLOW_PATTERN, "inability_to_swallow", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "THROAT", turn, extractedFeatures);
+            matchAndBind(c, FUNCTIONAL_SWALLOW_PATTERN, "preserved_swallowing", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "THROAT", turn, extractedFeatures);
+            matchAndBind(c, DROOLING_PATTERN, "drooling", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "THROAT", turn, extractedFeatures);
+            matchAndBind(c, TONSILLAR_EXUDATE_PATTERN, "tonsillar_exudate", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "THROAT", turn, extractedFeatures);
+            matchAndBind(c, TONSILLAR_SWELLING_PATTERN, "tonsillar_swelling", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "THROAT", turn, extractedFeatures);
+            matchAndBind(c, CERVICAL_ADENOPATHY_PATTERN, "cervical_adenopathy", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "NECK", turn, extractedFeatures);
+            matchAndBind(c, VOICE_CHANGE_PATTERN, "voice_change", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "THROAT", turn, extractedFeatures);
+            matchAndBind(c, STRIDOR_PATTERN, "stridor", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "AIRWAY", turn, extractedFeatures);
             matchAndBind(c, HEADACHE_PATTERN, "headache", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "HEAD", turn, extractedFeatures);
             matchAndBind(c, ABDOMINAL_PAIN_PATTERN, "abdominal_pain", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "ABDOMEN", turn, extractedFeatures);
             matchAndBind(c, NAUSEA_PATTERN, "nausea", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "ABDOMEN", turn, extractedFeatures);
@@ -167,6 +217,13 @@ public class ClinicalFeatureExtractorV2 {
             matchAndBind(c, RHINORRHEA_PATTERN, "cold_symptoms", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "NOSE", turn, extractedFeatures);
             matchAndBind(c, JOINT_PAIN_PATTERN, "joint_pain", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseAnatomy != null ? clauseAnatomy : "JOINT", turn, extractedFeatures);
             matchAndBind(c, DIZZINESS_PATTERN, "dizziness", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, "HEAD", turn, extractedFeatures);
+        }
+
+        // Post-processing: If functional preserved swallowing is reported present, do not allow inability_to_swallow
+        boolean preservedSwallow = extractedFeatures.stream()
+                .anyMatch(f -> "preserved_swallowing".equals(f.getCanonicalConcept()) && f.isPresent());
+        if (preservedSwallow) {
+            extractedFeatures.removeIf(f -> "inability_to_swallow".equals(f.getCanonicalConcept()) && f.isPresent());
         }
 
         return extractedFeatures;

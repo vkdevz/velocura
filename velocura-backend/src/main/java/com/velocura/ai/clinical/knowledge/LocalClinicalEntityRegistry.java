@@ -1546,6 +1546,119 @@ public class LocalClinicalEntityRegistry {
                         .build())
                 .build());
 
+        // 10D. ACUTE PHARYNGITIS (CA02) - Primary Curated Upper Respiratory Model
+        registerCoreEntity(ClinicalEntity.builder()
+                .icd11Code("CA02")
+                .foundationId("1791890273")
+                .title("Acute Pharyngitis")
+                .category("Otorhinolaryngology / Upper Respiratory")
+                .specialistDepartment("Otorhinolaryngology (ENT) / General Medicine")
+                .urgencyTier("LOW")
+                .isCurated(true)
+                .clinicalPresentation("Acute inflammation of the pharyngeal mucosa and/or palatine tonsils presenting with sore throat, odynophagia, pharyngeal erythema, and variable systemic features. Overwhelmingly viral in adults (>70-85%); bacterial etiology (primarily Group A Streptococcus) requires structured clinical scoring and testing.")
+                .hallmarkSymptoms(List.of("sore_throat", "pharyngeal_pain", "odynophagia", "painful_swallowing", "pharyngitis", "throat_pain"))
+                .associatedFeatures(List.of("fever", "tonsillar_exudate", "cervical_adenopathy", "tonsillar_swelling", "headache", "malaise", "cough", "cold_symptoms", "rhinorrhea"))
+                .pertinentNegatives(List.of("drooling", "stridor", "inability_to_swallow", "dyspnea", "neck_stiffness", "trismus"))
+                .temporalCharacteristics("Acute onset; typical symptom duration 3 to 7 days, with spontaneous improvement in uncomplicated viral cases.")
+                .severityBoundaries("Mild to moderate throat discomfort without airway obstruction. Airway danger signs (stridor, drooling, inability to swallow saliva, trismus, severe dyspnea) indicate complicated deep neck space infection (e.g. peritonsillar/retropharyngeal abscess, epiglottitis) warranting emergency escalation.")
+                .reviewStatus("ENGINEERING_REVIEWED_NOT_CLINICALLY_VALIDATED")
+                .redFlags(List.of(
+                        "Inability to swallow saliva with active drooling (Suspected epiglottitis / peritonsillar abscess)",
+                        "Stridor or high-pitched inspiratory sound (Upper airway obstruction)",
+                        "Severe trismus (inability to open mouth / inter-incisal distance < 2cm)",
+                        "Muffled 'hot potato' voice or severe unilateral peritonsillar bulging",
+                        "High fever with toxic appearance and neck rigidity"
+                ))
+                .differentialRelationships(List.of(
+                        "Viral Upper Respiratory Infection: Suggested by presence of prominent cough, rhinorrhea, conjunctivitis, or hoarseness",
+                        "Streptococcal Pharyngitis (1B51): Favored by Centor features (fever, tonsillar exudate, tender anterior cervical nodes, absence of cough); requires confirmatory RADT or culture",
+                        "CA42 Acute Bronchitis: Lower airway illness with prominent persistent cough and lack of tonsillopharyngeal exudate",
+                        "Deep Neck Space Infection: Epiglottitis or quinsy characterized by drooling, stridor, and severe dysphagia"
+                ))
+                .evidenceProvenance("US CDC Core Elements of Outpatient Antibiotic Stewardship; IDSA Clinical Practice Guideline for Group A Streptococcal Pharyngitis (2012)")
+                .guidelineProvenance("ICMR Standard Treatment Workflow for Pharyngitis and Sore Throat in Adults; NICE Guideline [NG84] Sore throat (acute): antimicrobial prescribing")
+                .discriminatorQuestions(List.of(
+                        DiscriminatorQuestion.builder()
+                                .id("PHARYNGITIS_DISCRIMINATOR_COUGH")
+                                .dimension("viral_vs_strep_cough")
+                                .questionText("Do you have a cough, runny nose, or sneezing along with your sore throat?")
+                                .quickReplies(List.of("No cough or runny nose", "Yes, prominent cough & runny nose", "Mild dry tickle only", "Runny nose but no cough"))
+                                .conditionWeights(Map.of("CA02", 3.0, "CA42", -2.0))
+                                .diagnosticUtility(3.5)
+                                .build(),
+                        DiscriminatorQuestion.builder()
+                                .id("PHARYNGITIS_DISCRIMINATOR_EXUDATE")
+                                .dimension("tonsillar_appearance")
+                                .questionText("When looking at your throat, do you see white spots or pus patches on your tonsils?")
+                                .quickReplies(List.of("Throat is just red with no white spots", "Visible white patches/pus on tonsils", "Have not looked inside throat", "Tonsils look swollen but clean"))
+                                .conditionWeights(Map.of("CA02", 4.0))
+                                .diagnosticUtility(4.0)
+                                .build(),
+                        DiscriminatorQuestion.builder()
+                                .id("PHARYNGITIS_DISCRIMINATOR_NODES")
+                                .dimension("cervical_lymphadenopathy")
+                                .questionText("Are the glands or lymph nodes on the front of your neck swollen or tender to the touch?")
+                                .quickReplies(List.of("No neck swelling or tenderness", "Tender swollen bumps under front of jaw", "Neck feels stiff", "Mild ache only"))
+                                .conditionWeights(Map.of("CA02", 3.5))
+                                .diagnosticUtility(3.0)
+                                .build(),
+                        DiscriminatorQuestion.builder()
+                                .id("PHARYNGITIS_DISCRIMINATOR_SWALLOW")
+                                .dimension("swallowing_safety")
+                                .questionText("Are you able to swallow liquids and your own saliva, or are you having trouble managing saliva?")
+                                .quickReplies(List.of("Can swallow water and saliva normally", "Hurts to swallow but able to drink", "Difficulty swallowing even liquids", "Cannot swallow saliva / drooling"))
+                                .conditionWeights(Map.of("CA02", 2.0))
+                                .diagnosticUtility(4.5)
+                                .build()
+                ))
+                .defaultPrescriptionProtocol(PrescriptionProtocol.builder()
+                        .icd11Code("CA02")
+                        .primaryDiagnosis("Acute Pharyngitis")
+                        .specialistDepartment("Otorhinolaryngology (ENT) / General Medicine")
+                        .medications(List.of(
+                                RxMedicationItem.builder()
+                                        .saltName("Paracetamol (Acetaminophen)")
+                                        .brandReference("Dolo 650 / Calpol")
+                                        .formulation("Tablet")
+                                        .strength("650 mg")
+                                        .route("Oral")
+                                        .dosageFrequency("1 tablet every 6 hours PRN for throat pain or fever")
+                                        .duration("3 to 5 days")
+                                        .instructions("Take after meals with water. Maximum 3000 mg in 24 hours.")
+                                        .indication("Analgesia for odynophagia and antipyresis")
+                                        .prescriptionOnly(false)
+                                        .build(),
+                                RxMedicationItem.builder()
+                                        .saltName("Warm Saline Gargle / Benzydamine Lozenges")
+                                        .brandReference("Difflam / Strepsils Max")
+                                        .formulation("Lozenges / Gargle")
+                                        .strength("3 mg benzydamine or 1/2 tsp salt in warm water")
+                                        .route("Topical / Oral mucosal")
+                                        .dosageFrequency("Gargle or dissolve 1 lozenge slowly every 3 to 4 hours PRN")
+                                        .duration("5 days")
+                                        .instructions("Do not swallow gargle solution. Avoid hot or irritating foods.")
+                                        .indication("Local anesthetic and anti-inflammatory relief for pharyngeal irritation")
+                                        .prescriptionOnly(false)
+                                        .build()
+                        ))
+                        .supportiveCare(List.of(
+                                "Adequate hydration with cool or soothing warm liquids (honey and lemon for adults)",
+                                "Avoid dry environments; use room humidification if throat tickle is pronounced",
+                                "Voice rest if accompanied by laryngeal irritation"
+                        ))
+                        .contraindicatedMedications(List.of(
+                                "ANTIMICROBIAL STEWARDSHIP: Routine empirical antibiotic prescription is prohibited for acute pharyngitis without clinician examination, positive rapid antigen detection test (RADT), or validated Centor/McIsaac stratification.",
+                                "Aspirin in children and adolescents under 19 years due to Reye's syndrome risk"
+                        ))
+                        .diagnosticLabOrders(List.of("Rapid Antigen Detection Test (RADT) for Group A Streptococcus", "Throat Swab Culture (if RADT negative in children/high-suspicion adults)"))
+                        .redFlagHospitalizationCriteria(List.of(
+                                "Inability to swallow secretions or active drooling",
+                                "Stridor or impending airway compromise",
+                                "Trismus or severe asymmetric peritonsillar swelling with uvular deviation"
+                        ))
+                        .build())
+                .build());
+
         // 11. ACUTE CORONARY SYNDROME / MYOCARDIAL INFARCTION (BA41)
         registerCoreEntity(ClinicalEntity.builder()
                 .icd11Code("BA41")

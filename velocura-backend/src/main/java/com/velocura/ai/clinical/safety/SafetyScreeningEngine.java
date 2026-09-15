@@ -28,6 +28,10 @@ public class SafetyScreeningEngine {
         "(?i)\\b(can't\\s*breathe|cannot\\s*breathe|struggling\\s*to\\s*breathe|severe\\s*(shortness\\s*of\\s*breath|breathlessness|dyspnea)|suffocating|gasping\\s*for\\s*air|blue\\s*(lips|skin|face)|(lips|skin|face)\\s*(are\\s*|is\\s*)?(turning\\s*)?blue|cyanosis|stridor)\\b"
     );
 
+    private static final Pattern AIRWAY_COMPROMISE_EMERGENCY = Pattern.compile(
+        "(?i)\\b(can't\\s*swallow\\s*(my\\s*)?(saliva|spit)|cannot\\s*swallow\\s*(my\\s*)?(saliva|spit)|unable\\s*to\\s*swallow\\s*(saliva|secretions)|inability\\s*to\\s*swallow\\s*(saliva|secretions)|drooling.*(can't|cannot|unable\\s*to)\\s*swallow|(can't|cannot|unable\\s*to)\\s*swallow.*drooling|stridor|noisy\\s*airway|tracheal\\s*tugging)\\b"
+    );
+
     private static final Pattern NEURO_STROKE_EMERGENCY = Pattern.compile(
         "(?i)\\b(stroke|facial\\s*(droop|numbness)|face\\s*droop|(arm|leg|unilateral|one[- ]sided)\\s*weakness|sudden\\s*weakness(\\s*on\\s*one\\s*side)?|slurred\\s*speech|can't\\s*speak|cannot\\s*speak|(speech|speaking)\\s*difficulty|trouble\\s*speaking|sudden\\s*(numbness\\s*on\\s*one\\s*side|paralysis|loss\\s*of\\s*vision|confusion|loss\\s*of\\s*balance|loss\\s*of\\s*coordination)|fast\\s*symptoms)\\b"
     );
@@ -136,6 +140,17 @@ public class SafetyScreeningEngine {
             return buildEmergencyResponse(
                 "Severe respiratory distress.",
                 "Sit upright in a well-ventilated area, remain as calm as possible, and call for emergency medical assistance immediately. "
+                    + getEmergencyContactInstruction(patientContext, false),
+                redFlags
+            );
+        }
+
+        // 5B. Acute Upper Airway Compromise / Stridor / Severe Dysphagia with Drooling
+        if (AIRWAY_COMPROMISE_EMERGENCY.matcher(text).find()) {
+            redFlags.add("Acute upper airway compromise, stridor, or severe dysphagia with drooling");
+            return buildEmergencyResponse(
+                "Acute upper airway compromise.",
+                "Sit upright, do not lie down, do not attempt to force food or fluids, and call for emergency medical assistance immediately. "
                     + getEmergencyContactInstruction(patientContext, false),
                 redFlags
             );
