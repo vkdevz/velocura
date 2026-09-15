@@ -365,10 +365,21 @@ public class ResponseComposer {
                 otc.add(new OtcMedication("Paracetamol 500mg or Ibuprofen 400mg", "Analgesic for acute headache relief", "1 tablet with water as needed (max 3x daily)", "Active stomach ulcer or liver impairment"));
                 redFlags.add("Sudden thunderclap severity within seconds");
                 redFlags.add("Stiff neck and fever");
+            } else if (lower.contains("appendic") || lower.contains("rlq") || (lower.contains("right lower") && (lower.contains("abdom") || lower.contains("pain") || lower.contains("stomach") || lower.contains("side")))) {
+                dept = "General Surgery / Emergency Medicine";
+                risk = "HIGH";
+                diffs.add(new DifferentialDiagnosis("DB10", "Acute Appendicitis", "HIGH", "Migrating right lower quadrant abdominal pain with focal peritonism"));
+                diffs.add(new DifferentialDiagnosis("DA60", "Acute Gastritis / Acid Dyspepsia", "MODERATE", "Epigastric gastric discomfort without focal RLQ localization"));
+                diffs.add(new DifferentialDiagnosis("1A40", "Acute Infectious Gastroenteritis", "MODERATE", "Self-limiting GI inflammation with diarrhea or vomiting"));
+                home.add(new HomeCareRemedy("Strict NPO (nothing by mouth) pending immediate in-person surgical assessment", "Prepares for urgent diagnostic imaging and potential surgical intervention"));
+                redFlags.add("Board-like rigidity or involuntary guarding of the abdomen");
+                redFlags.add("Syncope or circulatory collapse with severe abdominal pain");
+                redFlags.add("High unremitting fever with severe systemic toxicity");
             } else if (lower.contains("stomach") || lower.contains("abdom") || lower.contains("pet dard") || lower.contains("cramp")) {
                 dept = "Gastroenterology";
                 risk = "LOW";
                 diffs.add(new DifferentialDiagnosis("DD90", "Acute Dyspepsia / Gastritis", "HIGH", "Visceral irritation and mucosal acidity"));
+                diffs.add(new DifferentialDiagnosis("1A40", "Acute Infectious Gastroenteritis", "MODERATE", "Enteric inflammation without focal peritonism"));
                 home.add(new HomeCareRemedy("Bland diet (bananas, rice, toast) and warm water", "Soothes gastric mucosal lining"));
                 otc.add(new OtcMedication("Antacid gel / Famotidine 20mg", "Reduces gastric acid hypersecretion", "10ml or 1 tablet 30 minutes before meals", "Severe kidney disease"));
                 redFlags.add("Severe persistent vomiting or inability to keep fluids");

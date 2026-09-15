@@ -64,7 +64,8 @@ public class ConditionEvidenceProvider implements EvidenceProvider {
         if (findDefinition(t).isPresent()) return true;
         return t.contains("fever") || t.contains("cough") || t.contains("urin") || t.contains("eye")
                 || t.contains("back") || t.contains("dengue") || t.contains("head") || t.contains("migraine")
-                || t.contains("stomach") || t.contains("abdom") || t.contains("throat") || t.contains("rash")
+                || t.contains("stomach") || t.contains("abdom") || t.contains("appendic") || t.contains("rlq")
+                || t.contains("throat") || t.contains("rash")
                 || t.contains("diarrhea") || t.contains("joint") || t.contains("cold") || t.contains("dizz")
                 || t.contains("cut") || t.contains("wound") || t.contains("burn") || t.contains("sprain")
                 || t.contains("tooth") || t.contains("bleed");
@@ -104,6 +105,16 @@ public class ConditionEvidenceProvider implements EvidenceProvider {
                     .source("International Headache Society (IHS) Guidelines")
                     .redFlags(List.of("Sudden thunderclap headache (< 1 min)", "Headache with stiff neck and high fever", "New focal neurological deficit (vision loss, weakness)"))
                     .safeMeasures(List.of("Rest in a quiet, darkened room", "Adequate hydration and cold or warm forehead compress", "Maintain regular sleep and meals"))
+                    .build());
+        }
+
+        if (t.contains("appendic") || t.contains("rlq") || (t.contains("right lower") && (t.contains("abdom") || t.contains("pain") || t.contains("stomach")))) {
+            return Optional.of(ClinicalEvidence.builder()
+                    .topic("Acute Appendicitis (WHO ICD-11: DB10 / DB10.0)")
+                    .summary("Acute vermiform appendiceal inflammation classically presenting with migrating periumbilical-to-RLQ pain, focal tenderness, anorexia, nausea, and movement aggravation. Surgical emergency evaluation is mandatory.")
+                    .source("World Society of Emergency Surgery (WSES) Jerusalem Guidelines & Alvarado Diagnostic Criteria")
+                    .redFlags(List.of("Involuntary abdominal wall rigidity / board-like abdomen (peritonitis)", "Syncope or hemodynamic collapse with abdominal pain", "High continuous fever with toxic appearance", "Severe diffuse rebound tenderness"))
+                    .safeMeasures(List.of("Strict NPO (nothing by mouth) pending surgical evaluation", "Immediate in-person hospital emergency department assessment", "Do NOT apply heat pads to abdomen (increases rupture risk)", "Avoid laxatives or enemas"))
                     .build());
         }
 

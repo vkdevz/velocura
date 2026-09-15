@@ -1790,6 +1790,166 @@ public class LocalClinicalEntityRegistry {
                         .build())
                 .build());
 
+        // 10E. ACUTE APPENDICITIS (DB10 / DB10.0) - Tier-1 Acute Abdomen Clinical Intelligence Slice
+        registerCoreEntity(ClinicalEntity.builder()
+                .icd11Code("DB10")
+                .foundationId("40398753")
+                .title("Acute appendicitis")
+                .category("Diseases of the digestive system / Diseases of the appendix")
+                .specialistDepartment("General Surgery / Emergency Medicine")
+                .urgencyTier("HIGH")
+                .isCurated(true)
+                .clinicalPresentation("Acute inflammation of the vermiform appendix presenting characteristically with initial dull periumbilical visceral discomfort that migrates within 12 to 24 hours to the right lower quadrant (McBurney's point) where it becomes sharp, localized, and aggravated by movement or coughing. Accompanied frequently by anorexia ('hamburger sign' / inability to eat), nausea, vomiting, and low-grade fever. Major clinical decision rules (Alvarado score, Appendicitis Inflammatory Response / AIR score, WSES Jerusalem Guidelines 2020) establish that migrating pain to RLQ, RLQ tenderness, and anorexia are the hallmark discriminatory clinical findings. High-risk features such as board-like rigidity, involuntary guarding, or syncope indicate peritonitis or perforation requiring immediate emergency surgical escalation.")
+                .hallmarkSymptoms(List.of("abdominal_pain", "rlq_pain", "periumbilical_pain", "migrating_pain", "abdominal_tenderness"))
+                .associatedFeatures(List.of("loss_of_appetite", "nausea", "vomiting", "fever", "pain_worse_with_movement", "pain_worse_with_cough", "chills", "constipation", "diarrhea"))
+                .pertinentNegatives(List.of("peritonitis_rigidity", "syncope", "dysuria", "hematuria", "vaginal_bleeding"))
+                .temporalCharacteristics("Acute onset typically progressing over 12 to 48 hours. Classic progression proceeds from vague visceral periumbilical distress to somatic localized RLQ pain with peritoneal irritation. Intermittent or chronic symptoms > 2 weeks are atypical for acute uncomplicated appendicitis.")
+                .severityBoundaries("Uncomplicated acute focal inflammation requires urgent surgical evaluation and admission. Development of diffuse peritoneal signs (involuntary guarding, abdominal wall rigidity), perforation, septic shock, or hemodynamic collapse constitutes an immediate life-threatening emergency.")
+                .reviewStatus("ENGINEERING_REVIEWED_NOT_CLINICALLY_VALIDATED")
+                .redFlags(List.of(
+                        "Board-like abdominal rigidity or involuntary guarding (Generalized peritonitis / perforated appendix)",
+                        "Syncope, dizziness, or circulatory collapse associated with acute abdominal pain",
+                        "High continuous fever (>38.5°C / 101.3°F) with rigors and systemic toxicity",
+                        "Severe unrelenting abdominal pain with persistent bilious vomiting",
+                        "Diffuse rebound tenderness across all abdominal quadrants"
+                ))
+                .differentialRelationships(List.of(
+                        "1A40 Acute Gastroenteritis: Characterized by prominent watery diarrhea, diffuse cramping rather than RLQ localization, absence of migratory somatic localization, and lack of peritoneal signs",
+                        "DA60 Acute Gastritis / Acid Dyspepsia: Epigastric burning or discomfort often related to meals, without RLQ migration, peritoneal irritation, or fever",
+                        "GC08 Lower Urinary Tract Infection / Acute Cystitis: Primary dysuria, urinary frequency/urgency, and suprapubic pain without RLQ migration or anorexia",
+                        "Mesenteric Adenitis: Common in pediatric patients following upper respiratory infection, often with higher initial fever and less localized RLQ peritonism",
+                        "Gynecological Pathologies (Ectopic Pregnancy, Ovarian Cyst Torsion, Pelvic Inflammatory Disease): Requires mandatory pregnancy test in females of childbearing potential presenting with acute lower abdominal pain"
+                ))
+                .evidenceProvenance("World Society of Emergency Surgery (WSES) Jerusalem Guidelines for diagnosis and treatment of acute appendicitis (2020 update); Alvarado A. A practical score for the early diagnosis of acute appendicitis. Ann Emerg Med. 1986; Andersson M, Andersson RE. The appendicitis inflammatory response (AIR) score: a tool for systemic risk stratification in patients with suspected appendicitis. World J Surg. 2008")
+                .guidelineProvenance("WSES Jerusalem Guidelines (2020); American College of Emergency Physicians (ACEP) Clinical Policy: Critical Issues in the Evaluation of Adult Patients Presenting to the Emergency Department With Suspected Appendicitis (2023)")
+                .discriminatorQuestions(List.of(
+                        DiscriminatorQuestion.builder()
+                                .id("APPENDICITIS_DISCRIMINATOR_MIGRATION")
+                                .dimension("pain_migration_pattern")
+                                .questionText("Did the pain start around your belly button (periumbilically) and move over to the lower right side of your belly?")
+                                .quickReplies(List.of("Started around belly button then moved to lower right", "Started directly in the lower right", "Pain is all over / hasn't moved", "Started in back or upper stomach"))
+                                .conditionWeights(Map.of("DB10", 4.5, "DA60", -2.0, "1A40", -2.0))
+                                .diagnosticUtility(4.8)
+                                .build(),
+                        DiscriminatorQuestion.builder()
+                                .id("APPENDICITIS_DISCRIMINATOR_APPETITE")
+                                .dimension("anorexia_and_nausea")
+                                .questionText("Have you completely lost your appetite or feel nausea/vomiting since the abdominal pain started?")
+                                .quickReplies(List.of("Complete loss of appetite and nausea", "Vomited once or twice", "Normal appetite / eating fine", "No nausea or vomiting"))
+                                .conditionWeights(Map.of("DB10", 3.5, "DA60", 1.0, "1A40", 2.0))
+                                .diagnosticUtility(3.8)
+                                .build(),
+                        DiscriminatorQuestion.builder()
+                                .id("APPENDICITIS_DISCRIMINATOR_MOVEMENT")
+                                .dimension("movement_and_cough_aggravation")
+                                .questionText("Is the pain noticeably worse when walking, coughing, or bumping over bumps in a vehicle?")
+                                .quickReplies(List.of("Much worse with any movement or coughing", "Hurts more when walking", "Movement doesn't make it worse", "Better when walking around"))
+                                .conditionWeights(Map.of("DB10", 4.0, "DA60", -1.0))
+                                .diagnosticUtility(4.2)
+                                .build(),
+                        DiscriminatorQuestion.builder()
+                                .id("APPENDICITIS_DISCRIMINATOR_PERITONEAL_SAFETY")
+                                .dimension("peritoneal_red_flags")
+                                .questionText("Does your belly feel hard or rigid like a board to the touch, or have you felt faint or dizzy when standing?")
+                                .quickReplies(List.of("Soft belly, no fainting or dizziness", "Belly feels hard/rigid and extremely tender to touch", "Felt dizzy or fainted", "Mild tenderness only"))
+                                .conditionWeights(Map.of("DB10", 3.0))
+                                .diagnosticUtility(5.0)
+                                .build()
+                ))
+                .defaultPrescriptionProtocol(PrescriptionProtocol.builder()
+                        .icd11Code("DB10")
+                        .primaryDiagnosis("Acute Appendicitis")
+                        .specialistDepartment("General Surgery / Emergency Medicine")
+                        .medications(List.of())
+                        .supportiveCare(List.of(
+                                "NPO status (nil per os / nothing by mouth) pending immediate in-person surgical evaluation",
+                                "Avoid applying heating pads to the abdomen (may accelerate perforation)",
+                                "Avoid oral laxatives, cathartics, or enemas"
+                        ))
+                        .contraindicatedMedications(List.of(
+                                "ANTIBIOTIC SAFETY & NON-PRESCRIBING RULE: Outpatient empirical oral antibiotic therapy is strictly contraindicated. Acute appendicitis requires urgent surgical evaluation, imaging (ultrasound/CT), and IV antibiotics only under direct inpatient surgical care.",
+                                "Oral analgesics or NSAIDs that mask acute peritoneal signs without surgical clearance",
+                                "Oral laxatives or enemas"
+                        ))
+                        .diagnosticLabOrders(List.of(
+                                "Complete Blood Count (CBC) with differential (leukocytosis, left shift)",
+                                "Serum C-Reactive Protein (CRP)",
+                                "Urinalysis (to rule out nephrolithiasis and UTI)",
+                                "Serum beta-hCG (mandatory in females of childbearing potential)",
+                                "Abdominal/pelvic ultrasound or contrast-enhanced CT scan"
+                        ))
+                        .redFlagHospitalizationCriteria(List.of(
+                                "Immediate transfer to emergency department / surgical admission required for all suspected cases",
+                                "Peritoneal rigidity, involuntary guarding, or hemodynamic instability"
+                        ))
+                        .build())
+                .build());
+
+        // 10F. ACUTE GASTROENTERITIS (1A40) - Bounded GI Differential Comparator
+        registerCoreEntity(ClinicalEntity.builder()
+                .icd11Code("1A40")
+                .foundationId("1160271562")
+                .title("Acute infectious gastroenteritis")
+                .category("Infectious diseases / Intestinal infectious diseases")
+                .specialistDepartment("Gastroenterology / General Medicine")
+                .urgencyTier("LOW")
+                .isCurated(true)
+                .clinicalPresentation("Acute self-limiting inflammation of the gastrointestinal tract characterized by frequent watery diarrhea, diffuse cramping abdominal pain, nausea, and vomiting. Usually viral (Norovirus, Rotavirus) or bacterial enteropathogen. Lacks somatic migration to the right lower quadrant, localized peritonism, or McBurney's point tenderness.")
+                .hallmarkSymptoms(List.of("diarrhea", "watery_stool", "abdominal_pain", "nausea", "vomiting", "cramps"))
+                .associatedFeatures(List.of("fever", "loss_of_appetite", "malaise", "headache", "dehydration"))
+                .pertinentNegatives(List.of("rlq_pain", "migrating_pain", "rebound_tenderness", "peritonitis_rigidity", "syncope"))
+                .temporalCharacteristics("Rapid onset over 12 to 24 hours, typically resolving within 3 to 7 days with adequate oral hydration.")
+                .severityBoundaries("Mild to moderate diarrhea managed with oral rehydration salts (ORS). Severe dehydration (hypotension, anuria, altered mental state) or bloody stools (dysentery) requires urgent clinical escalation.")
+                .reviewStatus("ENGINEERING_REVIEWED_NOT_CLINICALLY_VALIDATED")
+                .redFlags(List.of(
+                        "Severe signs of dehydration (lethargy, sunken eyes, dry mucous membranes, anuria > 8 hours)",
+                        "Gross blood or mucus in stool (dysentery)",
+                        "Inability to tolerate any oral fluids due to intractable vomiting",
+                        "High fever with septic shock"
+                ))
+                .differentialRelationships(List.of(
+                        "DB10 Acute Appendicitis: Marked by periumbilical to RLQ migration, persistent localized tenderness, and movement aggravation rather than prominent watery diarrhea",
+                        "DA60 Acute Gastritis: Upper abdominal/epigastric burning without diarrhea",
+                        "Foodborne Toxicosis: Explosive vomiting within 1-6 hours of ingestion"
+                ))
+                .evidenceProvenance("WHO Guidelines for the Management of Acute Diarrhoea; ACG Clinical Guideline: Diagnosis, Treatment, and Prevention of Acute Diarrheal Infections in Adults (2016)")
+                .guidelineProvenance("WHO Guidelines on Diarrhoeal Diseases; NICE Guideline [CG84] Diarrhoea and vomiting caused by gastroenteritis")
+                .discriminatorQuestions(List.of(
+                        DiscriminatorQuestion.builder()
+                                .id("GASTROENTERITIS_DISCRIMINATOR_DIARRHEA")
+                                .dimension("stool_frequency_and_character")
+                                .questionText("How many times have you had loose or watery stools in the last 24 hours, and have you noticed any blood?")
+                                .quickReplies(List.of("3 to 5 watery stools, no blood", "More than 6 watery stools", "Blood or mucus in stool", "No diarrhea, only stomach pain"))
+                                .conditionWeights(Map.of("1A40", 4.0, "DB10", -3.0))
+                                .diagnosticUtility(4.0)
+                                .build()
+                ))
+                .defaultPrescriptionProtocol(PrescriptionProtocol.builder()
+                        .icd11Code("1A40")
+                        .primaryDiagnosis("Acute Infectious Gastroenteritis")
+                        .specialistDepartment("Gastroenterology / General Medicine")
+                        .medications(List.of())
+                        .supportiveCare(List.of(
+                                "Oral Rehydration Salts (ORS) solution: sip 200-400 mL after each loose motion",
+                                "Maintain oral fluid intake with broth, electrolyte solutions, or coconut water",
+                                "Temporary light bland diet (bananas, rice, applesauce, toast)",
+                                "Avoid dairy products, high-fat foods, and concentrated sugary drinks"
+                        ))
+                        .contraindicatedMedications(List.of(
+                                "Empirical antimotility agents (e.g. Loperamide) in cases with fever or bloody stools (risk of toxic megacolon)",
+                                "Routine antibiotics for uncomplicated viral or non-severe bacterial gastroenteritis"
+                        ))
+                        .diagnosticLabOrders(List.of(
+                                "Stool culture and microscopy if dysentery, high fever, or symptoms > 7 days",
+                                "Serum electrolytes and renal function if signs of moderate to severe dehydration"
+                        ))
+                        .redFlagHospitalizationCriteria(List.of(
+                                "Severe hypovolemic dehydration or shock",
+                                "Intractable vomiting precluding oral rehydration"
+                        ))
+                        .build())
+                .build());
+
         // 11. ACUTE CORONARY SYNDROME / MYOCARDIAL INFARCTION (BA41)
         registerCoreEntity(ClinicalEntity.builder()
                 .icd11Code("BA41")

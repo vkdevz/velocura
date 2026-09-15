@@ -169,7 +169,8 @@ public class NextBestQuestionEngine {
                     com.velocura.ai.clinical.model.ClinicalEntity topCandidate = candidates.get(0);
                     if (topCandidate != null && topCandidate.getDiscriminatorQuestions() != null) {
                         for (com.velocura.ai.clinical.model.DiscriminatorQuestion dq : topCandidate.getDiscriminatorQuestions()) {
-                            if (!state.isQuestionOrTopicAsked(dq.getId(), dq.getDimension(), dq.getQuestionText())) {
+                            if (!state.isQuestionOrTopicAsked(dq.getId(), dq.getDimension(), dq.getQuestionText())
+                                    && !isDiscriminatorFactAlreadyKnown(dq, state)) {
                                 return new QuestionDecision(true, dq.getId(), dq.getDimension(), dq.getQuestionText(), dq.getQuickReplies(), NextAction.ASK);
                             }
                         }
@@ -257,5 +258,38 @@ public class NextBestQuestionEngine {
             "Check another symptom"
         );
         return new QuestionDecision(false, null, postConsultationReplies, NextAction.ANSWER);
+    }
+
+    private boolean isDiscriminatorFactAlreadyKnown(com.velocura.ai.clinical.model.DiscriminatorQuestion dq, ClinicalConversationState state) {
+        if (dq == null || state == null) return false;
+        String id = dq.getId() != null ? dq.getId().toUpperCase() : "";
+
+        if (id.contains("MIGRATION")) {
+            boolean hasMigratingSymptom = state.getSymptoms() != null && state.getSymptoms().values().stream()
+                    .anyMatch(com.velocura.ai.clinical.state.ClinicalFact::isMigrating);
+            return hasMigratingSymptom || state.isFactKnown("pain_migration") || state.getTimeline().containsKey("migration");
+        }
+
+        if (id.contains("APPETITE")) {
+            return (state.getSymptoms() != null && (state.getSymptoms().containsKey("loss_of_appetite") || state.getSymptoms().containsKey("anorexia")))
+                    || (state.getNegatedFindings() != null && (state.getNegatedFindings().contains("loss_of_appetite") || state.getNegatedFindings().contains("anorexia")))
+                    || state.isFactKnown("loss_of_appetite");
+        }
+
+        if (id.contains("MOVEMENT")) {
+            return state.getSymptoms() != null && state.getSymptoms().values().stream()
+                    .anyMatch(f -> f.getWorseWith() != null && (f.getWorseWith().contains("MOVEMENT") || f.getWorseWith().contains("COUGH")));
+        }
+
+        if (id.contains("SINUSITIS_DISCRIMINATOR_DURATION")) {
+            return state.isFactKnown("duration") || state.getTimeline().containsKey("duration");
+        }
+
+        if (id.contains("GASTROENTERITIS_DISCRIMINATOR_DIARRHEA")) {
+            return (state.getSymptoms() != null && state.getSymptoms().containsKey("diarrhea"))
+                    || (state.getNegatedFindings() != null && state.getNegatedFindings().contains("diarrhea"));
+        }
+
+        return false;
     }
 }

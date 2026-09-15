@@ -36,6 +36,10 @@ public class SafetyScreeningEngine {
         "(?i)\\b(orbital\\s*(?:cellulitis|abscess|swelling|edema)|periorbital\\s*(?:cellulitis|swelling|edema|erythema)|diplopia|double\\s*vision|pain\\s*(?:with|on|when\\s*moving)\\s*eye\\s*movements?|painful\\s*eye\\s*movements?|restricted\\s*eye\\s*movements?|ophthalmoplegia|proptosis|bulging\\s*eye|(?:eye|eyelid)\\s*(?:is\\s*)?swollen\\s*shut|swollen\\s*(?:shut|around\\s*eyes?)|(?:swollen\\s*(?:around\\s*)?eyes?|eye\\s*swelling).*(?:sinus|congestion|facial|nose|eyelid)|(?:sinus|congestion|facial|nose|eyelid).*(?:swollen\\s*(?:around\\s*)?eyes?|eye\\s*swelling))\\b"
     );
 
+    private static final Pattern ACUTE_ABDOMEN_PERITONITIS_EMERGENCY = Pattern.compile(
+        "(?i)\\b(board[- ]like\\s*(?:rigidity|abdomen)|rigid\\s*abdomen|peritonitis|peritoneal\\s*(?:signs|irritation)|involuntary\\s*guarding|severe\\s*rebound\\s*tenderness|rebound\\s*tenderness.*severe|ruptured\\s*appendix|perforated\\s*appendix|appendix\\s*(?:has\\s*)?(?:ruptured|burst|perforated))\\b"
+    );
+
     private static final Pattern NEURO_STROKE_EMERGENCY = Pattern.compile(
         "(?i)\\b(stroke|facial\\s*(droop|numbness)|face\\s*droop|(arm|leg|unilateral|one[- ]sided)\\s*weakness|sudden\\s*weakness(\\s*on\\s*one\\s*side)?|slurred\\s*speech|can't\\s*speak|cannot\\s*speak|(speech|speaking)\\s*difficulty|trouble\\s*speaking|sudden\\s*(numbness\\s*on\\s*one\\s*side|paralysis|loss\\s*of\\s*vision|confusion|loss\\s*of\\s*balance|loss\\s*of\\s*coordination)|fast\\s*symptoms)\\b"
     );
@@ -166,6 +170,17 @@ public class SafetyScreeningEngine {
             return buildEmergencyResponse(
                 "Acute orbital or intracranial complication.",
                 "Periorbital swelling, double vision, or pain with eye movement complicating sinus symptoms requires emergency ophthalmologic and medical evaluation. "
+                    + getEmergencyContactInstruction(patientContext, false),
+                redFlags
+            );
+        }
+
+        // 5D. Acute Abdomen / Peritonitis / Perforated Appendicitis (Board-like rigidity, involuntary guarding, rebound tenderness)
+        if (ACUTE_ABDOMEN_PERITONITIS_EMERGENCY.matcher(text).find()) {
+            redFlags.add("Acute abdomen with suspected peritonitis, perforated viscus, or appendiceal rupture");
+            return buildEmergencyResponse(
+                "Suspected acute surgical abdomen / peritonitis.",
+                "Signs of peritoneal irritation, board-like abdominal rigidity, or suspected ruptured appendix represent a surgical emergency requiring immediate emergency department evaluation and surgical assessment. Do not take food, water, or pain medication until evaluated. "
                     + getEmergencyContactInstruction(patientContext, false),
                 redFlags
             );

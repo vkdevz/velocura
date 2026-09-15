@@ -66,7 +66,7 @@ public class ClinicalFeatureExtractorV2 {
     );
 
     private static final Pattern ANATOMICAL_SITE_PATTERN = Pattern.compile(
-            "(?i)\\b(right\\s*lower\\s*(?:quadrant|abdomen)|left\\s*lower\\s*(?:quadrant|abdomen)|right\\s*upper\\s*(?:quadrant|abdomen)|left\\s*upper\\s*(?:quadrant|abdomen)|rlq|llq|ruq|luq|periumbilical|belly\\s*button|navel|umbilical|epigastric|epigastrium|suprapubic|flank|chest|retrosternal|throat|sinus|sinuses|maxillary|frontal|ethmoid|periorbital|orbital|face|facial|cheek|cheeks|forehead|nasal|nose|teeth|tooth|dental|ear|ears|stomach|abdomen|belly|tummy|back|lumbar|neck|cervical|head|pelvis|groin|joint|knee|ankle|shoulder|arm|leg|foot|hand|wrist|elbow)\\b"
+            "(?i)\\b(right\\s*lower\\s*(?:quadrant|abdomen|side)|lower\\s*right\\s*(?:quadrant|abdomen|side)|left\\s*lower\\s*(?:quadrant|abdomen|side)|lower\\s*left\\s*(?:quadrant|abdomen|side)|right\\s*upper\\s*(?:quadrant|abdomen|side)|upper\\s*right\\s*(?:quadrant|abdomen|side)|left\\s*upper\\s*(?:quadrant|abdomen|side)|upper\\s*left\\s*(?:quadrant|abdomen|side)|rlq|llq|ruq|luq|periumbilical|belly\\s*button|navel|umbilical|epigastric|epigastrium|suprapubic|flank|chest|retrosternal|throat|sinus|sinuses|maxillary|frontal|ethmoid|periorbital|orbital|face|facial|cheek|cheeks|forehead|nasal|nose|teeth|tooth|dental|ear|ears|stomach|abdomen|belly|tummy|back|lumbar|neck|cervical|head|pelvis|groin|joint|knee|ankle|shoulder|arm|leg|foot|hand|wrist|elbow)\\b"
     );
 
     private static final Pattern LATERALITY_PATTERN = Pattern.compile(
@@ -84,6 +84,14 @@ public class ClinicalFeatureExtractorV2 {
 
     private static final Pattern MIGRATION_PATTERN_2 = Pattern.compile(
             "(?i)\\b(?:moved|migrated|shifted)\\s*from\\s*(?:my\\s*)?([a-zA-Z\\s]+?)\\s*to\\s*(?:my\\s*)?([a-zA-Z\\s]+?)(?:\\s*(?:and|,|\\.|;|$|but))"
+    );
+
+    private static final Pattern MIGRATION_PATTERN_3 = Pattern.compile(
+            "(?i)\\b(?:was|started)\\s*(?:in|around|near|at)?\\s*(?:the\\s*|my\\s*)?([a-zA-Z\\s]+?)\\s*(?:yesterday|earlier|initially|first)\\s*(?:but|,|and|however)?\\s*(?:today|now|subsequently|later)\\s*(?:it\\s*is\\s*)?(?:mainly|mostly|located|centered|now)?\\s*(?:in|on|at|around)?\\s*(?:the\\s*|my\\s*)?([a-zA-Z\\s]+?)(?:\\s*(?:and|,|\\.|;|$|but))"
+    );
+
+    private static final Pattern MIGRATION_PATTERN_4 = Pattern.compile(
+            "(?i)\\b(?:pain\\s*(?:has\\s*)?)?(?:moved|migrated|shifted|traveled)\\s*to\\s*(?:the\\s*|my\\s*)?([a-zA-Z\\s]+?)(?:\\s*(?:and|,|\\.|;|$|but))"
     );
 
     private static final Pattern BETTER_WITH_PATTERN = Pattern.compile(
@@ -172,7 +180,19 @@ public class ClinicalFeatureExtractorV2 {
     );
 
     private static final Pattern ABDOMINAL_PAIN_PATTERN = Pattern.compile(
-            "(?i)\\b(stomach\\s*ache|stomach\\s*pain|abdominal\\s*pain|belly\\s*pain|cramps|cramping|tummy\\s*ache|pet\\s*dard|pain\\s*(?:in|around)\\s*(?:my\\s*)?(?:belly\\s*button|stomach|abdomen|belly|tummy|rlq|llq|ruq|luq))\\b"
+            "(?i)\\b(stomach\\s*(?:ache|pain|hurts?)|abdominal\\s*(?:pain|discomfort|ache|hurts?)|belly\\s*(?:pain|ache|hurts?)|tummy\\s*(?:ache|pain|hurts?)|cramps|cramping|pet\\s*dard|periumbilical\\s*pain|epigastric\\s*pain|rlq\\s*pain|llq\\s*pain|ruq\\s*pain|luq\\s*pain|(?:(?:right|left)\\s*lower|lower\\s*(?:right|left)|(?:right|left)\\s*upper|upper\\s*(?:right|left)|periumbilical|belly\\s*button|navel)\\s*(?:quadrant|abdomen|side)?\\s*pain|pain\\s*(?:started|began|was)?\\s*(?:suddenly|gradually)?\\s*(?:in|around|on|near)?\\s*(?:the\\s*|my\\s*)?(?:belly\\s*button|navel|stomach|abdomen|belly|tummy|rlq|llq|ruq|luq|(?:right|left)\\s*lower\\s*(?:side|quadrant|abdomen)|lower\\s*(?:right|left)\\s*(?:side|quadrant|abdomen)|(?:right|left)\\s*upper\\s*(?:side|quadrant|abdomen)|periumbilic(?:al)?|epigastri(?:c|um))|pain\\s*(?:on|in)\\s*(?:the\\s*)?(?:right|left)(?:\\s*(?:lower|upper))?(?:\\s*side)?|(?:pain\\b(?=.*\\b(?:belly|stomach|abdomen|tummy|belly\\s*button|navel|rlq|llq|ruq|luq|lower\\s*right|right\\s*lower)\\b)))\\b"
+    );
+
+    private static final Pattern ANOREXIA_PATTERN = Pattern.compile(
+            "(?i)\\b(loss\\s*of\\s*appetite|lost\\s*(?:my\\s*)?appetite|no\\s*appetite|anorexia|not\\s*feeling\\s*hungry|haven't\\s*felt\\s*hungry|havent\\s*felt\\s*hungry|don't\\s*feel\\s*like\\s*eating|dont\\s*feel\\s*like\\s*eating|not\\s*eating|refusing\\s*food)\\b"
+    );
+
+    private static final Pattern ABDOMINAL_TENDERNESS_PATTERN = Pattern.compile(
+            "(?i)\\b(abdominal\\s*tenderness|tender\\s*(?:belly|abdomen|stomach|right\\s*lower\\s*(?:side|abdomen|quadrant)|lower\\s*right\\s*(?:side|abdomen|quadrant)|rlq)|pain\\s*(?:when\\s*touching|to\\s*touch|on\\s*pressing|on\\s*palpation)|rebound\\s*tenderness|guarding|tenderness)\\b"
+    );
+
+    private static final Pattern DYSURIA_PATTERN = Pattern.compile(
+            "(?i)\\b(pain\\s*when\\s*urinating|painful\\s*urination|dysuria|burning\\s*(?:when\\s*i\\s*)?pee|burning\\s*urination|urinary\\s*(?:frequency|urgency|symptoms)|blood\\s*in\\s*urine|hematuria)\\b"
     );
 
     private static final Pattern NAUSEA_PATTERN = Pattern.compile(
@@ -328,6 +348,9 @@ public class ClinicalFeatureExtractorV2 {
             matchAndBind(c, STRIDOR_PATTERN, "stridor", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, "AIRWAY", clauseLaterality, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
             matchAndBind(c, HEADACHE_PATTERN, "headache", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, "HEAD", clauseLaterality, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
             matchAndBind(c, ABDOMINAL_PAIN_PATTERN, "abdominal_pain", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, clauseAnatomy != null ? clauseAnatomy : "ABDOMEN", clauseLaterality, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
+            matchAndBind(c, ANOREXIA_PATTERN, "loss_of_appetite", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, "ABDOMEN", null, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
+            matchAndBind(c, ABDOMINAL_TENDERNESS_PATTERN, "abdominal_tenderness", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, clauseAnatomy != null ? clauseAnatomy : "ABDOMEN", clauseLaterality, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
+            matchAndBind(c, DYSURIA_PATTERN, "dysuria", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, "PELVIS", clauseLaterality, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
             matchAndBind(c, NAUSEA_PATTERN, "nausea", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, "ABDOMEN", clauseLaterality, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
             matchAndBind(c, VOMIT_PATTERN, "vomiting", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, "ABDOMEN", clauseLaterality, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
             matchAndBind(c, DIARRHEA_PATTERN, "diarrhea", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, "ABDOMEN", clauseLaterality, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
@@ -362,6 +385,15 @@ public class ClinicalFeatureExtractorV2 {
                 if (clauseRadiation != null && lastFeat.getRadiationSite() == null) {
                     lastFeat.setRadiationSite(normalizeRadiationSite(clauseRadiation));
                 }
+                if (clauseProgression != null && lastFeat.getProgression() == null) {
+                    lastFeat.setProgression(normalizeProgression(clauseProgression));
+                }
+                if (clauseDuration != null && lastFeat.getDuration() == null) {
+                    lastFeat.setDuration(clauseDuration);
+                }
+                if (clauseOnset != null && lastFeat.getOnset() == null) {
+                    lastFeat.setOnset(clauseOnset);
+                }
             }
         }
 
@@ -370,8 +402,13 @@ public class ClinicalFeatureExtractorV2 {
             for (StructuredClinicalFeature f : extractedFeatures) {
                 if (f.getCanonicalConcept().contains("pain") || "abdominal_pain".equals(f.getCanonicalConcept())) {
                     f.setMigrating(true);
-                    f.setMigrationOrigin(normalizeAnatomy(globalMigration.origin));
-                    f.setMigrationDestination(normalizeAnatomy(globalMigration.destination));
+                    if (globalMigration.origin != null) {
+                        f.setMigrationOrigin(normalizeAnatomy(globalMigration.origin));
+                    }
+                    if (globalMigration.destination != null) {
+                        f.setMigrationDestination(normalizeAnatomy(globalMigration.destination));
+                        f.setAnatomicalSite(normalizeAnatomy(globalMigration.destination));
+                    }
                 }
             }
         }
@@ -503,6 +540,14 @@ public class ClinicalFeatureExtractorV2 {
         if (m2.find()) {
             return new MigrationInfo(m2.group(1).trim(), m2.group(2).trim());
         }
+        Matcher m3 = MIGRATION_PATTERN_3.matcher(text);
+        if (m3.find()) {
+            return new MigrationInfo(m3.group(1).trim(), m3.group(2).trim());
+        }
+        Matcher m4 = MIGRATION_PATTERN_4.matcher(text);
+        if (m4.find()) {
+            return new MigrationInfo(null, m4.group(1).trim());
+        }
         return null;
     }
 
@@ -556,10 +601,10 @@ public class ClinicalFeatureExtractorV2 {
     public String normalizeAnatomy(String raw) {
         if (raw == null) return null;
         String r = raw.toLowerCase(Locale.ROOT).trim();
-        if (r.contains("rlq") || r.contains("right lower")) return "RLQ";
-        if (r.contains("llq") || r.contains("left lower")) return "LLQ";
-        if (r.contains("ruq") || r.contains("right upper")) return "RUQ";
-        if (r.contains("luq") || r.contains("left upper")) return "LUQ";
+        if (r.contains("rlq") || r.contains("right lower") || r.contains("lower right")) return "RLQ";
+        if (r.contains("llq") || r.contains("left lower") || r.contains("lower left")) return "LLQ";
+        if (r.contains("ruq") || r.contains("right upper") || r.contains("upper right")) return "RUQ";
+        if (r.contains("luq") || r.contains("left upper") || r.contains("upper left")) return "LUQ";
         if (r.contains("periumbilical") || r.contains("belly button") || r.contains("navel") || r.contains("umbilic")) return "PERIUMBILICAL";
         if (r.contains("epigastr")) return "EPIGASTRIC";
         if (r.contains("maxillary") || r.contains("cheek")) return "MAXILLARY";
@@ -637,6 +682,7 @@ public class ClinicalFeatureExtractorV2 {
     public String normalizeAggravatingFactor(String raw) {
         if (raw == null) return null;
         String r = raw.toLowerCase(Locale.ROOT).trim();
+        if ((r.contains("movement") || r.contains("moving") || r.contains("walk")) && r.contains("cough")) return "MOVEMENT_AND_COUGHING";
         if (r.contains("stair") || r.contains("climbing")) return "CLIMBING_STAIRS";
         if (r.contains("walk")) return "WALKING";
         if (r.contains("movement") || r.contains("moving")) return "MOVEMENT";
@@ -705,11 +751,23 @@ public class ClinicalFeatureExtractorV2 {
                 fact.setBetterWith(f.getBetterWith());
                 fact.setWorseWith(f.getWorseWith());
 
+                if (f.isMigrating() || f.getMigrationDestination() != null) {
+                    fact.setMigrating(true);
+                    if (fact.getMigrationOrigin() == null && state.getSymptoms().containsKey(concept)) {
+                        ClinicalFact prev = state.getSymptoms().get(concept);
+                        if (prev != null && prev.getAttributes().containsKey("anatomicalSite")) {
+                            fact.setMigrationOrigin((String) prev.getAttributes().get("anatomicalSite"));
+                        }
+                    }
+                }
+
                 if (f.getLaterality() != null) {
                     fact.setLaterality(f.getLaterality());
                 }
                 if (f.getAnatomicalSite() != null) {
                     fact.getAttributes().put("anatomicalSite", f.getAnatomicalSite());
+                } else if (fact.getMigrationDestination() != null) {
+                    fact.getAttributes().put("anatomicalSite", fact.getMigrationDestination());
                 }
                 state.getSymptoms().put(concept, fact);
                 state.addFact(concept, fact);
