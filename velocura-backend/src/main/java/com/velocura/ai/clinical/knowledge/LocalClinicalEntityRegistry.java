@@ -1862,14 +1862,25 @@ public class LocalClinicalEntityRegistry {
                         .specialistDepartment("General Surgery / Emergency Medicine")
                         .medications(List.of())
                         .supportiveCare(List.of(
-                                "NPO status (nil per os / nothing by mouth) pending immediate in-person surgical evaluation",
-                                "Avoid applying heating pads to the abdomen (may accelerate perforation)",
-                                "Avoid oral laxatives, cathartics, or enemas"
+                                // GOVERNANCE NOTE: NPO guidance is clinician-directed, not an autonomous home-care command.
+                                // The instruction below directs the patient to seek emergency care; NPO timing is determined
+                                // by the treating surgical/emergency clinician based on imaging and surgical planning.
+                                // Provenance: WSES Jerusalem Guidelines (2020); ACEP Clinical Policy (2023).
+                                "URGENT: Proceed immediately to the nearest Emergency Department for in-person evaluation. " +
+                                "Your treating clinician will advise on fasting (nil per os / NPO) status as required for surgical preparation. " +
+                                "Avoid food or drink until clinically assessed to support urgent imaging and potential surgical intervention.",
+                                "Avoid applying heating pads to the abdomen (may mask signs and accelerate peritoneal spread)",
+                                "Avoid oral laxatives, cathartics, or enemas (risk of perforation)"
                         ))
                         .contraindicatedMedications(List.of(
                                 "ANTIBIOTIC SAFETY & NON-PRESCRIBING RULE: Outpatient empirical oral antibiotic therapy is strictly contraindicated. Acute appendicitis requires urgent surgical evaluation, imaging (ultrasound/CT), and IV antibiotics only under direct inpatient surgical care.",
-                                "Oral analgesics or NSAIDs that mask acute peritoneal signs without surgical clearance",
-                                "Oral laxatives or enemas"
+                                // GOVERNANCE NOTE: Analgesia is NOT blanket-prohibited. ACEP Clinical Policy (2023) and WSES Jerusalem Guidelines (2020)
+                                // confirm that appropriate analgesia does not impair diagnostic accuracy of peritoneal examination.
+                                // Analgesia decisions (including IV opioids) belong to the treating emergency clinician.
+                                // Self-administration of OTC oral NSAIDs before emergency evaluation is not recommended without clinical assessment,
+                                // as the treating physician must first exclude contraindications and establish the diagnosis.
+                                "Self-initiated oral analgesics or NSAIDs prior to clinician assessment: analgesia decisions including opioid analgesia belong to the treating emergency clinician (ACEP 2023 / WSES 2020)",
+                                "Oral laxatives or enemas (risk of precipitating perforation)"
                         ))
                         .diagnosticLabOrders(List.of(
                                 "Complete Blood Count (CBC) with differential (leukocytosis, left shift)",

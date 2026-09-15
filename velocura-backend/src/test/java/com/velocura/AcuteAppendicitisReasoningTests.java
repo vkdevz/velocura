@@ -518,4 +518,124 @@ public class AcuteAppendicitisReasoningTests {
             });
         }
     }
+
+    // ─── STAGE 5 CORRECTION PASS — GOVERNANCE REGRESSION TESTS ─────────────────
+    // Defect 1: Alvarado T=2 must NOT be satisfied by rlq_pain or abdominal_pain with RLQ location alone.
+    //           abdominal_tenderness requires explicit tenderness-to-touch / palpation language.
+    // Defect 2: NPO guidance must be clinician-directed, not a blanket autonomous home-care command.
+
+    @Test
+    @DisplayName("CORRECTION CP-01: rlq_pain alone must NOT produce abdominal_tenderness extraction")
+    public void testCorrectionCP01_RlqPainDoesNotYieldTenderness() {
+        // Patient reports ONLY right lower quadrant pain — no tenderness language
+        String text = "I have pain in my right lower quadrant and it is very bad.";
+        List<StructuredClinicalFeature> features = featureExtractor.extractFeatures(text, 1);
+
+        // rlq_pain / abdominal_pain must be extracted
+        assertTrue(features.stream().anyMatch(f -> "abdominal_pain".equals(f.getCanonicalConcept()) && f.isPresent()),
+                "abdominal_pain must be extracted from RLQ pain language");
+
+        // abdominal_tenderness must NOT be extracted — there is no tenderness-to-touch vocabulary
+        assertFalse(features.stream().anyMatch(f -> "abdominal_tenderness".equals(f.getCanonicalConcept()) && f.isPresent()),
+                "CP-01 FAIL: rlq_pain alone must NOT yield abdominal_tenderness — Alvarado T=2 semantic boundary violated");
+    }
+
+    @Test
+    @DisplayName("CORRECTION CP-02: abdominal_pain reported in lower right without tenderness language must NOT yield abdominal_tenderness")
+    public void testCorrectionCP02_AbdominalPainRlqNoPalpation() {
+        // Clear abdominal_pain language with RLQ location — no palpation/pressing/touching vocabulary
+        String text = "I have stomach pain on the lower right side for two days.";
+        List<StructuredClinicalFeature> features = featureExtractor.extractFeatures(text, 1);
+
+        assertTrue(features.stream().anyMatch(f -> "abdominal_pain".equals(f.getCanonicalConcept()) && f.isPresent()),
+                "abdominal_pain must be extracted");
+
+        assertFalse(features.stream().anyMatch(f -> "abdominal_tenderness".equals(f.getCanonicalConcept()) && f.isPresent()),
+                "CP-02 FAIL: generic lower-right abdominal pain must NOT imply abdominal_tenderness without palpation language");
+    }
+
+    @Test
+    @DisplayName("CORRECTION CP-03: Explicit palpation/touch language does produce abdominal_tenderness")
+    public void testCorrectionCP03_ExplicitPalpationYieldsTenderness() {
+        // Explicit palpation/pressing language must trigger abdominal_tenderness extraction
+        String text = "It hurts when I press on my belly.";
+        List<StructuredClinicalFeature> features = featureExtractor.extractFeatures(text, 1);
+
+        assertTrue(features.stream().anyMatch(f -> "abdominal_tenderness".equals(f.getCanonicalConcept()) && f.isPresent()),
+                "CP-03: Explicit pain-on-pressing language must produce abdominal_tenderness");
+    }
+
+    @Test
+    @DisplayName("CORRECTION CP-04: rebound_tenderness is extracted as a DISTINCT concept separate from abdominal_tenderness")
+    public void testCorrectionCP04_ReboundTendernessIsDistinctConcept() {
+        String text = "The pain increases when the pressure is released from my abdomen.";
+        List<StructuredClinicalFeature> features = featureExtractor.extractFeatures(text, 1);
+
+        assertTrue(features.stream().anyMatch(f -> "rebound_tenderness".equals(f.getCanonicalConcept()) && f.isPresent()),
+                "CP-04: Rebound tenderness language must produce rebound_tenderness concept, not abdominal_tenderness");
+
+        // Must NOT fold rebound_tenderness into abdominal_tenderness
+        assertFalse(features.stream()
+                        .filter(f -> "abdominal_tenderness".equals(f.getCanonicalConcept()) && f.isPresent())
+                        .anyMatch(f -> true),
+                "CP-04: rebound_tenderness must NOT be silently folded into abdominal_tenderness");
+    }
+
+    @Test
+    @DisplayName("CORRECTION CP-05: abdominal_tenderness with anatomicalSite=RLQ satisfies Alvarado T=2 semantics; rlq_pain alone does not")
+    public void testCorrectionCP05_AlvaradoTPointSemanticBoundary() {
+        // Scenario A: tenderness vocabulary with RLQ — must extract abdominal_tenderness with RLQ site
+        String textA = "The doctor found tenderness over the right lower abdomen.";
+        List<StructuredClinicalFeature> featA = featureExtractor.extractFeatures(textA, 1);
+        assertTrue(featA.stream().anyMatch(f ->
+                "abdominal_tenderness".equals(f.getCanonicalConcept())
+                        && f.isPresent()
+                        && ("RLQ".equals(f.getAnatomicalSite()) || "ABDOMEN".equals(f.getAnatomicalSite()))),
+                "CP-05A: Explicit tenderness at RLQ must produce abdominal_tenderness with anatomical site");
+
+        // Scenario B: patient-reported RLQ pain only — must NOT satisfy Alvarado T=2 (no abdominal_tenderness)
+        String textB = "I have severe pain in the right lower quadrant.";
+        List<StructuredClinicalFeature> featB = featureExtractor.extractFeatures(textB, 1);
+        assertFalse(featB.stream().anyMatch(f -> "abdominal_tenderness".equals(f.getCanonicalConcept()) && f.isPresent()),
+                "CP-05B FAIL: Patient-reported RLQ pain alone must NOT satisfy Alvarado T=2 tenderness criterion");
+    }
+
+    @Test
+    @DisplayName("CORRECTION CP-06: NPO guidance in DB10 protocol is clinician-directed, not an autonomous NPO command")
+    public void testCorrectionCP06_NpoGuidanceIsClinicianDirected() {
+        ClinicalEntity db10 = registry.getEntity("DB10");
+        assertNotNull(db10);
+        PrescriptionProtocol proto = db10.getDefaultPrescriptionProtocol();
+        assertNotNull(proto);
+
+        // Verify NPO language is clinician-directed
+        assertTrue(proto.getSupportiveCare().stream()
+                        .anyMatch(s -> s.contains("clinician") || s.contains("Emergency Department") || s.contains("treating")),
+                "CP-06: DB10 supportiveCare must direct patient to clinician/ED, not issue autonomous NPO command");
+
+        // Verify blanket NPO command is gone
+        assertFalse(proto.getSupportiveCare().stream()
+                        .anyMatch(s -> s.startsWith("NPO status") || s.equals("NPO status (nil per os / nothing by mouth) pending immediate in-person surgical evaluation")),
+                "CP-06: Blanket autonomous NPO command must be removed from supportiveCare");
+    }
+
+    @Test
+    @DisplayName("CORRECTION CP-07: DB10 contraindicatedMedications must not blanket-prohibit analgesia without clinician oversight")
+    public void testCorrectionCP07_AnalgesiaNotBlanketProhibited() {
+        ClinicalEntity db10 = registry.getEntity("DB10");
+        assertNotNull(db10);
+        PrescriptionProtocol proto = db10.getDefaultPrescriptionProtocol();
+        assertNotNull(proto);
+
+        // The prohibited text "Oral analgesics or NSAIDs that mask acute peritoneal signs without surgical clearance"
+        // (old blanket prohibition) must be replaced by governance-aware language referencing clinical authority
+        assertFalse(proto.getContraindicatedMedications().stream()
+                        .anyMatch(s -> s.equals("Oral analgesics or NSAIDs that mask acute peritoneal signs without surgical clearance")),
+                "CP-07: Blanket analgesia prohibition must be replaced by clinician-authority language (ACEP 2023 / WSES 2020)");
+
+        // Verify the replacement text references the appropriate clinical authority
+        assertTrue(proto.getContraindicatedMedications().stream()
+                        .anyMatch(s -> (s.contains("ACEP") || s.contains("WSES") || s.contains("clinician")) && s.toLowerCase().contains("analges")),
+                "CP-07: Updated analgesia entry must reference clinical authority (ACEP/WSES) and treating clinician");
+    }
 }

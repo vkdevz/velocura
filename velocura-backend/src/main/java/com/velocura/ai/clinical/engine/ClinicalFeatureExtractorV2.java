@@ -187,8 +187,21 @@ public class ClinicalFeatureExtractorV2 {
             "(?i)\\b(loss\\s*of\\s*appetite|lost\\s*(?:my\\s*)?appetite|no\\s*appetite|anorexia|not\\s*feeling\\s*hungry|haven't\\s*felt\\s*hungry|havent\\s*felt\\s*hungry|don't\\s*feel\\s*like\\s*eating|dont\\s*feel\\s*like\\s*eating|not\\s*eating|refusing\\s*food)\\b"
     );
 
+    // Abdominal tenderness: PHYSICAL EXAMINATION finding or clearly patient-reported tenderness-to-touch.
+    // Semantically DISTINCT from rlq_pain (symptom/location) and rebound_tenderness (peritoneal finding).
+    // MUST NOT be satisfied by: rlq_pain, abdominal_pain with RLQ location, or generic pain language.
+    // Inclusion criteria: explicit tenderness vocabulary, clinician-documented tenderness, pain specifically on
+    // pressing/touching the abdomen (reported-tenderness semantics), or voluntary guarding.
+    // Exclusion: rebound_tenderness (peritoneal finding), rigidity/involuntary_guarding (emergency finding)
+    // are extracted separately and must NOT be conflated with ordinary tenderness.
     private static final Pattern ABDOMINAL_TENDERNESS_PATTERN = Pattern.compile(
-            "(?i)\\b(abdominal\\s*tenderness|tender\\s*(?:belly|abdomen|stomach|right\\s*lower\\s*(?:side|abdomen|quadrant)|lower\\s*right\\s*(?:side|abdomen|quadrant)|rlq)|pain\\s*(?:when\\s*touching|to\\s*touch|on\\s*pressing|on\\s*palpation)|rebound\\s*tenderness|guarding|tenderness)\\b"
+            "(?i)\\b(abdominal\\s*tenderness|(?:doctor\\s*found|physician\\s*noted|clinician\\s*found|found|noted)\\s*tenderness|tender\\s*(?:belly|abdomen|stomach|right\\s*lower\\s*(?:side|abdomen|quadrant)|lower\\s*right\\s*(?:side|abdomen|quadrant)|rlq)|(?:pain|hurts?|sore|tender)\\s*(?:when\\s*(?:touching|pressing|i\\s*press|you\\s*press|pressing\\s*it|touched|pressed)|to\\s*touch|on\\s*pressing|on\\s*palpation|when\\s*i\\s*push|to\\s*the\\s*touch)|tenderness\\s*(?:in|on|at|over)\\s*(?:the\\s*)?(?:right\\s*lower|lower\\s*right|rlq|abdomen)|tenderness\\s*(?:was\\s*)?(?:found|noted|documented|detected))\\b"
+    );
+
+    // Rebound tenderness: DISTINCT peritoneal examination finding. Separate from ordinary abdominal_tenderness.
+    // Must NOT be folded back into abdominal_tenderness; it signals peritoneal irritation / possible perforation.
+    private static final Pattern REBOUND_TENDERNESS_PATTERN = Pattern.compile(
+            "(?i)\\b(rebound\\s*tenderness|peritoneal\\s*(?:sign|rebound|irritation)|pain\\s*(?:increases|gets?\\s*worse|is\\s*worse|worsens?)\\s*(?:when\\s*)?(?:the\\s*)?(?:pressure\\s*is\\s*released|releasing\\s*pressure|i\\s*let\\s*go|you\\s*let\\s*go|pressure\\s*released)|releasing\\s*(?:my\\s*|the\\s*)?(?:hand|pressure)\\s*(?:hurts|is\\s*painful|makes?\\s*it\\s*worse))\\b"
     );
 
     private static final Pattern DYSURIA_PATTERN = Pattern.compile(
@@ -350,6 +363,8 @@ public class ClinicalFeatureExtractorV2 {
             matchAndBind(c, ABDOMINAL_PAIN_PATTERN, "abdominal_pain", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, clauseAnatomy != null ? clauseAnatomy : "ABDOMEN", clauseLaterality, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
             matchAndBind(c, ANOREXIA_PATTERN, "loss_of_appetite", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, "ABDOMEN", null, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
             matchAndBind(c, ABDOMINAL_TENDERNESS_PATTERN, "abdominal_tenderness", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, clauseAnatomy != null ? clauseAnatomy : "ABDOMEN", clauseLaterality, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
+            // Rebound tenderness is a DISTINCT peritoneal finding — must not be conflated with abdominal_tenderness
+            matchAndBind(c, REBOUND_TENDERNESS_PATTERN, "rebound_tenderness", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, clauseAnatomy != null ? clauseAnatomy : "ABDOMEN", clauseLaterality, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
             matchAndBind(c, DYSURIA_PATTERN, "dysuria", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, "PELVIS", clauseLaterality, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
             matchAndBind(c, NAUSEA_PATTERN, "nausea", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, "ABDOMEN", clauseLaterality, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);
             matchAndBind(c, VOMIT_PATTERN, "vomiting", defaultPresence, clauseDuration, clauseOnset, clauseProgression, clauseSeverity, clauseCharacter, "ABDOMEN", clauseLaterality, clauseRadiation, isMigrating, migrationOrigin, migrationDestination, clauseTrigger, clauseBetterWith, clauseWorseWith, turn, extractedFeatures);

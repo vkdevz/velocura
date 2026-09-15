@@ -371,7 +371,14 @@ public class ResponseComposer {
                 diffs.add(new DifferentialDiagnosis("DB10", "Acute Appendicitis", "HIGH", "Migrating right lower quadrant abdominal pain with focal peritonism"));
                 diffs.add(new DifferentialDiagnosis("DA60", "Acute Gastritis / Acid Dyspepsia", "MODERATE", "Epigastric gastric discomfort without focal RLQ localization"));
                 diffs.add(new DifferentialDiagnosis("1A40", "Acute Infectious Gastroenteritis", "MODERATE", "Self-limiting GI inflammation with diarrhea or vomiting"));
-                home.add(new HomeCareRemedy("Strict NPO (nothing by mouth) pending immediate in-person surgical assessment", "Prepares for urgent diagnostic imaging and potential surgical intervention"));
+                home.add(new HomeCareRemedy(
+                        "URGENT EVALUATION REQUIRED — Proceed immediately to the nearest Emergency Department. " +
+                        "Your treating clinician will advise on fasting (NPO) status as part of surgical preparation. " +
+                        "Do not take any food or drink until you have been assessed by a clinician, as your physician " +
+                        "will determine the appropriate timing based on imaging and surgical planning.",
+                        "Pre-surgical fasting guidance must be directed by the treating clinician; " +
+                        "this guidance prepares for urgent in-person evaluation and does not constitute autonomous medical instruction."
+                ));
                 redFlags.add("Board-like rigidity or involuntary guarding of the abdomen");
                 redFlags.add("Syncope or circulatory collapse with severe abdominal pain");
                 redFlags.add("High unremitting fever with severe systemic toxicity");
