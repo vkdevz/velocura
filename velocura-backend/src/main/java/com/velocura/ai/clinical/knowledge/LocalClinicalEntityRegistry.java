@@ -1647,7 +1647,7 @@ public class LocalClinicalEntityRegistry {
                                 "Voice rest if accompanied by laryngeal irritation"
                         ))
                         .contraindicatedMedications(List.of(
-                                "ANTIMICROBIAL STEWARDSHIP: Routine empirical antibiotic prescription is prohibited for acute pharyngitis without clinician examination, positive rapid antigen detection test (RADT), or validated Centor/McIsaac stratification.",
+                                "ANTIMICROBIAL STEWARDSHIP: Routine empirical antibiotic prescription is prohibited for acute pharyngitis without clinician examination, positive rapid antigen detection test (RADT), or validated four-criterion Centor-style stratification.",
                                 "Aspirin in children and adolescents under 19 years due to Reye's syndrome risk"
                         ))
                         .diagnosticLabOrders(List.of("Rapid Antigen Detection Test (RADT) for Group A Streptococcus", "Throat Swab Culture (if RADT negative in children/high-suspicion adults)"))
