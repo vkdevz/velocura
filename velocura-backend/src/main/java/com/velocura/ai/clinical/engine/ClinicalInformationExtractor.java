@@ -4,6 +4,7 @@ import com.velocura.ai.clinical.state.ClinicalConversationState;
 import com.velocura.ai.clinical.state.ClinicalFact;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -13,6 +14,16 @@ import java.util.regex.Pattern;
  */
 @Component
 public class ClinicalInformationExtractor {
+
+    private final ClinicalFeatureExtractorV2 featureExtractorV2;
+
+    public ClinicalInformationExtractor(ClinicalFeatureExtractorV2 featureExtractorV2) {
+        this.featureExtractorV2 = featureExtractorV2 != null ? featureExtractorV2 : new ClinicalFeatureExtractorV2();
+    }
+
+    public ClinicalInformationExtractor() {
+        this(new ClinicalFeatureExtractorV2());
+    }
 
     private static final Pattern TIMELINE = Pattern.compile(
         "(?i)\\b(started\\s*(?:today|yesterday|recently|just\\s*now)|since\\s*(?:yesterday|today|last\\s*night|morning)|for\\s*\\d+\\s*(?:days?|hours?|weeks?)|\\d+\\s*(?:days?|hours?|weeks?|mins?|minutes?)|two\\s*days\\s*ago|past\\s*\\d+.*days?|1-2\\s*days|1–2\\s*days|1-3\\s*days|1–3\\s*days|3-5\\s*days|3–5\\s*days|more\\s*than\\s*a\\s*week|more\\s*than\\s*\\d+\\s*weeks?)\\b"
@@ -48,6 +59,11 @@ public class ClinicalInformationExtractor {
         if (normalizedText == null || state == null) return;
         String text = normalizedText.toLowerCase();
         int turn = state.getTurnCount();
+
+        // 0. Structured Feature Extraction V2 with clause-level attribute binding
+        List<com.velocura.ai.clinical.model.feature.StructuredClinicalFeature> structuredFeatures =
+                featureExtractorV2.extractFeatures(normalizedText, turn);
+        featureExtractorV2.updateStateWithFeatures(structuredFeatures, state, turn);
 
         // 1. Timeline
         Matcher timeMatcher = TIMELINE.matcher(text);
@@ -93,16 +109,20 @@ public class ClinicalInformationExtractor {
         // 4. Symptoms Extraction (with Negation Handling)
         if (text.contains("fever")) {
             if (isNegated(text, "fever")) {
-                state.addFact("fever", ClinicalFact.userReported("fever", "absent", turn));
-            } else {
+                state.addFact("fever", ClinicalFact.denied("fever", turn));
+                state.getNegatedFindings().add("fever");
+                state.getSymptoms().remove("fever");
+            } else if (!state.getNegatedFindings().contains("fever")) {
                 state.getSymptoms().put("fever", ClinicalFact.userReported("fever", "present", turn));
                 state.addFact("fever", ClinicalFact.userReported("fever", "present", turn));
             }
         }
         if (text.contains("cough")) {
             if (isNegated(text, "cough")) {
-                state.addFact("cough", ClinicalFact.userReported("cough", "absent", turn));
-            } else {
+                state.addFact("cough", ClinicalFact.denied("cough", turn));
+                state.getNegatedFindings().add("cough");
+                state.getSymptoms().remove("cough");
+            } else if (!state.getNegatedFindings().contains("cough")) {
                 String coughType = text.contains("dry") ? "dry" : (text.contains("phlegm") || text.contains("mucus") || text.contains("wet") || text.contains("productive")) ? "productive" : "unspecified";
                 state.getSymptoms().put("cough", ClinicalFact.userReported("cough", coughType, turn));
                 state.addFact("cough", ClinicalFact.userReported("cough", coughType, turn));
@@ -110,48 +130,60 @@ public class ClinicalInformationExtractor {
         }
         if (text.contains("headache") || text.contains("head pain") || text.contains("migraine") || text.contains("sar dard") || text.contains("sir dard")) {
             if (isNegated(text, "headache") || isNegated(text, "migraine")) {
-                state.addFact("headache", ClinicalFact.userReported("headache", "absent", turn));
-            } else {
+                state.addFact("headache", ClinicalFact.denied("headache", turn));
+                state.getNegatedFindings().add("headache");
+                state.getSymptoms().remove("headache");
+            } else if (!state.getNegatedFindings().contains("headache")) {
                 state.getSymptoms().put("headache", ClinicalFact.userReported("headache", "present", turn));
                 state.addFact("headache", ClinicalFact.userReported("headache", "present", turn));
             }
         }
         if (text.contains("stomach") || text.contains("abdomen") || text.contains("abdominal") || text.contains("belly") || text.contains("tummy") || text.contains("pet dard") || text.contains("cramps")) {
             if (isNegated(text, "pain") || isNegated(text, "cramp")) {
-                state.addFact("abdominal_pain", ClinicalFact.userReported("abdominal_pain", "absent", turn));
-            } else {
+                state.addFact("abdominal_pain", ClinicalFact.denied("abdominal_pain", turn));
+                state.getNegatedFindings().add("abdominal_pain");
+                state.getSymptoms().remove("abdominal_pain");
+            } else if (!state.getNegatedFindings().contains("abdominal_pain")) {
                 state.getSymptoms().put("abdominal_pain", ClinicalFact.userReported("abdominal_pain", "present", turn));
                 state.addFact("abdominal_pain", ClinicalFact.userReported("abdominal_pain", "present", turn));
             }
         }
         if (text.contains("throat") || text.contains("gala") || text.contains("pharyngitis") || text.contains("tonsil")) {
             if (isNegated(text, "throat") || isNegated(text, "sore throat")) {
-                state.addFact("sore_throat", ClinicalFact.userReported("sore_throat", "absent", turn));
-            } else {
+                state.addFact("sore_throat", ClinicalFact.denied("sore_throat", turn));
+                state.getNegatedFindings().add("sore_throat");
+                state.getSymptoms().remove("sore_throat");
+            } else if (!state.getNegatedFindings().contains("sore_throat")) {
                 state.getSymptoms().put("sore_throat", ClinicalFact.userReported("sore_throat", "present", turn));
                 state.addFact("sore_throat", ClinicalFact.userReported("sore_throat", "present", turn));
             }
         }
         if (text.contains("rash") || text.contains("itch") || text.contains("hives") || text.contains("allergy") || text.contains("khujli")) {
             if (isNegated(text, "rash") || isNegated(text, "itch") || isNegated(text, "hives")) {
-                state.addFact("rash", ClinicalFact.userReported("rash", "absent", turn));
-            } else {
+                state.addFact("rash", ClinicalFact.denied("rash", turn));
+                state.getNegatedFindings().add("rash");
+                state.getSymptoms().remove("rash");
+            } else if (!state.getNegatedFindings().contains("rash")) {
                 state.getSymptoms().put("rash", ClinicalFact.userReported("rash", "present", turn));
                 state.addFact("rash", ClinicalFact.userReported("rash", "present", turn));
             }
         }
         if (text.contains("diarrhea") || text.contains("loose motion") || text.contains("watery stool") || text.contains("dast")) {
             if (isNegated(text, "diarrhea") || isNegated(text, "loose motion")) {
-                state.addFact("diarrhea", ClinicalFact.userReported("diarrhea", "absent", turn));
-            } else {
+                state.addFact("diarrhea", ClinicalFact.denied("diarrhea", turn));
+                state.getNegatedFindings().add("diarrhea");
+                state.getSymptoms().remove("diarrhea");
+            } else if (!state.getNegatedFindings().contains("diarrhea")) {
                 state.getSymptoms().put("diarrhea", ClinicalFact.userReported("diarrhea", "present", turn));
                 state.addFact("diarrhea", ClinicalFact.userReported("diarrhea", "present", turn));
             }
         }
         if (text.contains("nausea") || text.contains("feel sick") || text.contains("ji ghabrana")) {
             if (isNegated(text, "nausea")) {
-                state.addFact("nausea", ClinicalFact.userReported("nausea", "absent", turn));
-            } else {
+                state.addFact("nausea", ClinicalFact.denied("nausea", turn));
+                state.getNegatedFindings().add("nausea");
+                state.getSymptoms().remove("nausea");
+            } else if (!state.getNegatedFindings().contains("nausea")) {
                 state.getSymptoms().put("nausea", ClinicalFact.userReported("nausea", "present", turn));
                 state.addFact("nausea", ClinicalFact.userReported("nausea", "present", turn));
             }
@@ -197,8 +229,10 @@ public class ClinicalInformationExtractor {
         }
         if (text.contains("vomit")) {
             if (isNegated(text, "vomit") || text.contains("no vomit") || text.contains("not vomit") || text.contains("without vomit")) {
-                state.addFact("vomiting", ClinicalFact.userReported("vomiting", "absent", turn));
-            } else {
+                state.addFact("vomiting", ClinicalFact.denied("vomiting", turn));
+                state.getNegatedFindings().add("vomiting");
+                state.getSymptoms().remove("vomiting");
+            } else if (!state.getNegatedFindings().contains("vomiting")) {
                 state.getSymptoms().put("vomiting", ClinicalFact.userReported("vomiting", "present", turn));
                 state.addFact("vomiting", ClinicalFact.userReported("vomiting", "present", turn));
             }

@@ -1327,10 +1327,185 @@ public class LocalClinicalEntityRegistry {
                         .build())
                 .build());
 
-        // 10. ACUTE BRONCHITIS & AIRWAY HYPERREACTIVITY (CA20)
+        // 10A. ACUTE BRONCHITIS (CA42) - Primary Curated Outpatient Model
+        registerCoreEntity(ClinicalEntity.builder()
+                .icd11Code("CA42")
+                .foundationId("727572936")
+                .title("Acute Bronchitis")
+                .category("Pulmonology")
+                .specialistDepartment("Pulmonology / Internal Medicine")
+                .urgencyTier("LOW")
+                .isCurated(true)
+                .clinicalPresentation("Acute cough illness lasting 10 to 21 days with or without sputum production, absence of chronic lung disease or systemic signs of pneumonia.")
+                .hallmarkSymptoms(List.of("cough", "sputum_production", "bronchitis", "phlegm", "mucus", "chest_congestion", "retrosternal_discomfort"))
+                .associatedFeatures(List.of("rhinorrhea", "sore_throat", "low_grade_fever", "wheezing", "chest_tightness"))
+                .pertinentNegatives(List.of("dyspnea", "high_fever", "focal_consolidation_signs", "cyanosis", "hypoxia", "altered_mental_status"))
+                .temporalCharacteristics("Acute onset; expected duration 7 to 21 days; self-limiting viral etiology in >90% cases.")
+                .severityBoundaries("Mild to moderate cough paroxysms. Findings such as RR > 24 breaths/min, HR > 100 bpm, Temp >= 38.0°C, or SpO2 < 95% function as clinical discriminators elevating risk and warranting physician evaluation for pneumonia or systemic infection, rather than absolute exclusions.")
+                .reviewStatus("ENGINEERING_REVIEWED_NOT_CLINICALLY_VALIDATED")
+                .redFlags(List.of(
+                        "Tachypnea (Respiratory rate > 24 breaths/min)",
+                        "Hypoxia (SpO2 < 92% on ambient room air)",
+                        "Frank hemoptysis (coughing up fresh blood)",
+                        "High persistent fever > 38.5°C (> 101.3°F) with shaking chills"
+                ))
+                .differentialRelationships(List.of(
+                        "CA40 Pneumonia: Differentiated by focal auscultatory findings, high fever, tachypnea, or systemic toxicity",
+                        "CA23 Asthma: Differentiated by recurrent wheezing, nocturnal worsening, and atopic history",
+                        "BA41 ACS: Chesty cough is non-cardiac; lacks exertional crushing pain or diaphoresis"
+                ))
+                .evidenceProvenance("US CDC Adult Outpatient Respiratory Illness Treatment Recommendations (US Public Domain, 17 U.S.C. § 105)")
+                .guidelineProvenance("ICMR Standard Treatment Workflow for Acute Respiratory Infections in Adults (Government Open Access)")
+                .discriminatorQuestions(List.of(
+                        DiscriminatorQuestion.builder()
+                                .id("BRONCHITIS_DISCRIMINATOR_DYSPNEA")
+                                .dimension("respiratory_effort")
+                                .questionText("Are you experiencing any shortness of breath or difficulty catching your breath while resting?")
+                                .quickReplies(List.of("Breathing is completely normal", "Mild breathlessness only on exertion", "Short of breath while resting", "Severe struggle to breathe"))
+                                .conditionWeights(Map.of("CA42", 3.0, "CA40", -4.0))
+                                .diagnosticUtility(3.5)
+                                .build(),
+                        DiscriminatorQuestion.builder()
+                                .id("BRONCHITIS_DISCRIMINATOR_SPUTUM")
+                                .dimension("cough_character")
+                                .questionText("Is your cough dry and hacking, or is it producing phlegm or mucus?")
+                                .quickReplies(List.of("Dry hacking cough", "Productive with clear mucus", "Thick yellow or green phlegm", "Coughing with slight wheeze"))
+                                .conditionWeights(Map.of("CA42", 3.5, "CA40", 2.0))
+                                .diagnosticUtility(2.5)
+                                .build()
+                ))
+                .defaultPrescriptionProtocol(PrescriptionProtocol.builder()
+                        .icd11Code("CA42")
+                        .primaryDiagnosis("Acute Bronchitis")
+                        .specialistDepartment("Pulmonology / Internal Medicine")
+                        .medications(List.of(
+                                RxMedicationItem.builder()
+                                        .saltName("Guaifenesin + Ambroxol Syrup")
+                                        .brandReference("Ascoril / Benadryl Expectorant")
+                                        .formulation("Syrup")
+                                        .strength("100mg Guaifenesin + 30mg Ambroxol / 10ml")
+                                        .route("Oral")
+                                        .dosageFrequency("10 ml three times daily after food")
+                                        .duration("5 to 7 days")
+                                        .instructions("Drink warm water with each dose to facilitate mucociliary clearance.")
+                                        .indication("Mucolytic and expectorant for bronchial mucus clearance")
+                                        .prescriptionOnly(false)
+                                        .build(),
+                                RxMedicationItem.builder()
+                                        .saltName("Levosalbutamol Inhaler (PRN)")
+                                        .brandReference("Levolin 50mcg Inhaler")
+                                        .formulation("Metered Dose Inhaler")
+                                        .strength("50 mcg/puff")
+                                        .route("Inhalation")
+                                        .dosageFrequency("1 to 2 puffs every 6 to 8 hours PRN for wheezing or reactive bronchospasm")
+                                        .duration("5 days")
+                                        .instructions("Use with spacer if available. Rinse mouth after use.")
+                                        .indication("Bronchodilation for reactive airway bronchospasm")
+                                        .prescriptionOnly(true)
+                                        .build()
+                        ))
+                        .supportiveCare(List.of(
+                                "Steam inhalation with plain water for 10 minutes twice daily",
+                                "Warm fluids with honey and lemon to soothe mucosal tickle and cough reflex",
+                                "Avoid exposure to tobacco smoke, cooking fumes, and cold ambient air",
+                                "Adequate oral hydration (2.5 to 3 Litres daily) to prevent mucus plugging"
+                        ))
+                        .contraindicatedMedications(List.of(
+                                "ANTIBIOTIC STEWARDSHIP (CDC/ICMR): Routine empiric antibiotics (Azithromycin, Amoxicillin, Fluoroquinolones) are NOT recommended for uncomplicated acute bronchitis regardless of phlegm color."
+                        ))
+                        .diagnosticLabOrders(List.of("Chest Radiograph (PA view) if fever > 101°F, tachypnea > 24/min, or abnormal focal breath sounds"))
+                        .redFlagHospitalizationCriteria(List.of(
+                                "Severe breathlessness, respiratory rate > 28/min, or SpO2 < 92%",
+                                "Coughing up frank blood (hemoptysis)",
+                                "Stridor, grunting, or blue discoloration of lips or nail beds"
+                        ))
+                        .build())
+                .build());
+
+        // 10B. PNEUMONIA (CA40) - Primary Curated Pulmonary Infection Model
+        registerCoreEntity(ClinicalEntity.builder()
+                .icd11Code("CA40")
+                .foundationId("142052508")
+                .title("Pneumonia / Community-Acquired Lower Respiratory Infection")
+                .category("Pulmonology")
+                .specialistDepartment("Pulmonology / Internal Medicine / Infectious Diseases")
+                .urgencyTier("HIGH")
+                .isCurated(true)
+                .clinicalPresentation("Infection of the pulmonary parenchyma presenting with fever, productive cough, dyspnea, and focal physical or radiographic signs of consolidation.")
+                .hallmarkSymptoms(List.of("cough", "fever", "dyspnea", "shortness_of_breath", "pleuritic_chest_pain", "focal_crackles", "tachypnea"))
+                .associatedFeatures(List.of("sputum_production", "chills", "rigors", "sweating", "fatigue", "myalgia"))
+                .pertinentNegatives(List.of("absence_of_fever", "normal_breathing", "normal_respiratory_rate"))
+                .temporalCharacteristics("Subacute to acute presentation, typically progressive over 3 to 7 days without spontaneous recovery.")
+                .severityBoundaries("Stratified using CURB-65 criteria (Confusion, Urea > 7, RR >= 30, BP < 90/60, Age >= 65).")
+                .redFlags(List.of(
+                        "SpO2 < 92% on ambient room air (Severe gas exchange failure)",
+                        "Respiratory rate >= 30 breaths/min (Impending respiratory muscle exhaustion)",
+                        "Acute confusion, disorientation, or altered mental status",
+                        "Systolic blood pressure < 90 mmHg (Septic shock risk)",
+                        "Central cyanosis (blue lips or tongue)"
+                ))
+                .differentialRelationships(List.of(
+                        "CA42 Acute Bronchitis: Bronchitis lacks high fever, tachypnea, focal auscultation crackles, or hypoxia",
+                        "BA41 ACS: Pleuritic chest pain in pneumonia is respirophasic and accompanied by fever/cough"
+                ))
+                .reviewStatus("ENGINEERING_REVIEWED_NOT_CLINICALLY_VALIDATED")
+                .evidenceProvenance("CDC Core Elements of Outpatient Antibiotic Stewardship; IDSA/ATS Community-Acquired Pneumonia Practice Guidelines")
+                .guidelineProvenance("ICMR Standard Treatment Workflow for Community Acquired Pneumonia in Adults (Government Open Access)")
+                .discriminatorQuestions(List.of(
+                        DiscriminatorQuestion.builder()
+                                .id("PNEUMONIA_DISCRIMINATOR_CHILLS")
+                                .dimension("systemic_fever")
+                                .questionText("Do you have high fever accompanied by shaking chills (rigors) or profuse night sweats?")
+                                .quickReplies(List.of("No fever or only mild warmth", "High fever with shaking chills", "Mild on-off fever", "Fever controlled by paracetamol"))
+                                .conditionWeights(Map.of("CA40", 4.0, "CA42", -2.5))
+                                .diagnosticUtility(3.5)
+                                .build(),
+                        DiscriminatorQuestion.builder()
+                                .id("PNEUMONIA_DISCRIMINATOR_BREATHLESS")
+                                .dimension("dyspnea_severity")
+                                .questionText("Are you feeling breathless when talking or walking across the room?")
+                                .quickReplies(List.of("No breathlessness", "Breathless on stairs", "Breathless while walking across room", "Struggling to breathe at rest"))
+                                .conditionWeights(Map.of("CA40", 4.5, "CA42", -3.0))
+                                .diagnosticUtility(4.0)
+                                .build()
+                ))
+                .defaultPrescriptionProtocol(PrescriptionProtocol.builder()
+                        .icd11Code("CA40")
+                        .primaryDiagnosis("Community-Acquired Pneumonia")
+                        .specialistDepartment("Pulmonology / Internal Medicine")
+                        .medications(List.of(
+                                RxMedicationItem.builder()
+                                        .saltName("Amoxicillin 500mg")
+                                        .brandReference("Amoxil / Novamox 500")
+                                        .formulation("Capsule")
+                                        .strength("500 mg")
+                                        .route("Oral")
+                                        .dosageFrequency("1 capsule three times daily (every 8 hours) with meals")
+                                        .duration("5 to 7 days")
+                                        .instructions("Complete full antibiotic course even after fever abates. Report any allergic rash immediately.")
+                                        .indication("First-line empiric beta-lactam monotherapy for outpatient community-acquired pneumonia")
+                                        .prescriptionOnly(true)
+                                        .build()
+                        ))
+                        .supportiveCare(List.of(
+                                "Pulse oximetry monitoring twice daily; seek immediate ER care if SpO2 < 93%",
+                                "Strict oral hydration (at least 2.5 Litres daily) and physical rest",
+                                "Paracetamol 650mg every 6 hours PRN for fever reduction and pleuritic discomfort"
+                        ))
+                        .contraindicatedMedications(List.of("Cough suppressants that suppress expectoration of infected secretions"))
+                        .diagnosticLabOrders(List.of("Chest Radiograph (PA & Lateral)", "Complete Blood Count (CBC) with Differential", "Pulse Oximetry / ABG if hypoxic"))
+                        .redFlagHospitalizationCriteria(List.of(
+                                "CURB-65 score >= 2 (Requires in-patient hospitalization)",
+                                "SpO2 < 92% or severe respiratory distress",
+                                "Inability to maintain oral hydration or medications"
+                        ))
+                        .build())
+                .build());
+
+        // 10C. ACUTE BRONCHITIS (CA20) - Legacy Code Alias
         registerCoreEntity(ClinicalEntity.builder()
                 .icd11Code("CA20")
-                .title("Acute Bronchitis / Tracheobronchial Airway Reactivity")
+                .title("Acute Bronchitis / Tracheobronchial Airway Reactivity (Legacy Alias)")
                 .category("Pulmonology")
                 .specialistDepartment("Pulmonology")
                 .urgencyTier("LOW")
@@ -1338,11 +1513,11 @@ public class LocalClinicalEntityRegistry {
                 .pertinentNegatives(List.of("hemoptysis", "high_fever", "chest_pain"))
                 .discriminatorQuestions(List.of(
                         DiscriminatorQuestion.builder()
-                                .id("BRONCHITIS_DISCRIMINATOR_SPUTUM")
+                                .id("BRONCHITIS_LEGACY_DISCRIMINATOR_SPUTUM")
                                 .dimension("cough_character")
                                 .questionText("Is your cough dry and hacking, or is it producing yellow/green phlegm or mucus?")
                                 .quickReplies(List.of("Dry irritant cough", "Productive with clear mucus", "Thick yellow/green phlegm", "Coughing with wheeze"))
-                                .conditionWeights(Map.of("CA20", 3.0, "PNEUMONIA", 4.0))
+                                .conditionWeights(Map.of("CA20", 3.0, "CA42", 4.0, "CA40", 2.0))
                                 .diagnosticUtility(2.5)
                                 .build()
                 ))
@@ -1359,35 +1534,15 @@ public class LocalClinicalEntityRegistry {
                                         .route("Oral")
                                         .dosageFrequency("10 ml three times daily after food")
                                         .duration("5 to 7 days")
-                                        .instructions("Drink a full glass of warm water with each dose to aid mucolytic thinning.")
+                                        .instructions("Drink warm water with each dose.")
                                         .indication("Mucus liquefaction and tracheobronchial clearance")
                                         .prescriptionOnly(false)
-                                        .build(),
-                                RxMedicationItem.builder()
-                                        .saltName("Levosalbutamol Inhaler (PRN)")
-                                        .brandReference("Levolin 50mcg Inhaler")
-                                        .formulation("Metered Dose Inhaler")
-                                        .strength("50 mcg/puff")
-                                        .route("Inhalation")
-                                        .dosageFrequency("1 to 2 puffs every 6 to 8 hours PRN for wheezing or bronchospasm")
-                                        .duration("5 days")
-                                        .instructions("Rinse mouth with water after inhalation. Use with spacer if available.")
-                                        .indication("Bronchodilation for reactive airway bronchospasm")
-                                        .prescriptionOnly(true)
                                         .build()
                         ))
-                        .supportiveCare(List.of(
-                                "Steam inhalation with plain water for 10 minutes twice daily",
-                                "Warm water with honey and lemon to soothe mucosal tickle and pharyngeal irritation",
-                                "Avoid exposure to cigarette smoke, kitchen exhaust fumes, and cold ambient air"
-                        ))
+                        .supportiveCare(List.of("Steam inhalation twice daily", "Adequate rest and warm fluids"))
                         .contraindicatedMedications(List.of("Routine unindicated empirical antibiotics for acute uncomplicated viral bronchitis"))
-                        .diagnosticLabOrders(List.of("Chest Radiograph (PA view) if fever > 101°F, tachypnea > 24/min, or focal crackles on lung auscultation"))
-                        .redFlagHospitalizationCriteria(List.of(
-                                "Severe shortness of breath, respiratory rate > 28/min, or oxygen saturation SpO2 < 93%",
-                                "Coughing up frank red blood (hemoptysis)",
-                                "Stridor, grunting, or blue discoloration around lips"
-                        ))
+                        .diagnosticLabOrders(List.of("Chest Radiograph if persistent high fever or tachypnea"))
+                        .redFlagHospitalizationCriteria(List.of("Severe shortness of breath or oxygen saturation SpO2 < 93%"))
                         .build())
                 .build());
 

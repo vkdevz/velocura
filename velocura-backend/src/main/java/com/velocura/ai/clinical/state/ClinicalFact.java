@@ -95,6 +95,9 @@ public class ClinicalFact implements Serializable {
     }
 
     public static ClinicalFact userReported(String name, String value, int turn) {
+        if ("absent".equalsIgnoreCase(value) || "denied".equalsIgnoreCase(value)) {
+            return denied(name, turn);
+        }
         return present(name, value, turn);
     }
 

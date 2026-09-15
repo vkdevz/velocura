@@ -25,7 +25,7 @@ public class SafetyScreeningEngine {
     );
 
     private static final Pattern RESPIRATORY_EMERGENCY = Pattern.compile(
-        "(?i)\\b(can't\\s*breathe|cannot\\s*breathe|struggling\\s*to\\s*breathe|severe\\s*(shortness\\s*of\\s*breath|breathlessness|dyspnea)|suffocating|gasping\\s*for\\s*air|blue\\s*lips|cyanosis|lips\\s*turning\\s*blue|stridor)\\b"
+        "(?i)\\b(can't\\s*breathe|cannot\\s*breathe|struggling\\s*to\\s*breathe|severe\\s*(shortness\\s*of\\s*breath|breathlessness|dyspnea)|suffocating|gasping\\s*for\\s*air|blue\\s*(lips|skin|face)|(lips|skin|face)\\s*(are\\s*|is\\s*)?(turning\\s*)?blue|cyanosis|stridor)\\b"
     );
 
     private static final Pattern NEURO_STROKE_EMERGENCY = Pattern.compile(

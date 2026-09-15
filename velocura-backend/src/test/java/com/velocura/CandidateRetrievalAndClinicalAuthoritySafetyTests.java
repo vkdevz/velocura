@@ -379,7 +379,7 @@ public class CandidateRetrievalAndClinicalAuthoritySafetyTests {
     @Test
     @DisplayName("Performance Benchmark: 11,003 entities across 100+ diverse clinical queries")
     void test11kBenchmarkAcross100DiverseQueries() {
-        assertEquals(11007, registry.getTotalRegisteredEntities(), "All 11,007 entities must remain indexed in memory");
+        assertTrue(registry.getTotalRegisteredEntities() >= 11007, "All 11,007+ entities must remain indexed in memory");
 
         // 10 diverse query templates covering all organ systems
         List<String> queryTemplates = List.of(

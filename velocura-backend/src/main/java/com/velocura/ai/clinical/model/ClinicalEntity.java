@@ -41,4 +41,28 @@ public class ClinicalEntity {
 
     @Builder.Default
     private boolean isCurated = false;
+
+    private String foundationId;
+    private String clinicalPresentation;
+
+    @Builder.Default
+    private List<String> associatedFeatures = new ArrayList<>();
+
+    private String temporalCharacteristics;
+    private String severityBoundaries;
+
+    @Builder.Default
+    private List<String> redFlags = new ArrayList<>();
+
+    @Builder.Default
+    private List<String> differentialRelationships = new ArrayList<>();
+
+    private String evidenceProvenance;
+    private String guidelineProvenance;
+
+    @Builder.Default
+    private String modelVersion = "1.0.0";
+
+    @Builder.Default
+    private String reviewStatus = "ENGINEERING_REVIEWED_NOT_CLINICALLY_VALIDATED";
 }

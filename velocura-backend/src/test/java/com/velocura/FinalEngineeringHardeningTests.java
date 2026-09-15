@@ -91,7 +91,7 @@ public class FinalEngineeringHardeningTests {
         KnowledgeSource source = sourceRepository.findById(WhoIcd11SourceAdapter.SOURCE_ID).orElse(null);
         assertNotNull(source);
         assertEquals("World Health Organization (WHO)", source.getPublisher());
-        assertEquals("WHO ICD-11 Terms of Use", source.getLicense());
+        assertEquals(WhoIcd11SourceAdapter.LICENSE, source.getLicense());
         assertNotNull(source.getChecksum());
         assertFalse(source.getChecksum().isBlank());
 
