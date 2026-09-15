@@ -69,7 +69,36 @@ public class LongitudinalStateTracker {
         }
 
         // 3. Set Trajectory
-        if (isWorsening) {
+        String priorTrajectory = state.getSymptomTrajectory();
+        boolean isBiphasicDoubleWorsening = ("IMPROVING".equalsIgnoreCase(priorTrajectory) && isWorsening)
+                || lower.contains("worse after improving")
+                || lower.contains("worse after getting better")
+                || (lower.contains("improved") && lower.contains("worse"))
+                || (lower.contains("better") && lower.contains("worse"));
+
+        boolean isPersistent = lower.contains("persistent")
+                || lower.contains("persisting")
+                || lower.contains("not improved")
+                || lower.contains("has not improved")
+                || lower.contains("hasn't improved");
+
+        // Check for acute red flags (stridor, drooling, orbital swelling, diplopia)
+        if (lower.contains("orbital swelling") || lower.contains("orbital cellulitis") || lower.contains("periorbital swelling")
+                || lower.contains("periorbital cellulitis") || lower.contains("double vision")
+                || lower.contains("diplopia") || lower.contains("stridor") || lower.contains("drooling")
+                || lower.contains("eye swollen") || lower.contains("swollen shut")) {
+            state.setCurrentRiskLevel(ClinicalRiskLevel.CRITICAL);
+            log.warn("[LONGITUDINAL] Emergency red-flag symptom detected longitudinally. Escalating to CRITICAL.");
+        } else if (isBiphasicDoubleWorsening) {
+            state.setSymptomTrajectory("DOUBLE_WORSENING");
+            log.info("[LONGITUDINAL] Trajectory DOUBLE_WORSENING (biphasic course) detected. Triggering risk reassessment.");
+            if (priorRisk == ClinicalRiskLevel.LOW) {
+                state.setCurrentRiskLevel(ClinicalRiskLevel.MODERATE);
+            }
+        } else if (isPersistent) {
+            state.setSymptomTrajectory("PERSISTENT");
+            log.info("[LONGITUDINAL] Trajectory PERSISTENT course detected.");
+        } else if (isWorsening) {
             state.setSymptomTrajectory("WORSENING");
             log.info("[LONGITUDINAL] Trajectory WORSENING detected. Triggering risk reassessment.");
             // Escalate risk if worsening significantly

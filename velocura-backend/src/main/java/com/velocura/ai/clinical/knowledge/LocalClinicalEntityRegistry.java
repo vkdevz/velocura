@@ -1659,6 +1659,137 @@ public class LocalClinicalEntityRegistry {
                         .build())
                 .build());
 
+        // 10B. ACUTE SINUSITIS / ACUTE RHINOSINUSITIS (CA01)
+        registerCoreEntity(ClinicalEntity.builder()
+                .icd11Code("CA01")
+                .foundationId("509821856")
+                .title("Acute sinusitis")
+                .category("Otorhinolaryngology / Upper Respiratory")
+                .specialistDepartment("Otorhinolaryngology (ENT) / General Medicine")
+                .urgencyTier("LOW")
+                .isCurated(true)
+                .clinicalPresentation("Acute inflammation of the paranasal sinuses and nasal cavity presenting with nasal congestion/obstruction, purulent or discolored nasal discharge, facial pain/pressure/fullness, and reduction or loss of smell. Major diagnostic consensus (EPOS 2020, IDSA, AAO-HNS) establishes that >90-98% of acute rhinosinusitis cases are viral or post-viral. Presumptive acute bacterial rhinosinusitis (ABRS) is considered only in the presence of: (1) persistent symptoms >= 10 days without clinical improvement, (2) severe presentation (high fever >= 39°C with purulent nasal discharge and facial pain for >= 3-4 consecutive days), or (3) 'double worsening' (new worsening fever, headache, or increased discharge after typical 5-6 day initial viral improvement).")
+                .hallmarkSymptoms(List.of("nasal_congestion", "facial_pain", "facial_pressure", "nasal_discharge", "purulent_nasal_discharge"))
+                .associatedFeatures(List.of("hyposmia", "postnasal_drip", "headache", "fever", "maxillary_toothache", "cough", "cold_symptoms", "malaise"))
+                .pertinentNegatives(List.of("orbital_swelling", "diplopia", "vision_change", "painful_eye_movement", "stridor", "drooling", "neck_stiffness"))
+                .temporalCharacteristics("Acute onset; acute viral rhinosinusitis typically resolves within 7 to 10 days. Bacterial suspicion requires symptoms >= 10 days without improvement or classic biphasic 'double worsening'.")
+                .severityBoundaries("Mild to moderate facial heaviness and rhinitis managed supportively. Orbital complications (periorbital cellulitis, proptosis, diplopia, restricted/painful ocular motility) or intracranial extension (severe frontal headache with meningismus, altered consciousness) constitute surgical/medical emergencies.")
+                .reviewStatus("ENGINEERING_REVIEWED_NOT_CLINICALLY_VALIDATED")
+                .redFlags(List.of(
+                        "Periorbital or orbital edema, erythema, or cellulitis (Suspected orbital extension / subperiosteal abscess)",
+                        "Diplopia, ophthalmoplegia, or visual acuity decrement (Orbital apex syndrome / cavernous sinus thrombosis)",
+                        "Severe unrelenting frontal headache or meningismus (Suspected intracranial abscess or meningitis)",
+                        "Unilateral proptosis or eye swollen shut",
+                        "High continuous fever with systemic toxic appearance"
+                ))
+                .differentialRelationships(List.of(
+                        "Viral Upper Respiratory Infection (Common Cold): Acute self-limiting illness < 10 days with peak at days 2-3 and spontaneous gradual resolution",
+                        "Allergic Rhinitis: Characterized by pruritus (itchy eyes/nose), clear watery rhinorrhea, sneezing paroxysms, and lack of facial pain/fever",
+                        "CA02 Acute Pharyngitis: Predominantly pharyngeal odynophagia/tonsillar inflammation without prominent paranasal pressure or purulent rhinitis",
+                        "Dental Abscess / Odontogenic Sinusitis: Unilateral maxillary sinusitis secondary to periapical infection of upper molars/premolars",
+                        "Orbital Cellulitis / Cavernous Sinus Thrombosis: Life-threatening orbital/intracranial extension characterized by chemosis, proptosis, and ophthalmoplegia"
+                ))
+                .evidenceProvenance("European Position Paper on Rhinosinusitis and Nasal Polyps (EPOS 2020); IDSA Clinical Practice Guideline for Acute Bacterial Rhinosinusitis in Children and Adults (2012); AAO-HNS Clinical Practice Guideline: Adult Sinusitis (2015 update)")
+                .guidelineProvenance("NICE Guideline [NG79] Sinusitis (acute): antimicrobial prescribing; US CDC Core Elements of Outpatient Antibiotic Stewardship (Adult and Pediatric Rhinosinusitis)")
+                .discriminatorQuestions(List.of(
+                        DiscriminatorQuestion.builder()
+                                .id("SINUSITIS_DISCRIMINATOR_DURATION")
+                                .dimension("symptom_duration_and_trajectory")
+                                .questionText("How many days have you had these sinus symptoms, and have they been continuously present or worsening after an initial improvement?")
+                                .quickReplies(List.of("Less than 7 days, gradually improving", "7 to 10 days, about the same", "More than 10 days without any improvement", "Improved for a few days then got noticeably worse"))
+                                .conditionWeights(Map.of("CA01", 4.0))
+                                .diagnosticUtility(4.5)
+                                .build(),
+                        DiscriminatorQuestion.builder()
+                                .id("SINUSITIS_DISCRIMINATOR_DISCHARGE")
+                                .dimension("nasal_discharge_characteristics")
+                                .questionText("What is the color and consistency of your nasal drainage, and is it mostly on one side or both sides?")
+                                .quickReplies(List.of("Clear and watery, both sides", "Thick yellow or green pus", "Unilateral (one-sided) discolored drainage", "No significant drainage, just congestion"))
+                                .conditionWeights(Map.of("CA01", 3.5))
+                                .diagnosticUtility(3.5)
+                                .build(),
+                        DiscriminatorQuestion.builder()
+                                .id("SINUSITIS_DISCRIMINATOR_FACIAL_PAIN")
+                                .dimension("facial_pressure_distribution")
+                                .questionText("Where is the pressure or discomfort focused (cheeks, forehead, behind the eyes, or upper teeth)?")
+                                .quickReplies(List.of("Cheek pressure / upper teeth ache", "Forehead and between the eyes", "Generalized head fullness", "No facial pressure or pain"))
+                                .conditionWeights(Map.of("CA01", 3.0))
+                                .diagnosticUtility(3.0)
+                                .build(),
+                        DiscriminatorQuestion.builder()
+                                .id("SINUSITIS_DISCRIMINATOR_ORBITAL_SAFETY")
+                                .dimension("orbital_and_visual_red_flags")
+                                .questionText("Do you have any swelling or redness around either eye, double vision, or pain when you move your eyes?")
+                                .quickReplies(List.of("No eye swelling or vision problems", "Puffy eyelids without redness or pain", "Swelling/redness around eye or double vision", "Painful eye movements"))
+                                .conditionWeights(Map.of("CA01", 2.0))
+                                .diagnosticUtility(5.0)
+                                .build()
+                ))
+                .defaultPrescriptionProtocol(PrescriptionProtocol.builder()
+                        .icd11Code("CA01")
+                        .primaryDiagnosis("Acute Rhinosinusitis")
+                        .specialistDepartment("Otorhinolaryngology (ENT) / General Medicine")
+                        .medications(List.of(
+                                RxMedicationItem.builder()
+                                        .saltName("Nasal Saline Irrigation / Spray")
+                                        .brandReference("Sterimar / NeilMed Sinus Rinse / Normal Saline 0.9%")
+                                        .formulation("Nasal Spray / High-Volume Low-Pressure Sinus Wash")
+                                        .strength("0.9% Isotonic or buffered Hypertonic Saline")
+                                        .route("Intranasal")
+                                        .dosageFrequency("1 to 2 sprays or flushes in each nostril 2 to 4 times daily")
+                                        .duration("7 to 14 days")
+                                        .instructions("Irrigate nasal passages with sterile, distilled, or boiled cooled water. Clears mucosal crusts and promotes mucociliary clearance.")
+                                        .indication("First-line symptomatic relief and mucociliary clearance in acute rhinosinusitis")
+                                        .prescriptionOnly(false)
+                                        .build(),
+                                RxMedicationItem.builder()
+                                        .saltName("Paracetamol (Acetaminophen) or Ibuprofen")
+                                        .brandReference("Dolo 650 / Brufen 400")
+                                        .formulation("Tablet")
+                                        .strength("650 mg Paracetamol or 400 mg Ibuprofen")
+                                        .route("Oral")
+                                        .dosageFrequency("1 tablet every 6 to 8 hours PRN for facial pressure, headache, or fever")
+                                        .duration("3 to 5 days PRN")
+                                        .instructions("Take with food or a glass of water. Do not exceed maximum daily doses.")
+                                        .indication("Analgesic and anti-inflammatory relief of sinus facial pain and headache")
+                                        .prescriptionOnly(false)
+                                        .build(),
+                                RxMedicationItem.builder()
+                                        .saltName("Intranasal Corticosteroid (Fluticasone Propionate or Mometasone)")
+                                        .brandReference("Flixonase / Nasonex")
+                                        .formulation("Nasal Spray")
+                                        .strength("50 mcg per actuation")
+                                        .route("Intranasal")
+                                        .dosageFrequency("1 to 2 sprays in each nostril once or twice daily")
+                                        .duration("14 days")
+                                        .instructions("Blow nose gently before use. Aim spray tip slightly outward away from the nasal septum toward the ear to minimize mucosal bleeding.")
+                                        .indication("Reduction of mucosal inflammation in acute rhinosinusitis, especially with allergic diathesis or prolonged symptoms")
+                                        .prescriptionOnly(true)
+                                        .build()
+                        ))
+                        .supportiveCare(List.of(
+                                "Adequate oral hydration to thin mucous secretions",
+                                "Warm facial compresses over the cheeks and forehead to ease sinus pressure",
+                                "Steam inhalation with moist humidified air; avoid dry heated indoor air",
+                                "Sleep with the head slightly elevated to facilitate paranasal drainage"
+                        ))
+                        .contraindicatedMedications(List.of(
+                                "ANTIMICROBIAL STEWARDSHIP: Routine empirical antibiotic prescription is strictly prohibited for acute rhinosinusitis with symptom duration < 10 days without verified bacterial criteria ('double worsening' or severe focal presentation). Over 90% of acute rhinosinusitis is viral.",
+                                "Topical decongestant sprays (e.g. Oxymetazoline, Xylometazoline) for more than 3 to 5 consecutive days due to risk of rhinitis medicamentosa (rebound congestion)",
+                                "Aspirin in children and adolescents under 19 years due to Reye's syndrome risk"
+                        ))
+                        .diagnosticLabOrders(List.of(
+                                "Diagnostic paranasal CT or endoscopy reserved for suspected complications or refractory/recurrent cases",
+                                "Routine sinus radiography (X-ray) is not recommended"
+                        ))
+                        .redFlagHospitalizationCriteria(List.of(
+                                "Periorbital swelling, erythema, proptosis, or visual disturbance",
+                                "Severe frontal headache with meningismus or altered mental status",
+                                "High unremitting fever with severe systemic toxicity"
+                        ))
+                        .build())
+                .build());
+
         // 11. ACUTE CORONARY SYNDROME / MYOCARDIAL INFARCTION (BA41)
         registerCoreEntity(ClinicalEntity.builder()
                 .icd11Code("BA41")

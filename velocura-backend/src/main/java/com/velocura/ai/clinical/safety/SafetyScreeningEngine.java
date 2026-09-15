@@ -32,6 +32,10 @@ public class SafetyScreeningEngine {
         "(?i)\\b(can't\\s*swallow\\s*(my\\s*)?(saliva|spit)|cannot\\s*swallow\\s*(my\\s*)?(saliva|spit)|unable\\s*to\\s*swallow\\s*(saliva|secretions)|inability\\s*to\\s*swallow\\s*(saliva|secretions)|drooling.*(can't|cannot|unable\\s*to)\\s*swallow|(can't|cannot|unable\\s*to)\\s*swallow.*drooling|stridor|noisy\\s*airway|tracheal\\s*tugging)\\b"
     );
 
+    private static final Pattern SINUS_ORBITAL_COMPLICATION_EMERGENCY = Pattern.compile(
+        "(?i)\\b(orbital\\s*(?:cellulitis|abscess|swelling|edema)|periorbital\\s*(?:cellulitis|swelling|edema|erythema)|diplopia|double\\s*vision|pain\\s*(?:with|on|when\\s*moving)\\s*eye\\s*movements?|painful\\s*eye\\s*movements?|restricted\\s*eye\\s*movements?|ophthalmoplegia|proptosis|bulging\\s*eye|(?:eye|eyelid)\\s*(?:is\\s*)?swollen\\s*shut|swollen\\s*(?:shut|around\\s*eyes?)|(?:swollen\\s*(?:around\\s*)?eyes?|eye\\s*swelling).*(?:sinus|congestion|facial|nose|eyelid)|(?:sinus|congestion|facial|nose|eyelid).*(?:swollen\\s*(?:around\\s*)?eyes?|eye\\s*swelling))\\b"
+    );
+
     private static final Pattern NEURO_STROKE_EMERGENCY = Pattern.compile(
         "(?i)\\b(stroke|facial\\s*(droop|numbness)|face\\s*droop|(arm|leg|unilateral|one[- ]sided)\\s*weakness|sudden\\s*weakness(\\s*on\\s*one\\s*side)?|slurred\\s*speech|can't\\s*speak|cannot\\s*speak|(speech|speaking)\\s*difficulty|trouble\\s*speaking|sudden\\s*(numbness\\s*on\\s*one\\s*side|paralysis|loss\\s*of\\s*vision|confusion|loss\\s*of\\s*balance|loss\\s*of\\s*coordination)|fast\\s*symptoms)\\b"
     );
@@ -151,6 +155,17 @@ public class SafetyScreeningEngine {
             return buildEmergencyResponse(
                 "Acute upper airway compromise.",
                 "Sit upright, do not lie down, do not attempt to force food or fluids, and call for emergency medical assistance immediately. "
+                    + getEmergencyContactInstruction(patientContext, false),
+                redFlags
+            );
+        }
+
+        // 5C. Sinus Complications / Orbital Emergency (Cellulitis, Abscess, Vision Loss, Diplopia, Ophthalmoplegia)
+        if (SINUS_ORBITAL_COMPLICATION_EMERGENCY.matcher(text).find() && !text.toLowerCase().contains("petechiae") && !text.toLowerCase().contains("red spots")) {
+            redFlags.add("Acute orbital or intracranial complication of rhinosinusitis (orbital swelling/cellulitis, diplopia, ophthalmoplegia)");
+            return buildEmergencyResponse(
+                "Acute orbital or intracranial complication.",
+                "Periorbital swelling, double vision, or pain with eye movement complicating sinus symptoms requires emergency ophthalmologic and medical evaluation. "
                     + getEmergencyContactInstruction(patientContext, false),
                 redFlags
             );
