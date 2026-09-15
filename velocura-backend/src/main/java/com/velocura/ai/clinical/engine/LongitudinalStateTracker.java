@@ -107,11 +107,28 @@ public class LongitudinalStateTracker {
             } else if (priorRisk == ClinicalRiskLevel.MODERATE && (lower.contains("unbearable") || lower.contains("severe"))) {
                 state.setCurrentRiskLevel(ClinicalRiskLevel.HIGH);
             }
+        } else if (lower.contains("returned") || lower.contains("came back") || lower.contains("recurrent")) {
+            state.setSymptomTrajectory("RECURRENT");
+            log.info("[LONGITUDINAL] Trajectory RECURRENT / RETURNED detected.");
+        } else if (lower.contains("resolved") || lower.contains("gone away") || lower.contains("disappeared")) {
+            state.setSymptomTrajectory("RESOLVED");
+            log.info("[LONGITUDINAL] Trajectory RESOLVED detected.");
+        } else if (lower.contains("stable") || lower.contains("unchanged") || lower.contains("same")) {
+            state.setSymptomTrajectory("STABLE");
+            log.info("[LONGITUDINAL] Trajectory STABLE detected.");
         } else if (isImproving) {
             state.setSymptomTrajectory("IMPROVING");
             log.info("[LONGITUDINAL] Trajectory IMPROVING detected.");
         } else if (newSymptomsExtracted != null && !newSymptomsExtracted.isEmpty() && state.getStateVersion() > 1) {
             state.setSymptomTrajectory("EVOLVING");
+        }
+
+        // Track symptom migration if present
+        for (ClinicalFact fact : state.getSymptoms().values()) {
+            if (fact.isMigrating() && fact.getMigrationOrigin() != null && fact.getMigrationDestination() != null) {
+                diff.getModifiedFacts().put("symptom_migration", fact.getMigrationOrigin() + " -> " + fact.getMigrationDestination());
+                break;
+            }
         }
 
         if (priorRisk != state.getCurrentRiskLevel()) {

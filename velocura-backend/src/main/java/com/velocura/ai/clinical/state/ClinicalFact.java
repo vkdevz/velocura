@@ -44,6 +44,16 @@ public class ClinicalFact implements Serializable {
     private String temporalInformation;
     private String episodeId;
     
+    // Stage 4 generalized relationship attributes
+    private String character;
+    private String radiationSite;
+    private String migrationOrigin;
+    private String migrationDestination;
+    private boolean isMigrating;
+    private String triggerContext;
+    private String betterWith;
+    private String worseWith;
+    
     @Builder.Default
     private double confidence = 1.0;
     

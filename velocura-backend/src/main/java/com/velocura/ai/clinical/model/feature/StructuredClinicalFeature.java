@@ -45,6 +45,18 @@ public class StructuredClinicalFeature implements Serializable {
     // Feature qualifiers (e.g. "productive", "purulent_yellow", "clear", "dry", "sharp", "burning")
     @Builder.Default
     private List<String> qualifiers = new ArrayList<>();
+
+    // Detailed character/quality: SHARP, DULL, BURNING, PRESSURE, CRAMPING, THROBBING, ACHING
+    private String character;
+
+    // Relationships & symptom context
+    private String radiationSite;          // e.g. "LEFT_ARM", "JAW", "BACK"
+    private String migrationOrigin;        // e.g. "PERIUMBILICAL", "BELLY_BUTTON"
+    private String migrationDestination;   // e.g. "RLQ", "RIGHT_LOWER_ABDOMEN"
+    private boolean isMigrating;
+    private String triggerContext;         // e.g. "POST_MEAL", "ON_EXERTION", "CLIMBING_STAIRS"
+    private String betterWith;             // e.g. "REST", "ANTACIDS", "DARK_ROOM"
+    private String worseWith;              // e.g. "MOVEMENT", "COUGHING", "DEEP_BREATH"
     
     // Associated findings within same clause
     @Builder.Default
