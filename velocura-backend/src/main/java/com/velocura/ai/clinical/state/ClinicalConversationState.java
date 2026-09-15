@@ -92,6 +92,12 @@ public class ClinicalConversationState implements Serializable {
     private ClinicalPhase currentPhase = ClinicalPhase.SCREENING;
 
     private String lastQuestion;
+    private String lastQuestionId;
+    private String lastQuestionDimension;
+    private String lastQuestionTargetConcept;
+    private String lastQuestionExpectedType; // AFFIRMATION_DENIAL, DISCRIMINATOR_CHOICE
+    @Builder.Default
+    private List<String> lastQuestionQuickReplies = new ArrayList<>();
 
     @Builder.Default
     private List<String> answeredQuestions = new ArrayList<>();
@@ -254,6 +260,40 @@ public class ClinicalConversationState implements Serializable {
         }
         if (text != null && !text.isBlank()) {
             recordAnsweredQuestion(text);
+        }
+    }
+
+    public void setPendingQuestionContext(String id, String targetConcept, String dimension, String expectedType, List<String> quickReplies) {
+        this.lastQuestionId = id;
+        this.lastQuestionTargetConcept = targetConcept;
+        this.lastQuestionDimension = dimension;
+        this.lastQuestionExpectedType = expectedType;
+        this.lastQuestionQuickReplies = quickReplies != null ? new ArrayList<>(quickReplies) : new ArrayList<>();
+    }
+
+    public void clearPendingQuestionContext() {
+        this.lastQuestionId = null;
+        this.lastQuestionTargetConcept = null;
+        this.lastQuestionDimension = null;
+        this.lastQuestionExpectedType = null;
+        this.pendingClarificationTopic = null;
+        if (this.lastQuestionQuickReplies != null) {
+            this.lastQuestionQuickReplies.clear();
+        }
+    }
+
+    public void resolveContradiction(String topic, boolean affirmed, int turn) {
+        if (topic == null || contradictions == null) return;
+        for (ClinicalContradiction c : contradictions) {
+            if (topic.equalsIgnoreCase(c.getTopic()) && "REQUIRES_CLARIFICATION".equals(c.getStatus())) {
+                c.setStatus(affirmed ? "RESOLVED_LATER" : "RESOLVED_EARLIER");
+                c.setResolvedTurn(turn);
+                c.setResolutionNote(affirmed ? "Affirmed by patient in clarification turn " + turn
+                                             : "Denied/clarified absent by patient in clarification turn " + turn);
+            }
+        }
+        if (conflictingFacts != null) {
+            conflictingFacts.removeIf(f -> f.toLowerCase(Locale.ROOT).contains(topic.toLowerCase(Locale.ROOT)));
         }
     }
 

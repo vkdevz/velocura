@@ -203,6 +203,12 @@ public class AdaptiveClinicalConversationEngine {
             state.setRecommendedAction(NextAction.ASK);
         }
 
+        // ─── STAGE 5.5: FOLLOW-UP & CLARIFICATION ANSWER BINDING ──────────────
+        boolean wasFollowUpBound = bindFollowUpAnswerIfApplicable(normText, rawInput, state);
+        if (wasFollowUpBound) {
+            state.setCurrentPhase(ClinicalPhase.ASSESSMENT);
+        }
+
         // ─── STAGE 6: CONTRADICTION DETECTION & RESOLUTION ────────────────────
         ContradictionDetector.ContradictionResult contradiction = contradictionDetector.detect(normText, state);
         if (contradiction.hasContradiction()) {
@@ -210,6 +216,13 @@ public class AdaptiveClinicalConversationEngine {
             state.setCurrentPhase(ClinicalPhase.CLARIFICATION);
             state.setRecommendedAction(NextAction.CLARIFY);
             state.setLastQuestion(contradiction.getClarificationPrompt());
+            state.setPendingQuestionContext(
+                "RESOLVE_CONTRADICTION_" + contradiction.getContradictedFact(),
+                contradiction.getContradictedFact(),
+                contradiction.getContradictedFact(),
+                "AFFIRMATION_DENIAL",
+                java.util.List.of("Yes, experiencing now", "No, not experiencing")
+            );
 
             ClinicalContradiction cc = ClinicalContradiction.builder()
                     .topic(contradiction.getContradictedFact())
@@ -225,6 +238,10 @@ public class AdaptiveClinicalConversationEngine {
 
             NextBestQuestionEngine.QuestionDecision decision = new NextBestQuestionEngine.QuestionDecision(
                 true,
+                "RESOLVE_CONTRADICTION_" + contradiction.getContradictedFact(),
+                contradiction.getContradictedFact(),
+                contradiction.getContradictedFact(),
+                "AFFIRMATION_DENIAL",
                 contradiction.getClarificationPrompt(),
                 java.util.List.of("Yes, experiencing now", "No, not experiencing"),
                 NextAction.CLARIFY
@@ -296,11 +313,20 @@ public class AdaptiveClinicalConversationEngine {
         if (actionDecision != null && actionDecision.isShouldAsk()) {
             state.setCurrentPhase(ClinicalPhase.ASSESSMENT);
             state.setLastQuestion(actionDecision.getQuestionText());
-            state.recordAskedQuestion("Q_" + state.getTurnCount(), "voi_eval", actionDecision.getQuestionText());
+            state.setPendingQuestionContext(
+                actionDecision.getQuestionId(),
+                actionDecision.getTargetConcept(),
+                actionDecision.getDimension(),
+                actionDecision.getExpectedResponseType(),
+                actionDecision.getQuickReplies()
+            );
+            state.recordAskedQuestion(actionDecision.getQuestionId(), actionDecision.getDimension(), actionDecision.getQuestionText());
             questionDecision = new NextBestQuestionEngine.QuestionDecision(
                 true,
-                "Q_" + state.getTurnCount(),
-                "voi_eval",
+                actionDecision.getQuestionId(),
+                actionDecision.getDimension(),
+                actionDecision.getTargetConcept(),
+                actionDecision.getExpectedResponseType(),
                 actionDecision.getQuestionText(),
                 actionDecision.getQuickReplies(),
                 actionDecision.getAction()
@@ -311,6 +337,13 @@ public class AdaptiveClinicalConversationEngine {
             if (questionDecision.isShouldAsk()) {
                 state.setCurrentPhase(ClinicalPhase.ASSESSMENT);
                 state.setLastQuestion(questionDecision.getQuestionText());
+                state.setPendingQuestionContext(
+                    questionDecision.getQuestionId(),
+                    questionDecision.getTargetConcept(),
+                    questionDecision.getDimension(),
+                    questionDecision.getExpectedResponseType(),
+                    questionDecision.getQuickReplies()
+                );
                 state.recordAskedQuestion(questionDecision.getQuestionId(), questionDecision.getDimension(), questionDecision.getQuestionText());
             } else {
                 state.setCurrentPhase(ClinicalPhase.GUIDANCE);
@@ -508,6 +541,93 @@ public class AdaptiveClinicalConversationEngine {
 
     public ClinicalStateStore getStateStore() {
         return stateStore;
+    }
+
+    private boolean bindFollowUpAnswerIfApplicable(String normText, String rawInput, ClinicalConversationState state) {
+        if (state == null || normText == null || normText.isBlank()) return false;
+        String targetConcept = state.getLastQuestionTargetConcept();
+        String questionId = state.getLastQuestionId();
+        String expectedType = state.getLastQuestionExpectedType();
+        String lastQ = state.getLastQuestion();
+        int turn = state.getTurnCount();
+        String lower = normText.toLowerCase(java.util.Locale.ROOT).trim();
+
+        // 1. Generic Yes/No without question context must NEVER be blindly interpreted (Invariant E)
+        boolean isGenericAffirmation = lower.matches("^(yes|yeah|yep|yup|i am|sure|affirmative|true)$");
+        boolean isGenericDenial = lower.matches("^(no|nope|nah|none|neither|negative|false)$");
+        if ((isGenericAffirmation || isGenericDenial) && targetConcept == null && lastQ == null) {
+            log.info("[ANSWER BINDING] Generic yes/no received with no question context. Preserving epistemic boundary.");
+            return false;
+        }
+
+        // 2. Contradiction clarification / Targeted affirmation-denial response (Invariants C, D, F)
+        boolean isClarifyAffirmation = lower.contains("yes, experiencing now") || lower.contains("experiencing now") 
+                || lower.contains("currently experiencing it") || lower.contains("yes i have it") || lower.contains("i have fever")
+                || (isGenericAffirmation && ("AFFIRMATION_DENIAL".equals(expectedType) || (questionId != null && questionId.startsWith("RESOLVE_CONTRADICTION"))));
+        
+        boolean isClarifyDenial = lower.contains("no, not experiencing") || lower.contains("not experiencing") 
+                || lower.contains("no fever") || lower.contains("don't have fever") || lower.contains("dont have fever")
+                || (isGenericDenial && ("AFFIRMATION_DENIAL".equals(expectedType) || (questionId != null && questionId.startsWith("RESOLVE_CONTRADICTION"))));
+
+        if (targetConcept != null && (isClarifyAffirmation || isClarifyDenial)) {
+            if (isClarifyAffirmation) {
+                log.info("[ANSWER BINDING] Patient clarified {} as PRESENT in turn {}", targetConcept, turn);
+                state.getSymptoms().put(targetConcept, ClinicalFact.present(targetConcept, "present", turn));
+                state.addFact(targetConcept, ClinicalFact.present(targetConcept, "present", turn));
+                state.getNegatedFindings().remove(targetConcept);
+                state.getNegatedFindings().removeIf(n -> n.equalsIgnoreCase(targetConcept));
+                state.resolveContradiction(targetConcept, true, turn);
+            } else {
+                log.info("[ANSWER BINDING] Patient clarified {} as ABSENT_DENIED in turn {}", targetConcept, turn);
+                state.addFact(targetConcept, ClinicalFact.denied(targetConcept, turn));
+                state.getNegatedFindings().add(targetConcept);
+                state.getSymptoms().remove(targetConcept);
+                state.resolveContradiction(targetConcept, false, turn);
+            }
+            if (lastQ != null) {
+                state.recordAnsweredQuestion(lastQ);
+            }
+            state.clearPendingQuestionContext();
+            return true;
+        }
+
+        // 3. Quick-reply / Discriminator Question Answer Binding (Invariant B)
+        // E.g. "Breathing is completely normal" for BRONCHITIS_DISCRIMINATOR_DYSPNEA
+        if ("dyspnea".equalsIgnoreCase(targetConcept) || "shortness_of_breath".equalsIgnoreCase(targetConcept)
+                || (questionId != null && questionId.contains("DYSPNEA"))
+                || "respiratory_effort".equalsIgnoreCase(state.getLastQuestionDimension())) {
+            if (lower.contains("breathing is completely normal") || lower.contains("breathing is normal") 
+                    || lower.contains("breathing normal") || lower.contains("breathing fine") || lower.contains("no shortness of breath")) {
+                log.info("[ANSWER BINDING] Patient selected normal breathing. Binding dyspnea=ABSENT_DENIED.");
+                state.addFact("dyspnea", ClinicalFact.denied("dyspnea", turn));
+                state.addFact("shortness_of_breath", ClinicalFact.denied("shortness_of_breath", turn));
+                state.getNegatedFindings().add("dyspnea");
+                state.getNegatedFindings().add("shortness_of_breath");
+                state.getSymptoms().remove("dyspnea");
+                state.getSymptoms().remove("shortness_of_breath");
+                if (lastQ != null) {
+                    state.recordAnsweredQuestion(lastQ);
+                }
+                state.clearPendingQuestionContext();
+                return true;
+            } else if (lower.contains("short of breath while resting") || lower.contains("severe struggle to breathe") || lower.contains("breathlessness")) {
+                String severity = lower.contains("severe") ? "severe" : "moderate";
+                log.info("[ANSWER BINDING] Patient reported breathlessness. Binding dyspnea=PRESENT.");
+                ClinicalFact df = ClinicalFact.present("dyspnea", "present", turn);
+                df.setSeverity(severity);
+                state.getSymptoms().put("dyspnea", df);
+                state.addFact("dyspnea", df);
+                state.getNegatedFindings().remove("dyspnea");
+                state.getNegatedFindings().remove("shortness_of_breath");
+                if (lastQ != null) {
+                    state.recordAnsweredQuestion(lastQ);
+                }
+                state.clearPendingQuestionContext();
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

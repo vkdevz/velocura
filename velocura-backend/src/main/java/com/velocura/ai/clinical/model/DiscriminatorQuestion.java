@@ -17,6 +17,7 @@ import java.util.Map;
 public class DiscriminatorQuestion {
     private String id;
     private String dimension;
+    private String targetConcept;
     private String questionText;
     @Builder.Default
     private List<String> quickReplies = new ArrayList<>();

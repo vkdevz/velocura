@@ -51,8 +51,10 @@ public class ClinicalInformationExtractor {
 
     private boolean isNegated(String text, String keyword) {
         if (text == null || keyword == null) return false;
-        Pattern p = Pattern.compile("(?i)\\b(no|not|without|denies|never|negative\\s+for)\\s+(?:\\w+\\s+){0,3}" + Pattern.quote(keyword) + "\\b");
-        return p.matcher(text).find();
+        Pattern prefix = Pattern.compile("(?i)\\b(no|not|without|denies|deny|denied|never|negative\\s+for|don't\\s+have|dont\\s+have|do\\s+not\\s+have|didn't\\s+have|did\\s+not\\s+have|haven't\\s+had|havent\\s+had|haven't|havent|free\\s+of|absence\\s+of)\\s+(?:\\w+\\s+){0,3}" + Pattern.quote(keyword) + "\\b");
+        if (prefix.matcher(text).find()) return true;
+        Pattern suffix = Pattern.compile("(?i)\\b" + Pattern.quote(keyword) + "\\s+(?:is\\s+)?(?:absent|negative|none|zero|normal|fine|ruled\\s*out|gone|resolved)\\b");
+        return suffix.matcher(text).find();
     }
 
     public void extractAndUpdate(String normalizedText, ClinicalConversationState state) {

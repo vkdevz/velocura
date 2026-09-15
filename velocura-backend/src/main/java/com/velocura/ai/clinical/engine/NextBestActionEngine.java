@@ -36,18 +36,30 @@ public class NextBestActionEngine {
     public static class ActionDecision {
         private final NextAction action;
         private final boolean shouldAsk;
+        private final String questionId;
+        private final String dimension;
+        private final String targetConcept;
+        private final String expectedResponseType;
         private final String questionText;
         private final List<String> quickReplies;
         private final double voiScore;
         private final String rationale;
 
-        public ActionDecision(NextAction action, boolean shouldAsk, String questionText, List<String> quickReplies, double voiScore, String rationale) {
+        public ActionDecision(NextAction action, boolean shouldAsk, String questionId, String dimension, String targetConcept, String expectedResponseType, String questionText, List<String> quickReplies, double voiScore, String rationale) {
             this.action = action;
             this.shouldAsk = shouldAsk;
+            this.questionId = questionId;
+            this.dimension = dimension;
+            this.targetConcept = targetConcept;
+            this.expectedResponseType = expectedResponseType;
             this.questionText = questionText;
             this.quickReplies = quickReplies != null ? quickReplies : new ArrayList<>();
             this.voiScore = voiScore;
             this.rationale = rationale;
+        }
+
+        public ActionDecision(NextAction action, boolean shouldAsk, String questionText, List<String> quickReplies, double voiScore, String rationale) {
+            this(action, shouldAsk, null, null, null, null, questionText, quickReplies, voiScore, rationale);
         }
 
         public static ActionDecision escalateEmergency(String trigger) {
@@ -72,10 +84,44 @@ public class NextBestActionEngine {
             );
         }
 
+        public static ActionDecision askClarificationQuestion(NextAction action, String questionId, String dimension, String targetConcept, String expectedResponseType, String text, List<String> replies, double voiScore, String rationale) {
+            return new ActionDecision(
+                action != null ? action : NextAction.CLARIFY,
+                true,
+                questionId,
+                dimension,
+                targetConcept,
+                expectedResponseType,
+                text,
+                replies,
+                voiScore,
+                rationale
+            );
+        }
+
         public static ActionDecision askHighVoiQuestion(NextAction action, String questionId, String dimension, String text, List<String> replies, double voiScore, String rationale) {
             return new ActionDecision(
                 action != null ? action : NextAction.ASK,
                 true,
+                questionId,
+                dimension,
+                null,
+                null,
+                text,
+                replies,
+                voiScore,
+                rationale
+            );
+        }
+
+        public static ActionDecision askHighVoiQuestion(NextAction action, String questionId, String dimension, String targetConcept, String expectedResponseType, String text, List<String> replies, double voiScore, String rationale) {
+            return new ActionDecision(
+                action != null ? action : NextAction.ASK,
+                true,
+                questionId,
+                dimension,
+                targetConcept,
+                expectedResponseType,
                 text,
                 replies,
                 voiScore,
@@ -100,6 +146,10 @@ public class NextBestActionEngine {
 
         public NextAction getAction() { return action; }
         public boolean isShouldAsk() { return shouldAsk; }
+        public String getQuestionId() { return questionId; }
+        public String getDimension() { return dimension; }
+        public String getTargetConcept() { return targetConcept; }
+        public String getExpectedResponseType() { return expectedResponseType; }
         public String getQuestionText() { return questionText; }
         public List<String> getQuickReplies() { return quickReplies; }
         public double getVoiScore() { return voiScore; }
@@ -152,10 +202,21 @@ public class NextBestActionEngine {
                 if ("REQUIRES_CLARIFICATION".equals(c.getStatus())) {
                     String prompt = "Earlier you mentioned: '" + c.getEarlierStatement() +
                             "', but just mentioned: '" + c.getLaterStatement() + "'. To advise you safely, could you clarify your current situation?";
-                    return ActionDecision.askHighVoiQuestion(
+
+                    // Loop protection: if already asked or answered, do NOT ask again
+                    if (state.wasQuestionAnsweredOrAsked(prompt)
+                            || state.wasQuestionAnsweredOrAsked("clarify your current situation")
+                            || state.isQuestionOrTopicAsked("RESOLVE_CONTRADICTION_" + c.getTopic(), c.getTopic(), prompt)) {
+                        c.setStatus("RESOLVED_LATER");
+                        continue;
+                    }
+
+                    return ActionDecision.askClarificationQuestion(
                         NextAction.CLARIFY,
-                        "RESOLVE_CONTRADICTION",
+                        "RESOLVE_CONTRADICTION_" + c.getTopic(),
                         c.getTopic(),
+                        c.getTopic(),
+                        "AFFIRMATION_DENIAL",
                         prompt,
                         List.of("Yes, experiencing now", "No, not experiencing"),
                         0.9,
@@ -174,6 +235,8 @@ public class NextBestActionEngine {
                 targetedAction,
                 qDecision.getQuestionId(),
                 qDecision.getDimension(),
+                qDecision.getTargetConcept(),
+                qDecision.getExpectedResponseType(),
                 qDecision.getQuestionText(),
                 qDecision.getQuickReplies(),
                 voi,

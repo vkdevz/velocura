@@ -36,7 +36,7 @@ public class ClinicalFeatureExtractorV2 {
 
     // Negation patterns within a clause
     private static final Pattern NEGATION_PATTERN = Pattern.compile(
-            "(?i)\\b(no|not|without|denies|deny|denied|denying|never|neither|nor|negative\\s+for|don't\\s+have|dont\\s+have|haven't\\s+had|havent\\s+had|completely\\s+fine|is\\s+fine|feels\\s+fine|is\\s+normal|are\\s+normal|is\\s+okay|unremarkable)\\b"
+            "(?i)\\b(no|not|without|denies|deny|denied|denying|never|neither|nor|negative\\s+for|don't\\s+have|dont\\s+have|haven't\\s+had|havent\\s+had|completely\\s+fine|is\\s+fine|feels\\s+fine|is\\s+normal|are\\s+normal|is\\s+okay|unremarkable|completely\\s+normal)\\b"
     );
 
     // Uncertainty patterns (UNKNOWN status)
@@ -120,7 +120,7 @@ public class ClinicalFeatureExtractorV2 {
     );
 
     private static final Pattern DYSPNEA_PATTERN = Pattern.compile(
-            "(?i)\\b(short(?:ness)?\\s*of\\s*breath|breathless(?:ness)?|trouble\\s*breathing|difficulty\\s*breathing|hard\\s*to\\s*breathe|struggling\\s*for\\s*breath|can't\\s*catch\\s*my\\s*breath|cant\\s*catch\\s*my\\s*breath|air\\s*hunger|dyspnea)\\b"
+            "(?i)\\b(short(?:ness)?\\s*of\\s*breath|breathless(?:ness)?|trouble\\s*breathing|difficulty\\s*breathing|hard\\s*to\\s*breathe|struggling\\s*for\\s*breath|can't\\s*catch\\s*my\\s*breath|cant\\s*catch\\s*my\\s*breath|air\\s*hunger|dyspnea|(?:my\\s+)?breathing\\s+(?:is\\s+)?(?:completely\\s+)?(?:normal|fine|okay|unremarkable)|breathing\\s+normally)\\b"
     );
 
     private static final Pattern CHEST_TIGHT_PATTERN = Pattern.compile(

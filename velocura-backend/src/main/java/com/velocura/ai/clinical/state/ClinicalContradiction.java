@@ -26,6 +26,8 @@ public class ClinicalContradiction implements Serializable {
     private String status = "REQUIRES_CLARIFICATION"; // REQUIRES_CLARIFICATION, RESOLVED_EARLIER, RESOLVED_LATER
     
     private String resolutionNote;
+    private int resolvedTurn;
+    private String resolvedByStatement;
     
     @Builder.Default
     private long detectedAt = System.currentTimeMillis();

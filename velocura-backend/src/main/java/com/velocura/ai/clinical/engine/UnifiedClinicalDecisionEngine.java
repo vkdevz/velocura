@@ -166,17 +166,21 @@ public class UnifiedClinicalDecisionEngine {
             boolean hasSafetyContradiction = false;
 
             if (contradiction.hasContradiction()) {
-                ClinicalContradiction cc = ClinicalContradiction.builder()
-                        .topic(contradiction.getContradictedFact())
-                        .earlierStatement(contradiction.getContradictedFact())
-                        .earlierTurn(Math.max(1, state.getTurnCount() - 1))
-                        .laterStatement(normText)
-                        .laterTurn(state.getTurnCount())
-                        .status("REQUIRES_CLARIFICATION")
-                        .build();
-                ctx.getContradictions().add(cc);
-                state.addContradiction(cc);
-                ctx.addTraceStep("CONTRADICTION: Detected conflict on '" + contradiction.getContradictedFact() + "'");
+                boolean alreadyTracked = state.getContradictions() != null && state.getContradictions().stream()
+                        .anyMatch(c -> contradiction.getContradictedFact().equalsIgnoreCase(c.getTopic()));
+                if (!alreadyTracked) {
+                    ClinicalContradiction cc = ClinicalContradiction.builder()
+                            .topic(contradiction.getContradictedFact())
+                            .earlierStatement(contradiction.getContradictedFact())
+                            .earlierTurn(Math.max(1, state.getTurnCount() - 1))
+                            .laterStatement(normText)
+                            .laterTurn(state.getTurnCount())
+                            .status("REQUIRES_CLARIFICATION")
+                            .build();
+                    ctx.getContradictions().add(cc);
+                    state.addContradiction(cc);
+                    ctx.addTraceStep("CONTRADICTION: Detected conflict on '" + contradiction.getContradictedFact() + "'");
+                }
 
                 // If contradiction involves allergy or critical symptom, stop for clarification
                 if (contradiction.getContradictedFact().toLowerCase().contains("allerg") ||

@@ -31,18 +31,26 @@ public class NextBestQuestionEngine {
         private final boolean shouldAsk;
         private final String questionId;
         private final String dimension;
+        private final String targetConcept;
+        private final String expectedResponseType;
         private final String questionText;
         private final List<String> quickReplies;
         private final NextAction nextAction;
 
         public QuestionDecision(boolean shouldAsk, String questionText, List<String> quickReplies, NextAction nextAction) {
-            this(shouldAsk, null, null, questionText, quickReplies, nextAction);
+            this(shouldAsk, null, null, null, null, questionText, quickReplies, nextAction);
         }
 
         public QuestionDecision(boolean shouldAsk, String questionId, String dimension, String questionText, List<String> quickReplies, NextAction nextAction) {
+            this(shouldAsk, questionId, dimension, null, null, questionText, quickReplies, nextAction);
+        }
+
+        public QuestionDecision(boolean shouldAsk, String questionId, String dimension, String targetConcept, String expectedResponseType, String questionText, List<String> quickReplies, NextAction nextAction) {
             this.shouldAsk = shouldAsk;
             this.questionId = questionId;
             this.dimension = dimension;
+            this.targetConcept = targetConcept;
+            this.expectedResponseType = expectedResponseType;
             this.questionText = questionText;
             this.quickReplies = quickReplies != null ? quickReplies : new ArrayList<>();
             this.nextAction = nextAction;
@@ -56,12 +64,14 @@ public class NextBestQuestionEngine {
         );
 
         public static QuestionDecision stopAsking(NextAction action) {
-            return new QuestionDecision(false, null, null, null, POST_CONSULTATION_REPLIES, action);
+            return new QuestionDecision(false, null, null, null, null, null, POST_CONSULTATION_REPLIES, action);
         }
 
         public boolean isShouldAsk() { return shouldAsk; }
         public String getQuestionId() { return questionId; }
         public String getDimension() { return dimension; }
+        public String getTargetConcept() { return targetConcept; }
+        public String getExpectedResponseType() { return expectedResponseType; }
         public String getQuestionText() { return questionText; }
         public List<String> getQuickReplies() { return quickReplies; }
         public NextAction getNextAction() { return nextAction; }
@@ -171,7 +181,8 @@ public class NextBestQuestionEngine {
                         for (com.velocura.ai.clinical.model.DiscriminatorQuestion dq : topCandidate.getDiscriminatorQuestions()) {
                             if (!state.isQuestionOrTopicAsked(dq.getId(), dq.getDimension(), dq.getQuestionText())
                                     && !isDiscriminatorFactAlreadyKnown(dq, state)) {
-                                return new QuestionDecision(true, dq.getId(), dq.getDimension(), dq.getQuestionText(), dq.getQuickReplies(), NextAction.ASK);
+                                String targetConcept = dq.getTargetConcept() != null ? dq.getTargetConcept() : mapDimensionToConcept(dq.getDimension(), dq.getId());
+                                return new QuestionDecision(true, dq.getId(), dq.getDimension(), targetConcept, "DISCRIMINATOR_CHOICE", dq.getQuestionText(), dq.getQuickReplies(), NextAction.ASK);
                             }
                         }
                     }
@@ -290,6 +301,37 @@ public class NextBestQuestionEngine {
                     || (state.getNegatedFindings() != null && state.getNegatedFindings().contains("diarrhea"));
         }
 
+        if (id.contains("DYSPNEA") || (dq.getDimension() != null && dq.getDimension().toUpperCase(java.util.Locale.ROOT).contains("RESPIRATORY"))) {
+            return (state.getSymptoms() != null && (state.getSymptoms().containsKey("dyspnea") || state.getSymptoms().containsKey("shortness_of_breath")))
+                    || (state.getNegatedFindings() != null && (state.getNegatedFindings().contains("dyspnea") || state.getNegatedFindings().contains("shortness_of_breath")))
+                    || state.isFactKnown("dyspnea") || state.isFactKnown("shortness_of_breath");
+        }
+
+        if (id.contains("SPUTUM")) {
+            return state.isFactKnown("cough") && state.getSymptoms() != null && state.getSymptoms().containsKey("cough")
+                    && !"unspecified".equalsIgnoreCase(state.getSymptoms().get("cough").getValue());
+        }
+
         return false;
+    }
+
+    private String mapDimensionToConcept(String dimension, String id) {
+        if (id != null) {
+            String uid = id.toUpperCase(java.util.Locale.ROOT);
+            if (uid.contains("DYSPNEA") || uid.contains("BREATH")) return "dyspnea";
+            if (uid.contains("SPUTUM") || uid.contains("COUGH")) return "cough";
+            if (uid.contains("FEVER") || uid.contains("TEMP")) return "fever";
+            if (uid.contains("APPETITE") || uid.contains("ANOREXIA")) return "loss_of_appetite";
+            if (uid.contains("DIARRHEA")) return "diarrhea";
+            if (uid.contains("VOMIT")) return "vomiting";
+        }
+        if (dimension != null) {
+            String udim = dimension.toUpperCase(java.util.Locale.ROOT);
+            if (udim.contains("RESPIRATORY") || udim.contains("BREATH")) return "dyspnea";
+            if (udim.contains("COUGH")) return "cough";
+            if (udim.contains("FEVER")) return "fever";
+            if (udim.contains("APPETITE")) return "loss_of_appetite";
+        }
+        return dimension;
     }
 }
